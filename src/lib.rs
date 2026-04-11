@@ -14,6 +14,7 @@ use std::time::Duration;
 pub const DEFAULT_RECORDING_DURATION: Duration = Duration::from_secs(30);
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 const TRANSCRIPTIONS_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
+const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 
 /// CLI PoC の固定設定です。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,6 +119,10 @@ impl Recorder for CpalRecorder {
         let device = host
             .default_input_device()
             .ok_or(RecorderError::NoInputDevice)?;
+        debug_log(&format!(
+            "input device selected: {}",
+            device.name().unwrap_or_else(|_| "<unknown>".to_string())
+        ));
         let supported_config = device
             .default_input_config()
             .map_err(RecorderError::DefaultInputConfig)?;
@@ -125,6 +130,10 @@ impl Recorder for CpalRecorder {
         let stream_config: cpal::StreamConfig = supported_config.into();
         let channels = stream_config.channels;
         let sample_rate = stream_config.sample_rate.0;
+        debug_log(&format!(
+            "recording starts: duration={}s sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}",
+            duration.as_secs()
+        ));
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
         let (error_sender, error_receiver) = mpsc::channel();
 
@@ -153,6 +162,7 @@ impl Recorder for CpalRecorder {
         stream.play().map_err(RecorderError::PlayStream)?;
         thread::sleep(duration);
         drop(stream);
+        debug_log("recording finished");
 
         if let Ok(callback_error) = error_receiver.try_recv() {
             return Err(callback_error);
@@ -162,6 +172,10 @@ impl Recorder for CpalRecorder {
             .lock()
             .map_err(|_| RecorderError::SampleBufferPoisoned)?
             .clone();
+        debug_log(&format!(
+            "captured pcm samples: count={}",
+            captured_samples.len()
+        ));
 
         encode_wav(captured_samples, channels, sample_rate)
     }
@@ -176,7 +190,8 @@ pub struct OpenAiTranscriber {
 
 impl OpenAiTranscriber {
     pub fn from_env() -> Result<Self, TranscriberError> {
-        let api_key = load_openai_api_key(Path::new(".env"))?;
+        let (api_key, api_key_source) = load_openai_api_key(Path::new(".env"))?;
+        debug_log(&format!("api key source: {api_key_source}"));
         let client = Client::builder()
             .build()
             .map_err(TranscriberError::BuildHttpClient)?;
@@ -190,6 +205,13 @@ impl Transcriber for OpenAiTranscriber {
         &mut self,
         request: TranscriptionRequest<'_>,
     ) -> Result<DiarizedTranscript, TranscriberError> {
+        debug_log(&format!(
+            "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} response_format={} chunking_strategy={} audio_bytes={}",
+            request.model,
+            request.response_format.as_api_value(),
+            request.chunking_strategy.as_api_value(),
+            request.audio.wav_bytes.len()
+        ));
         let audio_part = multipart::Part::bytes(request.audio.wav_bytes.clone())
             .file_name("recording.wav")
             .mime_str(request.audio.content_type)
@@ -213,9 +235,11 @@ impl Transcriber for OpenAiTranscriber {
             .send()
             .map_err(TranscriberError::SendRequest)?;
         let status = response.status();
+        debug_log(&format!("transcription response status: {status}"));
         let body = response
             .text()
             .map_err(TranscriberError::ReadResponseBody)?;
+        debug_log(&format!("transcription response body bytes={}", body.len()));
 
         if !status.is_success() {
             return Err(TranscriberError::ApiError { status, body });
@@ -223,6 +247,11 @@ impl Transcriber for OpenAiTranscriber {
 
         let api_response: ApiDiarizedTranscript = serde_json::from_str(&body)
             .map_err(|source| TranscriberError::ParseResponseBody { source, body })?;
+        debug_log(&format!(
+            "transcription parsed: text_chars={} segments={}",
+            api_response.text.chars().count(),
+            api_response.segments.len()
+        ));
 
         Ok(api_response.into_domain())
     }
@@ -358,12 +387,13 @@ where
     Ok(())
 }
 
-fn load_openai_api_key(dotenv_path: &Path) -> Result<String, TranscriberError> {
+fn load_openai_api_key(dotenv_path: &Path) -> Result<(String, ApiKeySource), TranscriberError> {
     if let Some(api_key) = read_openai_api_key_from_dotenv(dotenv_path)? {
-        return Ok(api_key);
+        return Ok((api_key, ApiKeySource::DotEnv));
     }
 
-    std::env::var("OPENAI_API_KEY").map_err(|_| TranscriberError::MissingApiKey)
+    let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| TranscriberError::MissingApiKey)?;
+    Ok((api_key, ApiKeySource::Environment))
 }
 
 fn read_openai_api_key_from_dotenv(dotenv_path: &Path) -> Result<Option<String>, TranscriberError> {
@@ -380,6 +410,34 @@ fn read_openai_api_key_from_dotenv(dotenv_path: &Path) -> Result<Option<String>,
         }
         Err(DotenvError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(TranscriberError::ReadDotEnv(error)),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ApiKeySource {
+    DotEnv,
+    Environment,
+}
+
+impl fmt::Display for ApiKeySource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DotEnv => f.write_str(".env"),
+            Self::Environment => f.write_str("environment"),
+        }
+    }
+}
+
+fn debug_log(message: &str) {
+    if debug_logging_enabled() {
+        eprintln!("[debug] {message}");
+    }
+}
+
+fn debug_logging_enabled() -> bool {
+    match std::env::var(DEBUG_ENV_VAR) {
+        Ok(value) => matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"),
+        Err(_) => false,
     }
 }
 
@@ -503,6 +561,7 @@ fn seconds_to_millis(seconds: f64) -> u64 {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+    use std::sync::{Mutex, OnceLock};
 
     struct FakeRecorder {
         observed_duration: RefCell<Option<Duration>>,
@@ -663,6 +722,7 @@ mod tests {
     #[test]
     /// .env に OPENAI_API_KEY があれば環境変数より優先して使う。
     fn prefers_dotenv_api_key_over_environment_variable() {
+        let _guard = env_lock().lock().unwrap();
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
@@ -672,15 +732,17 @@ mod tests {
             std::env::set_var("OPENAI_API_KEY", "from-env");
         }
 
-        let api_key = load_openai_api_key(&dotenv_path).unwrap();
+        let (api_key, source) = load_openai_api_key(&dotenv_path).unwrap();
 
         restore_openai_api_key(original);
         assert_eq!(api_key, "from-dotenv");
+        assert_eq!(source, ApiKeySource::DotEnv);
     }
 
     #[test]
     /// .env にキーがなければ環境変数の OPENAI_API_KEY を使う。
     fn falls_back_to_environment_variable_when_dotenv_has_no_key() {
+        let _guard = env_lock().lock().unwrap();
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(&dotenv_path, "OTHER_KEY=value\n").unwrap();
@@ -690,15 +752,17 @@ mod tests {
             std::env::set_var("OPENAI_API_KEY", "from-env");
         }
 
-        let api_key = load_openai_api_key(&dotenv_path).unwrap();
+        let (api_key, source) = load_openai_api_key(&dotenv_path).unwrap();
 
         restore_openai_api_key(original);
         assert_eq!(api_key, "from-env");
+        assert_eq!(source, ApiKeySource::Environment);
     }
 
     #[test]
     /// .env と環境変数のどちらにもキーがなければエラーにする。
     fn returns_error_when_api_key_is_missing_everywhere() {
+        let _guard = env_lock().lock().unwrap();
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
         let original = std::env::var_os("OPENAI_API_KEY");
@@ -721,5 +785,10 @@ mod tests {
                 std::env::remove_var("OPENAI_API_KEY");
             },
         }
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK.get_or_init(|| Mutex::new(()))
     }
 }

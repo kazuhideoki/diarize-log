@@ -2,23 +2,27 @@ use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
 use std::path::Path;
 
-pub(crate) const DEFAULT_DOTENV_PATH: &str = ".env";
+/// 既定の `.env` ファイルパスです。
+pub const DEFAULT_DOTENV_PATH: &str = ".env";
 const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 
 /// 実行時設定の読み込み結果です。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Config {
-    pub(crate) openai_api_key: String,
-    pub(crate) openai_api_key_source: ConfigSource,
+pub struct Config {
+    pub openai_api_key: String,
+    pub openai_api_key_source: ConfigSource,
+    pub debug_enabled: bool,
 }
 
 impl Config {
-    pub(crate) fn from_dotenv_path(dotenv_path: &Path) -> Result<Self, ConfigError> {
+    /// `.env` と環境変数から実行時設定を解決します。
+    pub fn from_dotenv_path(dotenv_path: &Path) -> Result<Self, ConfigError> {
         if let Some(openai_api_key) = read_openai_api_key_from_dotenv(dotenv_path)? {
             return Ok(Self {
                 openai_api_key,
                 openai_api_key_source: ConfigSource::DotEnv,
+                debug_enabled: read_debug_enabled(),
             });
         }
 
@@ -28,13 +32,14 @@ impl Config {
         Ok(Self {
             openai_api_key,
             openai_api_key_source: ConfigSource::Environment,
+            debug_enabled: read_debug_enabled(),
         })
     }
 }
 
 /// 設定値の取得元です。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ConfigSource {
+pub enum ConfigSource {
     DotEnv,
     Environment,
 }
@@ -50,7 +55,7 @@ impl fmt::Display for ConfigSource {
 
 /// 設定ロード時の失敗です。
 #[derive(Debug)]
-pub(crate) enum ConfigError {
+pub enum ConfigError {
     MissingOpenAiApiKey,
     ReadDotEnv(DotenvError),
 }
@@ -68,7 +73,7 @@ impl fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
-pub(crate) fn debug_logging_enabled() -> bool {
+fn read_debug_enabled() -> bool {
     match std::env::var(DEBUG_ENV_VAR) {
         Ok(value) => matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"),
         Err(_) => false,
@@ -94,7 +99,7 @@ fn read_openai_api_key_from_dotenv(dotenv_path: &Path) -> Result<Option<String>,
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, ConfigError, ConfigSource, debug_logging_enabled};
+    use super::{Config, ConfigError, ConfigSource};
     use std::sync::{Mutex, OnceLock};
 
     #[test]
@@ -117,6 +122,7 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(config.openai_api_key, "from-dotenv");
         assert_eq!(config.openai_api_key_source, ConfigSource::DotEnv);
+        assert!(!config.debug_enabled);
     }
 
     #[test]
@@ -161,20 +167,23 @@ mod tests {
     }
 
     #[test]
-    /// 真偽値として許可した値が入っていればデバッグログを有効にする。
-    fn enables_debug_logging_for_truthy_values() {
+    /// 真偽値として許可した値が入っていれば debug_enabled を有効にする。
+    fn resolves_debug_enabled_for_truthy_values() {
         let _guard = env_lock()
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
         let original = std::env::var_os("DIARIZE_LOG_DEBUG");
         unsafe {
             std::env::set_var("DIARIZE_LOG_DEBUG", "true");
         }
 
-        let enabled = debug_logging_enabled();
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("DIARIZE_LOG_DEBUG", original);
-        assert!(enabled);
+        assert!(config.debug_enabled);
     }
 
     fn restore_env_var(name: &str, original: Option<std::ffi::OsString>) {

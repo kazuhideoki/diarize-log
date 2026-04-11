@@ -1,9 +1,7 @@
-mod config;
+pub mod config;
 
-use crate::config::{Config, ConfigError, DEFAULT_DOTENV_PATH, debug_logging_enabled};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
-use dotenvy::Error as DotenvError;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, multipart};
 use serde::{Deserialize, Serialize};
@@ -111,8 +109,16 @@ pub trait Transcriber {
 }
 
 /// `cpal` を使ってデフォルトマイクから録音します。
-#[derive(Debug, Default)]
-pub struct CpalRecorder;
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CpalRecorder {
+    debug_enabled: bool,
+}
+
+impl CpalRecorder {
+    pub fn new(debug_enabled: bool) -> Self {
+        Self { debug_enabled }
+    }
+}
 
 impl Recorder for CpalRecorder {
     fn record_wav(&mut self, duration: Duration) -> Result<RecordedAudio, RecorderError> {
@@ -120,10 +126,13 @@ impl Recorder for CpalRecorder {
         let device = host
             .default_input_device()
             .ok_or(RecorderError::NoInputDevice)?;
-        debug_log(&format!(
-            "input device selected: {}",
-            device.name().unwrap_or_else(|_| "<unknown>".to_string())
-        ));
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "input device selected: {}",
+                device.name().unwrap_or_else(|_| "<unknown>".to_string())
+            ),
+        );
         let supported_config = device
             .default_input_config()
             .map_err(RecorderError::DefaultInputConfig)?;
@@ -131,10 +140,13 @@ impl Recorder for CpalRecorder {
         let stream_config: cpal::StreamConfig = supported_config.into();
         let channels = stream_config.channels;
         let sample_rate = stream_config.sample_rate.0;
-        debug_log(&format!(
-            "recording starts: duration={}s sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}",
-            duration.as_secs()
-        ));
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "recording starts: duration={}s sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}",
+                duration.as_secs()
+            ),
+        );
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
         let (error_sender, error_receiver) = mpsc::channel();
 
@@ -163,7 +175,7 @@ impl Recorder for CpalRecorder {
         stream.play().map_err(RecorderError::PlayStream)?;
         thread::sleep(duration);
         drop(stream);
-        debug_log("recording finished");
+        debug_log(self.debug_enabled, "recording finished");
 
         if let Ok(callback_error) = error_receiver.try_recv() {
             return Err(callback_error);
@@ -173,10 +185,10 @@ impl Recorder for CpalRecorder {
             .lock()
             .map_err(|_| RecorderError::SampleBufferPoisoned)?
             .clone();
-        debug_log(&format!(
-            "captured pcm samples: count={}",
-            captured_samples.len()
-        ));
+        debug_log(
+            self.debug_enabled,
+            &format!("captured pcm samples: count={}", captured_samples.len()),
+        );
 
         encode_wav(captured_samples, channels, sample_rate)
     }
@@ -187,20 +199,19 @@ impl Recorder for CpalRecorder {
 pub struct OpenAiTranscriber {
     client: Client,
     api_key: String,
+    debug_enabled: bool,
 }
 
 impl OpenAiTranscriber {
-    pub fn from_env() -> Result<Self, TranscriberError> {
-        let config = Config::from_dotenv_path(std::path::Path::new(DEFAULT_DOTENV_PATH))
-            .map_err(TranscriberError::from)?;
-        debug_log(&format!("api key source: {}", config.openai_api_key_source));
+    pub fn new(api_key: String, debug_enabled: bool) -> Result<Self, TranscriberError> {
         let client = Client::builder()
             .build()
             .map_err(TranscriberError::BuildHttpClient)?;
 
         Ok(Self {
             client,
-            api_key: config.openai_api_key,
+            api_key,
+            debug_enabled,
         })
     }
 }
@@ -210,13 +221,16 @@ impl Transcriber for OpenAiTranscriber {
         &mut self,
         request: TranscriptionRequest<'_>,
     ) -> Result<DiarizedTranscript, TranscriberError> {
-        debug_log(&format!(
-            "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} response_format={} chunking_strategy={} audio_bytes={}",
-            request.model,
-            request.response_format.as_api_value(),
-            request.chunking_strategy.as_api_value(),
-            request.audio.wav_bytes.len()
-        ));
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} response_format={} chunking_strategy={} audio_bytes={}",
+                request.model,
+                request.response_format.as_api_value(),
+                request.chunking_strategy.as_api_value(),
+                request.audio.wav_bytes.len()
+            ),
+        );
         let audio_part = multipart::Part::bytes(request.audio.wav_bytes.clone())
             .file_name("recording.wav")
             .mime_str(request.audio.content_type)
@@ -240,11 +254,17 @@ impl Transcriber for OpenAiTranscriber {
             .send()
             .map_err(TranscriberError::SendRequest)?;
         let status = response.status();
-        debug_log(&format!("transcription response status: {status}"));
+        debug_log(
+            self.debug_enabled,
+            &format!("transcription response status: {status}"),
+        );
         let body = response
             .text()
             .map_err(TranscriberError::ReadResponseBody)?;
-        debug_log(&format!("transcription response body bytes={}", body.len()));
+        debug_log(
+            self.debug_enabled,
+            &format!("transcription response body bytes={}", body.len()),
+        );
 
         if !status.is_success() {
             return Err(TranscriberError::ApiError { status, body });
@@ -252,11 +272,14 @@ impl Transcriber for OpenAiTranscriber {
 
         let api_response: ApiDiarizedTranscript = serde_json::from_str(&body)
             .map_err(|source| TranscriberError::ParseResponseBody { source, body })?;
-        debug_log(&format!(
-            "transcription parsed: text_chars={} segments={}",
-            api_response.text.chars().count(),
-            api_response.segments.len()
-        ));
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "transcription parsed: text_chars={} segments={}",
+                api_response.text.chars().count(),
+                api_response.segments.len()
+            ),
+        );
 
         Ok(api_response.into_domain())
     }
@@ -297,8 +320,6 @@ impl std::error::Error for RecorderError {}
 
 #[derive(Debug)]
 pub enum TranscriberError {
-    MissingApiKey,
-    ReadDotEnv(DotenvError),
     BuildHttpClient(reqwest::Error),
     InvalidMimeType(reqwest::Error),
     SendRequest(reqwest::Error),
@@ -316,8 +337,6 @@ pub enum TranscriberError {
 impl fmt::Display for TranscriberError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingApiKey => f.write_str("OPENAI_API_KEY is not set"),
-            Self::ReadDotEnv(source) => write!(f, "failed to read .env: {source}"),
             Self::BuildHttpClient(source) => write!(f, "failed to build http client: {source}"),
             Self::InvalidMimeType(source) => write!(f, "invalid audio mime type: {source}"),
             Self::SendRequest(source) => {
@@ -340,15 +359,6 @@ impl fmt::Display for TranscriberError {
 }
 
 impl std::error::Error for TranscriberError {}
-
-impl From<ConfigError> for TranscriberError {
-    fn from(value: ConfigError) -> Self {
-        match value {
-            ConfigError::MissingOpenAiApiKey => Self::MissingApiKey,
-            ConfigError::ReadDotEnv(source) => Self::ReadDotEnv(source),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum CliError {
@@ -400,8 +410,8 @@ where
 
     Ok(())
 }
-fn debug_log(message: &str) {
-    if debug_logging_enabled() {
+fn debug_log(debug_enabled: bool, message: &str) {
+    if debug_enabled {
         eprintln!("[debug] {message}");
     }
 }

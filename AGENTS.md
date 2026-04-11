@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Architecture
+
+- config.rs: 環境変数や .env ファイルの読み込みはここで一元管理する。
+
 ## Commands
 
 - `cargo check`

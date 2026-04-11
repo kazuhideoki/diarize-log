@@ -1,0 +1,192 @@
+use crate::{RecordedAudio, Recorder, RecorderError, debug_log};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::{FromSample, Sample};
+use std::io::Cursor;
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
+use std::time::Duration;
+
+/// `cpal` を使ってデフォルトマイクから録音します。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CpalRecorder {
+    debug_enabled: bool,
+}
+
+impl CpalRecorder {
+    pub fn new(debug_enabled: bool) -> Self {
+        Self { debug_enabled }
+    }
+}
+
+impl Recorder for CpalRecorder {
+    fn record_wav(&mut self, duration: Duration) -> Result<RecordedAudio, RecorderError> {
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or(RecorderError::NoInputDevice)?;
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "input device selected: {}",
+                device.name().unwrap_or_else(|_| "<unknown>".to_string())
+            ),
+        );
+        let supported_config = device
+            .default_input_config()
+            .map_err(RecorderError::DefaultInputConfig)?;
+        let sample_format = supported_config.sample_format();
+        let stream_config: cpal::StreamConfig = supported_config.into();
+        let channels = stream_config.channels;
+        let sample_rate = stream_config.sample_rate.0;
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "recording starts: duration={}s sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}",
+                duration.as_secs()
+            ),
+        );
+        let sample_buffer = Arc::new(Mutex::new(Vec::new()));
+        let (error_sender, error_receiver) = mpsc::channel();
+
+        let stream = match sample_format {
+            cpal::SampleFormat::F32 => build_input_stream::<f32>(
+                &device,
+                &stream_config,
+                Arc::clone(&sample_buffer),
+                error_sender.clone(),
+            )?,
+            cpal::SampleFormat::I16 => build_input_stream::<i16>(
+                &device,
+                &stream_config,
+                Arc::clone(&sample_buffer),
+                error_sender.clone(),
+            )?,
+            cpal::SampleFormat::U16 => build_input_stream::<u16>(
+                &device,
+                &stream_config,
+                Arc::clone(&sample_buffer),
+                error_sender.clone(),
+            )?,
+            other => return Err(RecorderError::UnsupportedSampleFormat(other)),
+        };
+
+        stream.play().map_err(RecorderError::PlayStream)?;
+        thread::sleep(duration);
+        drop(stream);
+        debug_log(self.debug_enabled, "recording finished");
+
+        if let Ok(callback_error) = error_receiver.try_recv() {
+            return Err(callback_error);
+        }
+
+        let captured_samples = sample_buffer
+            .lock()
+            .map_err(|_| RecorderError::SampleBufferPoisoned)?
+            .clone();
+        debug_log(
+            self.debug_enabled,
+            &format!("captured pcm samples: count={}", captured_samples.len()),
+        );
+
+        encode_wav(captured_samples, channels, sample_rate)
+    }
+}
+
+fn build_input_stream<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    sample_buffer: Arc<Mutex<Vec<i16>>>,
+    error_sender: mpsc::Sender<RecorderError>,
+) -> Result<cpal::Stream, RecorderError>
+where
+    T: cpal::SizedSample,
+    i16: FromSample<T>,
+{
+    let callback_error_sender = error_sender.clone();
+
+    device
+        .build_input_stream(
+            config,
+            move |data: &[T], _| {
+                let mut converted = Vec::with_capacity(data.len());
+                for sample in data {
+                    converted.push(sample_to_i16(*sample));
+                }
+
+                match sample_buffer.lock() {
+                    Ok(mut guard) => guard.extend_from_slice(&converted),
+                    Err(_) => {
+                        let _ = error_sender.send(RecorderError::SampleBufferPoisoned);
+                    }
+                }
+            },
+            move |error| {
+                let _ =
+                    callback_error_sender.send(RecorderError::CallbackStream(error.to_string()));
+            },
+            None,
+        )
+        .map_err(RecorderError::BuildStream)
+}
+
+fn sample_to_i16<T>(sample: T) -> i16
+where
+    T: cpal::SizedSample,
+    i16: FromSample<T>,
+{
+    i16::from_sample(sample)
+}
+
+fn encode_wav(
+    pcm_samples: Vec<i16>,
+    channels: u16,
+    sample_rate: u32,
+) -> Result<RecordedAudio, RecorderError> {
+    let mut wav_bytes = Cursor::new(Vec::new());
+    let spec = hound::WavSpec {
+        channels,
+        sample_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer =
+        hound::WavWriter::new(&mut wav_bytes, spec).map_err(RecorderError::EncodeWav)?;
+
+    for sample in pcm_samples {
+        writer
+            .write_sample(sample)
+            .map_err(RecorderError::EncodeWav)?;
+    }
+
+    writer.finalize().map_err(RecorderError::EncodeWav)?;
+
+    Ok(RecordedAudio {
+        wav_bytes: wav_bytes.into_inner(),
+        content_type: "audio/wav",
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_wav;
+    use crate::RecordedAudio;
+    use std::io::Cursor;
+
+    #[test]
+    /// PCM サンプル列を 16bit PCM の WAV バイト列へ変換する。
+    fn encodes_pcm_samples_into_wav_bytes() {
+        let audio = encode_wav(vec![100, -100, 50, -50], 2, 16_000).unwrap();
+
+        assert_eq!(
+            audio,
+            RecordedAudio {
+                wav_bytes: audio.wav_bytes.clone(),
+                content_type: "audio/wav",
+            }
+        );
+
+        let reader = hound::WavReader::new(Cursor::new(audio.wav_bytes)).unwrap();
+        assert_eq!(reader.spec().channels, 2);
+        assert_eq!(reader.spec().sample_rate, 16_000);
+    }
+}

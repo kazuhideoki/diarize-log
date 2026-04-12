@@ -1,4 +1,5 @@
-use crate::{RecordedAudio, Recorder, RecorderError, debug_log};
+use crate::debug_log;
+use crate::ports::{RecordedAudio, Recorder, RecorderError};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 use std::io::Cursor;
@@ -33,7 +34,7 @@ impl Recorder for CpalRecorder {
         );
         let supported_config = device
             .default_input_config()
-            .map_err(RecorderError::DefaultInputConfig)?;
+            .map_err(|error| RecorderError::ReadInputConfig(error.to_string()))?;
         let sample_format = supported_config.sample_format();
         let stream_config: cpal::StreamConfig = supported_config.into();
         let channels = stream_config.channels;
@@ -67,10 +68,12 @@ impl Recorder for CpalRecorder {
                 Arc::clone(&sample_buffer),
                 error_sender.clone(),
             )?,
-            other => return Err(RecorderError::UnsupportedSampleFormat(other)),
+            other => return Err(RecorderError::UnsupportedSampleFormat(format!("{other:?}"))),
         };
 
-        stream.play().map_err(RecorderError::PlayStream)?;
+        stream
+            .play()
+            .map_err(|error| RecorderError::PlayStream(error.to_string()))?;
         thread::sleep(duration);
         drop(stream);
         debug_log(self.debug_enabled, "recording finished");
@@ -126,7 +129,7 @@ where
             },
             None,
         )
-        .map_err(RecorderError::BuildStream)
+        .map_err(|error| RecorderError::BuildStream(error.to_string()))
 }
 
 fn sample_to_i16<T>(sample: T) -> i16
@@ -149,16 +152,18 @@ fn encode_wav(
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
-    let mut writer =
-        hound::WavWriter::new(&mut wav_bytes, spec).map_err(RecorderError::EncodeWav)?;
+    let mut writer = hound::WavWriter::new(&mut wav_bytes, spec)
+        .map_err(|error| RecorderError::EncodeWav(error.to_string()))?;
 
     for sample in pcm_samples {
         writer
             .write_sample(sample)
-            .map_err(RecorderError::EncodeWav)?;
+            .map_err(|error| RecorderError::EncodeWav(error.to_string()))?;
     }
 
-    writer.finalize().map_err(RecorderError::EncodeWav)?;
+    writer
+        .finalize()
+        .map_err(|error| RecorderError::EncodeWav(error.to_string()))?;
 
     Ok(RecordedAudio {
         wav_bytes: wav_bytes.into_inner(),
@@ -169,7 +174,7 @@ fn encode_wav(
 #[cfg(test)]
 mod tests {
     use super::encode_wav;
-    use crate::RecordedAudio;
+    use crate::ports::RecordedAudio;
     use std::io::Cursor;
 
     #[test]

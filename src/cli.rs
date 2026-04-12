@@ -1,13 +1,12 @@
-pub mod adapters;
-pub mod cli;
-pub mod config;
-pub mod ports;
-
-pub use adapters::{CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber};
-<<<<<<< HEAD
+use crate::ports::{
+    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, Recorder, RecorderError,
+    ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+};
+use std::fmt;
+use std::io::Write;
+use std::time::Duration;
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
-const TRANSCRIPTIONS_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
 
 /// CLI PoC の固定設定です。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,205 +27,6 @@ impl CliConfig {
         }
     }
 }
-
-/// 文字起こし API に送るレスポンス形式です。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResponseFormat {
-    DiarizedJson,
-}
-
-impl ResponseFormat {
-    pub(crate) fn as_api_value(self) -> &'static str {
-        match self {
-            Self::DiarizedJson => "diarized_json",
-        }
-    }
-}
-
-/// 文字起こし API に送るチャンク戦略です。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ChunkingStrategy {
-    Auto,
-}
-
-impl ChunkingStrategy {
-    pub(crate) fn as_api_value(self) -> &'static str {
-        match self {
-            Self::Auto => "auto",
-        }
-    }
-}
-
-/// 録音した WAV 音声です。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RecordedAudio {
-    pub wav_bytes: Vec<u8>,
-    pub content_type: &'static str,
-}
-
-/// 話者分離文字起こしリクエストです。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TranscriptionRequest<'a> {
-    pub audio: &'a RecordedAudio,
-    pub model: &'static str,
-    pub response_format: ResponseFormat,
-    pub chunking_strategy: ChunkingStrategy,
-}
-
-/// 話者分離された文字起こし結果です。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DiarizedTranscript {
-    pub text: String,
-    pub segments: Vec<TranscriptSegment>,
-}
-
-/// 話者単位のセグメントです。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct TranscriptSegment {
-    pub speaker: String,
-    pub start_ms: u64,
-    pub end_ms: u64,
-    pub text: String,
-}
-
-/// 録音処理を抽象化します。
-pub trait Recorder {
-    fn record_wav(&mut self, duration: Duration) -> Result<RecordedAudio, RecorderError>;
-}
-
-/// OpenAI への文字起こし送信を抽象化します。
-pub trait Transcriber {
-    fn transcribe(
-        &mut self,
-        request: TranscriptionRequest<'_>,
-    ) -> Result<DiarizedTranscript, TranscriberError>;
-}
-
-/// 文字起こし結果の保存先を抽象化します。
-pub trait CaptureStore {
-    fn persist_capture(
-        &mut self,
-        capture_index: u64,
-        audio: &RecordedAudio,
-        transcript: &DiarizedTranscript,
-    ) -> Result<(), CaptureStoreError>;
-}
-
-#[derive(Debug)]
-pub enum RecorderError {
-    NoInputDevice,
-    DefaultInputConfig(cpal::DefaultStreamConfigError),
-    BuildStream(cpal::BuildStreamError),
-    PlayStream(cpal::PlayStreamError),
-    UnsupportedSampleFormat(cpal::SampleFormat),
-    CallbackStream(String),
-    SampleBufferPoisoned,
-    EncodeWav(hound::Error),
-}
-
-impl fmt::Display for RecorderError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NoInputDevice => f.write_str("default input device is not available"),
-            Self::DefaultInputConfig(source) => {
-                write!(f, "failed to read default input config: {source}")
-            }
-            Self::BuildStream(source) => write!(f, "failed to build input stream: {source}"),
-            Self::PlayStream(source) => write!(f, "failed to start input stream: {source}"),
-            Self::UnsupportedSampleFormat(sample_format) => {
-                write!(f, "unsupported input sample format: {sample_format:?}")
-            }
-            Self::CallbackStream(message) => write!(f, "stream callback failed: {message}"),
-            Self::SampleBufferPoisoned => f.write_str("sample buffer was poisoned"),
-            Self::EncodeWav(source) => write!(f, "failed to encode wav: {source}"),
-        }
-    }
-}
-
-impl std::error::Error for RecorderError {}
-
-#[derive(Debug)]
-pub enum TranscriberError {
-    BuildHttpClient(reqwest::Error),
-    InvalidMimeType(reqwest::Error),
-    SendRequest(reqwest::Error),
-    ReadResponseBody(reqwest::Error),
-    ApiError {
-        status: StatusCode,
-        body: String,
-    },
-    ParseResponseBody {
-        source: serde_json::Error,
-        body: String,
-    },
-}
-
-impl fmt::Display for TranscriberError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::BuildHttpClient(source) => write!(f, "failed to build http client: {source}"),
-            Self::InvalidMimeType(source) => write!(f, "invalid audio mime type: {source}"),
-            Self::SendRequest(source) => {
-                write!(f, "failed to send transcription request: {source}")
-            }
-            Self::ReadResponseBody(source) => {
-                write!(f, "failed to read transcription response: {source}")
-            }
-            Self::ApiError { status, body } => {
-                write!(f, "transcription api returned {status}: {body}")
-            }
-            Self::ParseResponseBody { source, body } => {
-                write!(
-                    f,
-                    "failed to parse transcription response: {source}; body: {body}"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for TranscriberError {}
-
-#[derive(Debug)]
-pub enum CaptureStoreError {
-    CreateSession(std::io::Error),
-    ResolveLocalOffset(time::error::IndeterminateOffset),
-    FormatSessionName(time::error::Format),
-    WriteAudio(std::io::Error),
-    WriteCapture(std::io::Error),
-    SerializeCapture(serde_json::Error),
-    OpenFinal(std::io::Error),
-    WriteFinal(std::io::Error),
-    SerializeFinal(serde_json::Error),
-}
-
-impl fmt::Display for CaptureStoreError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::CreateSession(source) => {
-                write!(f, "failed to create storage directories: {source}")
-            }
-            Self::ResolveLocalOffset(source) => {
-                write!(f, "failed to resolve local timezone offset: {source}")
-            }
-            Self::FormatSessionName(source) => {
-                write!(f, "failed to format session directory name: {source}")
-            }
-            Self::WriteAudio(source) => write!(f, "failed to write audio file: {source}"),
-            Self::WriteCapture(source) => write!(f, "failed to write capture file: {source}"),
-            Self::SerializeCapture(source) => {
-                write!(f, "failed to serialize capture file: {source}")
-            }
-            Self::OpenFinal(source) => write!(f, "failed to open final log file: {source}"),
-            Self::WriteFinal(source) => write!(f, "failed to append final log file: {source}"),
-            Self::SerializeFinal(source) => {
-                write!(f, "failed to serialize final log entry: {source}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CaptureStoreError {}
 
 #[derive(Debug)]
 pub enum DebugOutputError {
@@ -298,7 +98,7 @@ where
         .map_err(CliError::Transcribe)?;
     info_log(stderr, "transcription response received").map_err(CliError::Write)?;
     capture_store
-        .persist_capture(1, &audio, &transcript)
+        .persist_capture(1, &transcript)
         .map_err(CliError::Store)?;
 
     Ok(transcript)
@@ -330,28 +130,10 @@ where
     writeln!(output, "{message}")
 }
 
-fn debug_log(debug_enabled: bool, message: &str) {
-=======
-pub use cli::{
-    CliConfig, CliError, DebugOutputError, TRANSCRIPTION_MODEL, run_cli, write_debug_transcript,
-};
-pub use ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, RecordedAudio, Recorder,
-    RecorderError, ResponseFormat, Transcriber, TranscriberError, TranscriptSegment,
-    TranscriptionRequest,
-};
-
-pub(crate) fn debug_log(debug_enabled: bool, message: &str) {
->>>>>>> main
-    if debug_enabled {
-        eprintln!("[debug] {message}");
-    }
-}
-<<<<<<< HEAD
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::{RecordedAudio, TranscriptSegment};
     use std::cell::RefCell;
 
     struct FakeRecorder {
@@ -397,18 +179,16 @@ mod tests {
     }
 
     struct FakeCaptureStore {
-        observed_capture: RefCell<Option<(u64, RecordedAudio, DiarizedTranscript)>>,
+        observed_capture: RefCell<Option<(u64, DiarizedTranscript)>>,
     }
 
     impl CaptureStore for FakeCaptureStore {
         fn persist_capture(
             &mut self,
             capture_index: u64,
-            audio: &RecordedAudio,
             transcript: &DiarizedTranscript,
         ) -> Result<(), CaptureStoreError> {
-            *self.observed_capture.borrow_mut() =
-                Some((capture_index, audio.clone(), transcript.clone()));
+            *self.observed_capture.borrow_mut() = Some((capture_index, transcript.clone()));
             Ok(())
         }
     }
@@ -517,14 +297,13 @@ mod tests {
     }
 
     #[test]
-    /// 録音音声と文字起こし結果を capture store へ連番 1 で保存する。
-    fn persists_recorded_audio_and_transcription_result_via_capture_store() {
+    /// 文字起こし結果を capture store へ連番 1 で保存する。
+    fn persists_transcription_result_via_capture_store() {
         let config = CliConfig::new(Duration::from_secs(30));
-        let audio = sample_audio();
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
             observed_duration: RefCell::new(None),
-            audio: audio.clone(),
+            audio: sample_audio(),
         };
         let mut transcriber = FakeTranscriber {
             observed_request: RefCell::new(None),
@@ -545,7 +324,7 @@ mod tests {
 
         assert_eq!(
             *capture_store.observed_capture.borrow(),
-            Some((1, audio, transcript))
+            Some((1, transcript))
         );
     }
 
@@ -600,5 +379,3 @@ mod tests {
         );
     }
 }
-=======
->>>>>>> main

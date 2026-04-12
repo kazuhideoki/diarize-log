@@ -1,9 +1,11 @@
-use crate::{
-    DiarizedTranscript, TRANSCRIPTIONS_ENDPOINT, Transcriber, TranscriberError, TranscriptSegment,
-    TranscriptionRequest, debug_log,
+use crate::debug_log;
+use crate::ports::{
+    DiarizedTranscript, Transcriber, TranscriberError, TranscriptSegment, TranscriptionRequest,
 };
 use reqwest::blocking::{Client, multipart};
 use serde::Deserialize;
+
+const TRANSCRIPTIONS_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
 
 /// OpenAI の話者分離文字起こし API を呼び出します。
 #[derive(Debug)]
@@ -17,7 +19,7 @@ impl OpenAiTranscriber {
     pub fn new(api_key: String, debug_enabled: bool) -> Result<Self, TranscriberError> {
         let client = Client::builder()
             .build()
-            .map_err(TranscriberError::BuildHttpClient)?;
+            .map_err(|error| TranscriberError::BuildHttpClient(error.to_string()))?;
 
         Ok(Self {
             client,
@@ -45,7 +47,7 @@ impl Transcriber for OpenAiTranscriber {
         let audio_part = multipart::Part::bytes(request.audio.wav_bytes.clone())
             .file_name("recording.wav")
             .mime_str(request.audio.content_type)
-            .map_err(TranscriberError::InvalidMimeType)?;
+            .map_err(|error| TranscriberError::InvalidMimeType(error.to_string()))?;
         let form = multipart::Form::new()
             .part("file", audio_part)
             .text("model", request.model.to_owned())
@@ -63,7 +65,7 @@ impl Transcriber for OpenAiTranscriber {
             .bearer_auth(&self.api_key)
             .multipart(form)
             .send()
-            .map_err(TranscriberError::SendRequest)?;
+            .map_err(|error| TranscriberError::SendRequest(error.to_string()))?;
         let status = response.status();
         debug_log(
             self.debug_enabled,
@@ -71,18 +73,24 @@ impl Transcriber for OpenAiTranscriber {
         );
         let body = response
             .text()
-            .map_err(TranscriberError::ReadResponseBody)?;
+            .map_err(|error| TranscriberError::ReadResponseBody(error.to_string()))?;
         debug_log(
             self.debug_enabled,
             &format!("transcription response body bytes={}", body.len()),
         );
 
         if !status.is_success() {
-            return Err(TranscriberError::ApiError { status, body });
+            return Err(TranscriberError::ApiError {
+                status_code: status.as_u16(),
+                body,
+            });
         }
 
-        let api_response: ApiDiarizedTranscript = serde_json::from_str(&body)
-            .map_err(|source| TranscriberError::ParseResponseBody { source, body })?;
+        let api_response: ApiDiarizedTranscript =
+            serde_json::from_str(&body).map_err(|source| TranscriberError::ParseResponseBody {
+                source: source.to_string(),
+                body,
+            })?;
         debug_log(
             self.debug_enabled,
             &format!(
@@ -141,7 +149,7 @@ fn seconds_to_millis(seconds: f64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{ApiDiarizedTranscript, ApiTranscriptSegment};
-    use crate::{DiarizedTranscript, TranscriptSegment};
+    use crate::ports::{DiarizedTranscript, TranscriptSegment};
 
     #[test]
     /// API の秒単位セグメントをミリ秒単位の出力モデルへ変換する。

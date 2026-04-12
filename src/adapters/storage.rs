@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 use crate::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
+=======
+use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript};
+>>>>>>> main
 use std::fs::{File, OpenOptions, create_dir_all};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -44,8 +48,13 @@ impl FileSystemCaptureStore {
     pub fn new(storage_root: &Path) -> Result<Self, CaptureStoreError> {
         let session_dir_name = current_session_dir_name()?;
         let paths = SessionPaths::new(storage_root, &session_dir_name);
+<<<<<<< HEAD
         create_dir_all(&paths.audios_dir).map_err(CaptureStoreError::CreateSession)?;
         create_dir_all(&paths.captures_dir).map_err(CaptureStoreError::CreateSession)?;
+=======
+        create_dir_all(&paths.captures_dir)
+            .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
+>>>>>>> main
 
         Ok(Self { paths })
     }
@@ -58,8 +67,13 @@ impl CaptureStore for FileSystemCaptureStore {
         audio: &RecordedAudio,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError> {
+<<<<<<< HEAD
         create_dir_all(&self.paths.audios_dir).map_err(CaptureStoreError::CreateSession)?;
         create_dir_all(&self.paths.captures_dir).map_err(CaptureStoreError::CreateSession)?;
+=======
+        create_dir_all(&self.paths.captures_dir)
+            .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
+>>>>>>> main
 
         let mut audio_file = File::create(self.paths.audio_path(capture_index))
             .map_err(CaptureStoreError::WriteAudio)?;
@@ -68,44 +82,48 @@ impl CaptureStore for FileSystemCaptureStore {
             .map_err(CaptureStoreError::WriteAudio)?;
 
         let mut capture_file = File::create(self.paths.capture_path(capture_index))
-            .map_err(CaptureStoreError::WriteCapture)?;
+            .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
         serde_json::to_writer_pretty(&mut capture_file, transcript)
-            .map_err(CaptureStoreError::SerializeCapture)?;
+            .map_err(|error| CaptureStoreError::SerializeCapture(error.to_string()))?;
         capture_file
             .write_all(b"\n")
-            .map_err(CaptureStoreError::WriteCapture)?;
+            .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
 
         let mut final_file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.paths.final_path)
-            .map_err(CaptureStoreError::OpenFinal)?;
+            .map_err(|error| CaptureStoreError::OpenFinal(error.to_string()))?;
         serde_json::to_writer(&mut final_file, transcript)
-            .map_err(CaptureStoreError::SerializeFinal)?;
+            .map_err(|error| CaptureStoreError::SerializeFinal(error.to_string()))?;
         final_file
             .write_all(b"\n")
-            .map_err(CaptureStoreError::WriteFinal)?;
+            .map_err(|error| CaptureStoreError::WriteFinal(error.to_string()))?;
 
         Ok(())
     }
 }
 
 fn current_session_dir_name() -> Result<String, CaptureStoreError> {
-    let local_offset =
-        UtcOffset::current_local_offset().map_err(CaptureStoreError::ResolveLocalOffset)?;
+    let local_offset = UtcOffset::current_local_offset()
+        .map_err(|error| CaptureStoreError::ResolveLocalOffset(error.to_string()))?;
 
     OffsetDateTime::now_utc()
         .to_offset(local_offset)
         .format(&format_description!(
             "[year][month][day]T[hour][minute][second]_[subsecond digits:3][offset_hour sign:mandatory][offset_minute]"
         ))
-        .map_err(CaptureStoreError::FormatSessionName)
+        .map_err(|error| CaptureStoreError::FormatSessionName(error.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::FileSystemCaptureStore;
+<<<<<<< HEAD
     use crate::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
+=======
+    use crate::ports::{CaptureStore, DiarizedTranscript, TranscriptSegment};
+>>>>>>> main
 
     #[test]
     /// セッション配下に audios と captures ディレクトリおよび final.jsonl を作成して録音音声と文字起こし結果を書き出す。

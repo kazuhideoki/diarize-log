@@ -4,9 +4,16 @@
 
 - config.rs: 環境変数や .env ファイルの読み込みはここで一元管理する。
   - 設定の解決はエントリーポイントで一度だけ行い、解決済みの値を後続の処理へ渡す。
+- application/: ユースケース単位の orchestration を置く。
+  - CLI や外部 I/O の詳細は持ち込まず、`ports/` 越しに必要な境界だけへ依存する。
+  - コマンドの種類が増えた場合でも、CLI のサブコマンドごとではなく「何をするユースケースか」で分割する。
 - 外部境界とのやり取りは `ports/` に分離する。
+  - `ports/` は application が必要とする入出力境界として扱う。
 - 外部依存や I/O を伴う具象実装は `adapters/` に分離する。
   - 例: `cpal` による録音、`reqwest` による API 呼び出し。
+- CLI の引数解釈と表示文言は `cli.rs` に置き、ユースケースの実行そのものは `application/` を呼ぶ。
+- コマンド分岐や adapter の組み立てはエントリーポイントで行う。
+  - `main.rs` は composition root として扱い、route/dispatch と設定解決に責務を限定する。
 
 ## Commands
 

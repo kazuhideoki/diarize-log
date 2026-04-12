@@ -12,6 +12,7 @@ pub trait CaptureStore {
     fn persist_transcript(
         &mut self,
         capture_index: u64,
+        capture_start_ms: u64,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError>;
 }

@@ -1,4 +1,5 @@
 use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
+use serde::Serialize;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -38,6 +39,13 @@ impl SessionPaths {
 #[derive(Debug)]
 pub struct FileSystemCaptureStore {
     paths: SessionPaths,
+}
+
+#[derive(Serialize)]
+struct StoredCapture<'a> {
+    capture_start_ms: u64,
+    #[serde(flatten)]
+    transcript: &'a DiarizedTranscript,
 }
 
 impl FileSystemCaptureStore {
@@ -84,14 +92,21 @@ impl CaptureStore for FileSystemCaptureStore {
     fn persist_transcript(
         &mut self,
         capture_index: u64,
+        capture_start_ms: u64,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError> {
         self.ensure_session_dirs()?;
 
         let mut capture_file = File::create(self.paths.capture_path(capture_index))
             .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
-        serde_json::to_writer_pretty(&mut capture_file, transcript)
-            .map_err(|error| CaptureStoreError::SerializeCapture(error.to_string()))?;
+        serde_json::to_writer_pretty(
+            &mut capture_file,
+            &StoredCapture {
+                capture_start_ms,
+                transcript,
+            },
+        )
+        .map_err(|error| CaptureStoreError::SerializeCapture(error.to_string()))?;
         capture_file
             .write_all(b"\n")
             .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
@@ -118,13 +133,15 @@ mod tests {
     use crate::ports::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
-    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して wav と transcript を別々に書き出す。
+    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して開始時刻付き transcript を書き出す。
     fn persists_audio_wav_and_capture_json_and_keeps_final_jsonl_empty_before_merge() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
         store.persist_audio(1, &sample_audio()).unwrap();
-        store.persist_transcript(1, &sample_transcript()).unwrap();
+        store
+            .persist_transcript(1, 1_420, &sample_transcript())
+            .unwrap();
 
         let mut session_dirs = std::fs::read_dir(temp_dir.path())
             .unwrap()
@@ -142,7 +159,26 @@ mod tests {
         assert_eq!(std::fs::read(audio_path).unwrap(), sample_audio().wav_bytes);
         assert_eq!(
             std::fs::read_to_string(capture_path).unwrap(),
-            serde_json::to_string_pretty(&sample_transcript()).unwrap() + "\n"
+            concat!(
+                "{\n",
+                "  \"capture_start_ms\": 1420,\n",
+                "  \"text\": \"こんにちは 今日はよろしくお願いします\",\n",
+                "  \"segments\": [\n",
+                "    {\n",
+                "      \"speaker\": \"spk_0\",\n",
+                "      \"start_ms\": 0,\n",
+                "      \"end_ms\": 900,\n",
+                "      \"text\": \"こんにちは\"\n",
+                "    },\n",
+                "    {\n",
+                "      \"speaker\": \"spk_1\",\n",
+                "      \"start_ms\": 950,\n",
+                "      \"end_ms\": 2300,\n",
+                "      \"text\": \"今日はよろしくお願いします\"\n",
+                "    }\n",
+                "  ]\n",
+                "}\n"
+            )
         );
         assert_eq!(std::fs::read_to_string(final_path).unwrap(), "");
     }
@@ -154,7 +190,9 @@ mod tests {
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
         store.persist_audio(12, &sample_audio()).unwrap();
-        store.persist_transcript(12, &sample_transcript()).unwrap();
+        store
+            .persist_transcript(12, 12_000, &sample_transcript())
+            .unwrap();
 
         let session_dir = std::fs::read_dir(temp_dir.path())
             .unwrap()

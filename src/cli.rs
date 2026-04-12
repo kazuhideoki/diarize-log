@@ -196,7 +196,11 @@ where
         )
         .map_err(CliError::Write)?;
         capture_store
-            .persist_transcript(window.capture_index, &transcript)
+            .persist_transcript(
+                window.capture_index,
+                duration_to_millis(window.start_offset),
+                &transcript,
+            )
             .map_err(CliError::Store)?;
         transcripts.push(transcript);
     }
@@ -231,6 +235,10 @@ where
     W: Write,
 {
     writeln!(output, "{message}")
+}
+
+fn duration_to_millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).expect("capture duration in millis must fit into u64")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -417,7 +425,7 @@ mod tests {
 
     struct FakeCaptureStore {
         observed_audios: RefCell<Vec<(u64, RecordedAudio)>>,
-        observed_transcripts: RefCell<Vec<(u64, DiarizedTranscript)>>,
+        observed_transcripts: RefCell<Vec<(u64, u64, DiarizedTranscript)>>,
     }
 
     impl CaptureStore for FakeCaptureStore {
@@ -435,11 +443,14 @@ mod tests {
         fn persist_transcript(
             &mut self,
             capture_index: u64,
+            capture_start_ms: u64,
             transcript: &DiarizedTranscript,
         ) -> Result<(), CaptureStoreError> {
-            self.observed_transcripts
-                .borrow_mut()
-                .push((capture_index, transcript.clone()));
+            self.observed_transcripts.borrow_mut().push((
+                capture_index,
+                capture_start_ms,
+                transcript.clone(),
+            ));
             Ok(())
         }
     }
@@ -649,7 +660,7 @@ mod tests {
     }
 
     #[test]
-    /// capture store へ各 capture の wav と transcript をそれぞれ連番付きで保存する。
+    /// capture store へ各 capture の wav と transcript を開始オフセット付きで保存する。
     fn persists_each_capture_via_capture_store() {
         let config = CliConfig::new(
             Duration::from_secs(40),
@@ -706,7 +717,7 @@ mod tests {
         );
         assert_eq!(
             *capture_store.observed_transcripts.borrow(),
-            vec![(1, transcript1), (2, transcript2)]
+            vec![(1, 0, transcript1), (2, 20_000, transcript2)]
         );
     }
 

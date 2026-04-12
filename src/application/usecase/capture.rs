@@ -81,12 +81,12 @@ where
     info_log(stderr, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
     let capture_ranges = config.capture_policy.capture_ranges();
+    let capture_count = capture_ranges.len();
     let mut capture_merger = CaptureMerger::new(config.merge_policy.clone());
     let mut transcripts = Vec::with_capacity(capture_ranges.len());
 
-    for capture_range in capture_ranges {
-        let is_last_capture =
-            capture_range.end_offset() == config.capture_policy.recording_duration;
+    for (capture_position, capture_range) in capture_ranges.into_iter().enumerate() {
+        let is_last_capture = capture_position + 1 == capture_count;
         session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
@@ -890,5 +890,66 @@ mod tests {
         .unwrap();
 
         assert_eq!(*transcriber.observed_drop_counts.borrow(), vec![0, 1]);
+    }
+
+    #[test]
+    /// 録音終端に届く capture の後ろに tail capture が続く場合でも、最後の capture までは session を維持する。
+    fn keeps_recording_session_until_tail_capture_is_copied() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(20),
+            Duration::from_secs(10),
+            Duration::from_secs(5),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![
+                    sample_audio(),
+                    sample_audio(),
+                    sample_audio(),
+                    sample_audio(),
+                ]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![
+                sample_transcript(),
+                sample_transcript(),
+                sample_transcript(),
+                sample_transcript(),
+            ]),
+        };
+        let mut capture_store = FakeCaptureStore {
+            observed_audios: RefCell::new(Vec::new()),
+            observed_transcripts: RefCell::new(Vec::new()),
+            observed_merged_segments: RefCell::new(Vec::new()),
+        };
+        let mut stderr = Vec::new();
+
+        run_capture(
+            &config,
+            &[],
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            observation.borrow().captured_windows,
+            vec![
+                (Duration::from_secs(0), Duration::from_secs(10)),
+                (Duration::from_secs(5), Duration::from_secs(10)),
+                (Duration::from_secs(10), Duration::from_secs(10)),
+                (Duration::from_secs(15), Duration::from_secs(5)),
+            ]
+        );
+        assert_eq!(*transcriber.observed_drop_counts.borrow(), vec![0, 0, 0, 1]);
     }
 }

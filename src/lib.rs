@@ -110,6 +110,7 @@ pub trait CaptureStore {
     fn persist_capture(
         &mut self,
         capture_index: u64,
+        audio: &RecordedAudio,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError>;
 }
@@ -194,6 +195,7 @@ pub enum CaptureStoreError {
     CreateSession(std::io::Error),
     ResolveLocalOffset(time::error::IndeterminateOffset),
     FormatSessionName(time::error::Format),
+    WriteAudio(std::io::Error),
     WriteCapture(std::io::Error),
     SerializeCapture(serde_json::Error),
     OpenFinal(std::io::Error),
@@ -213,6 +215,7 @@ impl fmt::Display for CaptureStoreError {
             Self::FormatSessionName(source) => {
                 write!(f, "failed to format session directory name: {source}")
             }
+            Self::WriteAudio(source) => write!(f, "failed to write audio file: {source}"),
             Self::WriteCapture(source) => write!(f, "failed to write capture file: {source}"),
             Self::SerializeCapture(source) => {
                 write!(f, "failed to serialize capture file: {source}")
@@ -298,7 +301,7 @@ where
         .map_err(CliError::Transcribe)?;
     info_log(stderr, "transcription response received").map_err(CliError::Write)?;
     capture_store
-        .persist_capture(1, &transcript)
+        .persist_capture(1, &audio, &transcript)
         .map_err(CliError::Store)?;
 
     Ok(transcript)
@@ -384,16 +387,18 @@ mod tests {
     }
 
     struct FakeCaptureStore {
-        observed_capture: RefCell<Option<(u64, DiarizedTranscript)>>,
+        observed_capture: RefCell<Option<(u64, RecordedAudio, DiarizedTranscript)>>,
     }
 
     impl CaptureStore for FakeCaptureStore {
         fn persist_capture(
             &mut self,
             capture_index: u64,
+            audio: &RecordedAudio,
             transcript: &DiarizedTranscript,
         ) -> Result<(), CaptureStoreError> {
-            *self.observed_capture.borrow_mut() = Some((capture_index, transcript.clone()));
+            *self.observed_capture.borrow_mut() =
+                Some((capture_index, audio.clone(), transcript.clone()));
             Ok(())
         }
     }
@@ -502,13 +507,14 @@ mod tests {
     }
 
     #[test]
-    /// 文字起こし結果を capture store へ連番 1 で保存する。
-    fn persists_transcription_result_via_capture_store() {
-        let config = CliConfig::default();
+    /// 録音音声と文字起こし結果を capture store へ連番 1 で保存する。
+    fn persists_recorded_audio_and_transcription_result_via_capture_store() {
+        let config = CliConfig::new(Duration::from_secs(30));
+        let audio = sample_audio();
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
             observed_duration: RefCell::new(None),
-            audio: sample_audio(),
+            audio: audio.clone(),
         };
         let mut transcriber = FakeTranscriber {
             observed_request: RefCell::new(None),
@@ -529,7 +535,7 @@ mod tests {
 
         assert_eq!(
             *capture_store.observed_capture.borrow(),
-            Some((1, transcript))
+            Some((1, audio, transcript))
         );
     }
 

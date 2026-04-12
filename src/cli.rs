@@ -2,11 +2,37 @@ use crate::ports::{
     CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, Recorder, RecorderError,
     ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
 };
+use std::ffi::OsString;
 use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
+
+/// CLI 起動時の振る舞いです。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CliAction {
+    Run,
+    ShowHelp,
+}
+
+/// CLI 引数の解釈失敗です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CliArgumentError {
+    UnexpectedArgument { argument: OsString },
+}
+
+impl fmt::Display for CliArgumentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnexpectedArgument { argument } => {
+                write!(f, "unexpected argument: {}", argument.to_string_lossy())
+            }
+        }
+    }
+}
+
+impl std::error::Error for CliArgumentError {}
 
 /// CLI PoC の固定設定です。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +52,32 @@ impl CliConfig {
             chunking_strategy: ChunkingStrategy::Auto,
         }
     }
+}
+
+/// CLI 引数を解釈します。
+pub fn parse_cli_args<I>(args: I) -> Result<CliAction, CliArgumentError>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    let mut parsed_action = CliAction::Run;
+
+    for argument in args.into_iter().skip(1) {
+        if argument == "--help" {
+            parsed_action = CliAction::ShowHelp;
+            continue;
+        }
+
+        return Err(CliArgumentError::UnexpectedArgument { argument });
+    }
+
+    Ok(parsed_action)
+}
+
+/// `--help` で表示する usage 文です。
+pub fn render_help(program_name: &str) -> String {
+    format!(
+        "Usage: {program_name} [--help]\n\nRecords audio, requests diarized transcription, and stores the capture.\n\nOptions:\n  --help    Show this help message and exit.\n"
+    )
 }
 
 #[derive(Debug)]
@@ -135,6 +187,37 @@ mod tests {
     use super::*;
     use crate::ports::{RecordedAudio, TranscriptSegment};
     use std::cell::RefCell;
+
+    #[test]
+    /// 引数が無いときは通常実行モードを返す。
+    fn returns_run_action_when_no_flags_are_given() {
+        let action = parse_cli_args([OsString::from("diarize-log")]).unwrap();
+
+        assert_eq!(action, CliAction::Run);
+    }
+
+    #[test]
+    /// `--help` を受け取ると help 表示モードを返す。
+    fn returns_show_help_action_when_help_flag_is_given() {
+        let action =
+            parse_cli_args([OsString::from("diarize-log"), OsString::from("--help")]).unwrap();
+
+        assert_eq!(action, CliAction::ShowHelp);
+    }
+
+    #[test]
+    /// 未知の引数を受け取ると失敗する。
+    fn rejects_unknown_argument() {
+        let error = parse_cli_args([OsString::from("diarize-log"), OsString::from("--verbose")])
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            CliArgumentError::UnexpectedArgument {
+                argument: OsString::from("--verbose"),
+            }
+        );
+    }
 
     struct FakeRecorder {
         observed_duration: RefCell<Option<Duration>>,

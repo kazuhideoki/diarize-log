@@ -9,8 +9,8 @@ pub use cli::{
 };
 pub use ports::{
     CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, RecordedAudio, Recorder,
-    RecorderError, ResponseFormat, Transcriber, TranscriberError, TranscriptSegment,
-    TranscriptionRequest,
+    RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
+    TranscriptSegment, TranscriptionRequest,
 };
 
 pub(crate) fn debug_log(debug_enabled: bool, message: &str) {

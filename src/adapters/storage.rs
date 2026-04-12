@@ -1,5 +1,5 @@
 use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
-use std::fs::{File, OpenOptions, create_dir_all};
+use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use time::macros::format_description;
@@ -48,6 +48,8 @@ impl FileSystemCaptureStore {
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         create_dir_all(&paths.captures_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
+        File::create(&paths.final_path)
+            .map_err(|error| CaptureStoreError::OpenFinal(error.to_string()))?;
 
         Ok(Self { paths })
     }
@@ -79,17 +81,6 @@ impl CaptureStore for FileSystemCaptureStore {
             .write_all(b"\n")
             .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
 
-        let mut final_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.paths.final_path)
-            .map_err(|error| CaptureStoreError::OpenFinal(error.to_string()))?;
-        serde_json::to_writer(&mut final_file, transcript)
-            .map_err(|error| CaptureStoreError::SerializeFinal(error.to_string()))?;
-        final_file
-            .write_all(b"\n")
-            .map_err(|error| CaptureStoreError::WriteFinal(error.to_string()))?;
-
         Ok(())
     }
 }
@@ -112,8 +103,8 @@ mod tests {
     use crate::ports::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
-    /// セッション配下に audios と captures ディレクトリおよび final.jsonl を作成して録音音声と文字起こし結果を書き出す。
-    fn persists_audio_wav_and_capture_json_and_appends_final_jsonl_under_session_directory() {
+    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して capture を書き出す。
+    fn persists_audio_wav_and_capture_json_and_keeps_final_jsonl_empty_before_merge() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
@@ -139,10 +130,7 @@ mod tests {
             std::fs::read_to_string(capture_path).unwrap(),
             serde_json::to_string_pretty(&sample_transcript()).unwrap() + "\n"
         );
-        assert_eq!(
-            std::fs::read_to_string(final_path).unwrap(),
-            serde_json::to_string(&sample_transcript()).unwrap() + "\n"
-        );
+        assert_eq!(std::fs::read_to_string(final_path).unwrap(), "");
     }
 
     #[test]

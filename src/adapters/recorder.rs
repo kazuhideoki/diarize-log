@@ -1,5 +1,5 @@
 use crate::debug_log;
-use crate::ports::{RecordedAudio, Recorder, RecorderError};
+use crate::ports::{RecordedAudio, Recorder, RecorderError, RecordingSession};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 use std::io::Cursor;
@@ -9,8 +9,9 @@ use std::time::Duration;
 
 const TARGET_CHANNELS: u16 = 1;
 const TARGET_SAMPLE_RATE: u32 = 24_000;
+const WAIT_INTERVAL_MILLIS: u64 = 10;
 
-/// `cpal` を使ってデフォルトマイクから録音します。
+/// `cpal` を使ってデフォルトマイクから継続録音します。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CpalRecorder {
     debug_enabled: bool,
@@ -23,7 +24,9 @@ impl CpalRecorder {
 }
 
 impl Recorder for CpalRecorder {
-    fn record_wav(&mut self, duration: Duration) -> Result<RecordedAudio, RecorderError> {
+    type Session = CpalRecordingSession;
+
+    fn start_recording(&mut self) -> Result<Self::Session, RecorderError> {
         let host = cpal::default_host();
         let device = host
             .default_input_device()
@@ -45,10 +48,10 @@ impl Recorder for CpalRecorder {
         debug_log(
             self.debug_enabled,
             &format!(
-                "recording starts: duration={}s sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}",
-                duration.as_secs()
+                "recording starts: sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}"
             ),
         );
+
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
         let (error_sender, error_receiver) = mpsc::channel();
 
@@ -77,24 +80,88 @@ impl Recorder for CpalRecorder {
         stream
             .play()
             .map_err(|error| RecorderError::PlayStream(error.to_string()))?;
-        thread::sleep(duration);
-        drop(stream);
-        debug_log(self.debug_enabled, "recording finished");
 
-        if let Ok(callback_error) = error_receiver.try_recv() {
-            return Err(callback_error);
+        Ok(CpalRecordingSession {
+            _stream: stream,
+            sample_buffer,
+            error_receiver,
+            channels,
+            sample_rate,
+            debug_enabled: self.debug_enabled,
+        })
+    }
+}
+
+/// 継続録音中のバッファから capture 単位で音声を切り出します。
+pub struct CpalRecordingSession {
+    _stream: cpal::Stream,
+    sample_buffer: Arc<Mutex<Vec<i16>>>,
+    error_receiver: mpsc::Receiver<RecorderError>,
+    channels: u16,
+    sample_rate: u32,
+    debug_enabled: bool,
+}
+
+impl RecordingSession for CpalRecordingSession {
+    fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError> {
+        let required_frames = duration_to_frame_count(duration, self.sample_rate);
+
+        loop {
+            self.poll_callback_error()?;
+            let available_frames = self.available_frame_count()?;
+
+            if available_frames >= required_frames {
+                return Ok(());
+            }
+
+            thread::sleep(Duration::from_millis(WAIT_INTERVAL_MILLIS));
+        }
+    }
+
+    fn capture_wav(
+        &mut self,
+        start_offset: Duration,
+        duration: Duration,
+    ) -> Result<RecordedAudio, RecorderError> {
+        self.poll_callback_error()?;
+
+        let start_frame = duration_to_frame_count(start_offset, self.sample_rate);
+        let end_frame = duration_to_frame_count(start_offset + duration, self.sample_rate);
+        let available_frames = self.available_frame_count()?;
+
+        if end_frame > available_frames {
+            return Err(RecorderError::CaptureOutOfRange {
+                requested_end_ms: duration_to_millis(start_offset + duration),
+                available_end_ms: frames_to_millis(available_frames, self.sample_rate),
+            });
         }
 
-        let captured_samples = sample_buffer
-            .lock()
-            .map_err(|_| RecorderError::SampleBufferPoisoned)?
-            .clone();
+        let channels = usize::from(self.channels);
+        let start_sample = usize::try_from(start_frame)
+            .expect("frame count must fit usize")
+            .saturating_mul(channels);
+        let end_sample = usize::try_from(end_frame)
+            .expect("frame count must fit usize")
+            .saturating_mul(channels);
+        let captured_samples = {
+            let guard = self
+                .sample_buffer
+                .lock()
+                .map_err(|_| RecorderError::SampleBufferPoisoned)?;
+            guard[start_sample..end_sample].to_vec()
+        };
         debug_log(
             self.debug_enabled,
-            &format!("captured pcm samples: count={}", captured_samples.len()),
+            &format!(
+                "captured pcm samples: capture_start_ms={} capture_duration_ms={} count={}",
+                duration_to_millis(start_offset),
+                duration_to_millis(duration),
+                captured_samples.len()
+            ),
         );
 
-        let normalized_samples = normalize_pcm_format(captured_samples, channels, sample_rate);
+        let normalized_samples =
+            normalize_pcm_format(captured_samples, self.channels, self.sample_rate);
         debug_log(
             self.debug_enabled,
             &format!(
@@ -106,6 +173,25 @@ impl Recorder for CpalRecorder {
         );
 
         encode_wav(normalized_samples, TARGET_CHANNELS, TARGET_SAMPLE_RATE)
+    }
+}
+
+impl CpalRecordingSession {
+    fn poll_callback_error(&mut self) -> Result<(), RecorderError> {
+        match self.error_receiver.try_recv() {
+            Ok(error) => Err(error),
+            Err(mpsc::TryRecvError::Empty) => Ok(()),
+            Err(mpsc::TryRecvError::Disconnected) => Ok(()),
+        }
+    }
+
+    fn available_frame_count(&self) -> Result<u64, RecorderError> {
+        let sample_count = self
+            .sample_buffer
+            .lock()
+            .map_err(|_| RecorderError::SampleBufferPoisoned)?
+            .len();
+        Ok((sample_count / usize::from(self.channels)) as u64)
     }
 }
 
@@ -228,6 +314,19 @@ fn encode_wav(
         wav_bytes: wav_bytes.into_inner(),
         content_type: "audio/wav",
     })
+}
+
+fn duration_to_frame_count(duration: Duration, sample_rate: u32) -> u64 {
+    duration.as_secs() * u64::from(sample_rate)
+        + (u64::from(duration.subsec_nanos()) * u64::from(sample_rate)) / 1_000_000_000
+}
+
+fn duration_to_millis(duration: Duration) -> u64 {
+    duration.as_secs() * 1_000 + u64::from(duration.subsec_millis())
+}
+
+fn frames_to_millis(frame_count: u64, sample_rate: u32) -> u64 {
+    frame_count.saturating_mul(1_000) / u64::from(sample_rate)
 }
 
 #[cfg(test)]

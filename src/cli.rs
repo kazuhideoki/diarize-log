@@ -1,6 +1,6 @@
 use crate::ports::{
     CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, Recorder, RecorderError,
-    ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+    RecordingSession, ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
 };
 use std::ffi::OsString;
 use std::fmt;
@@ -38,15 +38,23 @@ impl std::error::Error for CliArgumentError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliConfig {
     pub recording_duration: Duration,
+    pub capture_duration: Duration,
+    pub capture_overlap: Duration,
     pub response_format: ResponseFormat,
     pub transcription_model: &'static str,
     pub chunking_strategy: ChunkingStrategy,
 }
 
 impl CliConfig {
-    pub fn new(recording_duration: Duration) -> Self {
+    pub fn new(
+        recording_duration: Duration,
+        capture_duration: Duration,
+        capture_overlap: Duration,
+    ) -> Self {
         Self {
             recording_duration,
+            capture_duration,
+            capture_overlap,
             response_format: ResponseFormat::DiarizedJson,
             transcription_model: TRANSCRIPTION_MODEL,
             chunking_strategy: ChunkingStrategy::Auto,
@@ -127,7 +135,7 @@ pub fn run_cli<R, T, S, L>(
     transcriber: &mut T,
     capture_store: &mut S,
     stderr: &mut L,
-) -> Result<DiarizedTranscript, CliError>
+) -> Result<Vec<DiarizedTranscript>, CliError>
 where
     R: Recorder,
     T: Transcriber,
@@ -135,32 +143,69 @@ where
     L: Write,
 {
     info_log(stderr, "recording started").map_err(CliError::Write)?;
-    let audio = recorder
-        .record_wav(config.recording_duration)
-        .map_err(CliError::Record)?;
-    info_log(stderr, "recording finished").map_err(CliError::Write)?;
-    info_log(stderr, "transcription request sent").map_err(CliError::Write)?;
-    let transcript = transcriber
-        .transcribe(TranscriptionRequest {
-            audio: &audio,
-            model: config.transcription_model,
-            response_format: config.response_format,
-            chunking_strategy: config.chunking_strategy,
-        })
-        .map_err(CliError::Transcribe)?;
-    info_log(stderr, "transcription response received").map_err(CliError::Write)?;
-    capture_store
-        .persist_capture(1, &audio, &transcript)
-        .map_err(CliError::Store)?;
+    let mut session = Some(recorder.start_recording().map_err(CliError::Record)?);
+    let windows = build_capture_windows(
+        config.recording_duration,
+        config.capture_duration,
+        config.capture_overlap,
+    );
+    let mut transcripts = Vec::with_capacity(windows.len());
 
-    Ok(transcript)
+    for window in windows {
+        let is_last_window = window.end_offset() == config.recording_duration;
+        session
+            .as_mut()
+            .expect("recording session must exist until the final capture is copied")
+            .wait_until(window.end_offset())
+            .map_err(CliError::Record)?;
+
+        let audio = session
+            .as_mut()
+            .expect("recording session must exist until the final capture is copied")
+            .capture_wav(window.start_offset, window.duration)
+            .map_err(CliError::Record)?;
+        if is_last_window {
+            drop(session.take());
+            info_log(stderr, "recording finished").map_err(CliError::Write)?;
+        }
+        info_log(
+            stderr,
+            &format!(
+                "transcription request sent for capture {}",
+                window.capture_index
+            ),
+        )
+        .map_err(CliError::Write)?;
+        let transcript = transcriber
+            .transcribe(TranscriptionRequest {
+                audio: &audio,
+                model: config.transcription_model,
+                response_format: config.response_format,
+                chunking_strategy: config.chunking_strategy,
+            })
+            .map_err(CliError::Transcribe)?;
+        info_log(
+            stderr,
+            &format!(
+                "transcription response received for capture {}",
+                window.capture_index
+            ),
+        )
+        .map_err(CliError::Write)?;
+        capture_store
+            .persist_capture(window.capture_index, &audio, &transcript)
+            .map_err(CliError::Store)?;
+        transcripts.push(transcript);
+    }
+
+    Ok(transcripts)
 }
 
 /// debug 有効時だけ pretty JSON を出力します。
 pub fn write_debug_transcript<W>(
     debug_enabled: bool,
     output: &mut W,
-    transcript: &DiarizedTranscript,
+    transcripts: &[DiarizedTranscript],
 ) -> Result<(), DebugOutputError>
 where
     W: Write,
@@ -169,8 +214,11 @@ where
         return Ok(());
     }
 
-    serde_json::to_writer_pretty(&mut *output, transcript).map_err(DebugOutputError::Serialize)?;
-    output.write_all(b"\n").map_err(DebugOutputError::Write)?;
+    for transcript in transcripts {
+        serde_json::to_writer_pretty(&mut *output, transcript)
+            .map_err(DebugOutputError::Serialize)?;
+        output.write_all(b"\n").map_err(DebugOutputError::Write)?;
+    }
 
     Ok(())
 }
@@ -182,11 +230,57 @@ where
     writeln!(output, "{message}")
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CaptureWindow {
+    capture_index: u64,
+    start_offset: Duration,
+    duration: Duration,
+}
+
+impl CaptureWindow {
+    fn end_offset(&self) -> Duration {
+        self.start_offset + self.duration
+    }
+}
+
+fn build_capture_windows(
+    recording_duration: Duration,
+    capture_duration: Duration,
+    capture_overlap: Duration,
+) -> Vec<CaptureWindow> {
+    let stride = capture_duration
+        .checked_sub(capture_overlap)
+        .expect("capture overlap must be smaller than capture duration");
+    let mut windows = Vec::new();
+    let mut capture_index = 1_u64;
+    let mut start_offset = Duration::ZERO;
+
+    while start_offset < recording_duration {
+        let duration = (recording_duration - start_offset).min(capture_duration);
+        windows.push(CaptureWindow {
+            capture_index,
+            start_offset,
+            duration,
+        });
+
+        if duration < capture_duration {
+            break;
+        }
+
+        start_offset += stride;
+        capture_index += 1;
+    }
+
+    windows
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ports::{RecordedAudio, TranscriptSegment};
     use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
 
     #[test]
     /// 引数が無いときは通常実行モードを返す。
@@ -219,18 +313,6 @@ mod tests {
         );
     }
 
-    struct FakeRecorder {
-        observed_duration: RefCell<Option<Duration>>,
-        audio: RecordedAudio,
-    }
-
-    impl Recorder for FakeRecorder {
-        fn record_wav(&mut self, duration: Duration) -> Result<RecordedAudio, RecorderError> {
-            *self.observed_duration.borrow_mut() = Some(duration);
-            Ok(self.audio.clone())
-        }
-    }
-
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct CapturedRequest {
         wav_bytes: Vec<u8>,
@@ -240,9 +322,67 @@ mod tests {
         chunking_strategy: ChunkingStrategy,
     }
 
+    #[derive(Debug, Default)]
+    struct RecordingObservation {
+        start_call_count: u64,
+        waited_until: Vec<Duration>,
+        captured_windows: Vec<(Duration, Duration)>,
+        dropped_session_count: u64,
+    }
+
+    struct FakeRecordingSession {
+        observation: Rc<RefCell<RecordingObservation>>,
+        audios: VecDeque<RecordedAudio>,
+    }
+
+    impl RecordingSession for FakeRecordingSession {
+        fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError> {
+            self.observation.borrow_mut().waited_until.push(duration);
+            Ok(())
+        }
+
+        fn capture_wav(
+            &mut self,
+            start_offset: Duration,
+            duration: Duration,
+        ) -> Result<RecordedAudio, RecorderError> {
+            self.observation
+                .borrow_mut()
+                .captured_windows
+                .push((start_offset, duration));
+            self.audios
+                .pop_front()
+                .ok_or_else(|| RecorderError::EncodeWav("missing fake audio".to_string()))
+        }
+    }
+
+    impl Drop for FakeRecordingSession {
+        fn drop(&mut self) {
+            self.observation.borrow_mut().dropped_session_count += 1;
+        }
+    }
+
+    struct FakeRecorder {
+        observation: Rc<RefCell<RecordingObservation>>,
+        session: Option<FakeRecordingSession>,
+    }
+
+    impl Recorder for FakeRecorder {
+        type Session = FakeRecordingSession;
+
+        fn start_recording(&mut self) -> Result<Self::Session, RecorderError> {
+            self.observation.borrow_mut().start_call_count += 1;
+            self.session
+                .take()
+                .ok_or_else(|| RecorderError::BuildStream("missing fake session".to_string()))
+        }
+    }
+
     struct FakeTranscriber {
-        observed_request: RefCell<Option<CapturedRequest>>,
-        response: DiarizedTranscript,
+        observed_requests: RefCell<Vec<CapturedRequest>>,
+        observed_drop_counts: RefCell<Vec<u64>>,
+        recording_observation: Option<Rc<RefCell<RecordingObservation>>>,
+        responses: VecDeque<DiarizedTranscript>,
     }
 
     impl Transcriber for FakeTranscriber {
@@ -250,19 +390,30 @@ mod tests {
             &mut self,
             request: TranscriptionRequest<'_>,
         ) -> Result<DiarizedTranscript, TranscriberError> {
-            *self.observed_request.borrow_mut() = Some(CapturedRequest {
+            let dropped_count = self
+                .recording_observation
+                .as_ref()
+                .map(|observation| observation.borrow().dropped_session_count)
+                .unwrap_or_default();
+            self.observed_drop_counts.borrow_mut().push(dropped_count);
+            self.observed_requests.borrow_mut().push(CapturedRequest {
                 wav_bytes: request.audio.wav_bytes.clone(),
                 content_type: request.audio.content_type,
                 model: request.model,
                 response_format: request.response_format,
                 chunking_strategy: request.chunking_strategy,
             });
-            Ok(self.response.clone())
+            self.responses
+                .pop_front()
+                .ok_or_else(|| TranscriberError::ParseResponseBody {
+                    source: "missing fake transcript".to_string(),
+                    body: String::new(),
+                })
         }
     }
 
     struct FakeCaptureStore {
-        observed_capture: RefCell<Option<(u64, RecordedAudio, DiarizedTranscript)>>,
+        observed_captures: RefCell<Vec<(u64, RecordedAudio, DiarizedTranscript)>>,
     }
 
     impl CaptureStore for FakeCaptureStore {
@@ -272,8 +423,11 @@ mod tests {
             audio: &RecordedAudio,
             transcript: &DiarizedTranscript,
         ) -> Result<(), CaptureStoreError> {
-            *self.observed_capture.borrow_mut() =
-                Some((capture_index, audio.clone(), transcript.clone()));
+            self.observed_captures.borrow_mut().push((
+                capture_index,
+                audio.clone(),
+                transcript.clone(),
+            ));
             Ok(())
         }
     }
@@ -306,23 +460,74 @@ mod tests {
     }
 
     #[test]
-    /// 30秒録音し diarized_json と auto chunking で文字起こしを要求する。
-    fn records_for_30_seconds_and_requests_diarized_transcription() {
-        let config = CliConfig::new(Duration::from_secs(30));
-        let expected_audio = sample_audio();
-        let expected_transcript = sample_transcript();
-        let observed_duration = RefCell::new(None);
-        let observed_request = RefCell::new(None);
+    /// overlap を保ちながら capture 窓を最後の端数まで計画する。
+    fn builds_overlapping_capture_windows_until_recording_ends() {
+        let windows = build_capture_windows(
+            Duration::from_secs(360),
+            Duration::from_secs(180),
+            Duration::from_secs(15),
+        );
+
+        assert_eq!(
+            windows,
+            vec![
+                CaptureWindow {
+                    capture_index: 1,
+                    start_offset: Duration::from_secs(0),
+                    duration: Duration::from_secs(180),
+                },
+                CaptureWindow {
+                    capture_index: 2,
+                    start_offset: Duration::from_secs(165),
+                    duration: Duration::from_secs(180),
+                },
+                CaptureWindow {
+                    capture_index: 3,
+                    start_offset: Duration::from_secs(330),
+                    duration: Duration::from_secs(30),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    /// 継続録音を一度だけ開始し、capture ごとに待機と切り出しを行う。
+    fn records_incremental_captures_with_overlap_and_requests_transcription() {
+        let config = CliConfig::new(
+            Duration::from_secs(360),
+            Duration::from_secs(180),
+            Duration::from_secs(15),
+        );
+        let audio1 = sample_audio();
+        let audio2 = RecordedAudio {
+            wav_bytes: vec![0x01, 0x02],
+            content_type: "audio/wav",
+        };
+        let audio3 = RecordedAudio {
+            wav_bytes: vec![0x03, 0x04],
+            content_type: "audio/wav",
+        };
+        let transcript = sample_transcript();
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
-            observed_duration,
-            audio: expected_audio.clone(),
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![audio1.clone(), audio2.clone(), audio3.clone()]),
+            }),
         };
         let mut transcriber = FakeTranscriber {
-            observed_request,
-            response: expected_transcript,
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![
+                transcript.clone(),
+                transcript.clone(),
+                transcript.clone(),
+            ]),
         };
         let mut capture_store = FakeCaptureStore {
-            observed_capture: RefCell::new(None),
+            observed_captures: RefCell::new(Vec::new()),
         };
         let mut stderr = Vec::new();
 
@@ -335,37 +540,85 @@ mod tests {
         )
         .unwrap();
 
+        assert_eq!(observation.borrow().start_call_count, 1);
         assert_eq!(
-            *recorder.observed_duration.borrow(),
-            Some(Duration::from_secs(30))
+            observation.borrow().waited_until,
+            vec![
+                Duration::from_secs(180),
+                Duration::from_secs(345),
+                Duration::from_secs(360),
+            ]
         );
         assert_eq!(
-            *transcriber.observed_request.borrow(),
-            Some(CapturedRequest {
-                wav_bytes: expected_audio.wav_bytes,
-                content_type: "audio/wav",
-                model: TRANSCRIPTION_MODEL,
-                response_format: ResponseFormat::DiarizedJson,
-                chunking_strategy: ChunkingStrategy::Auto,
-            })
+            observation.borrow().captured_windows,
+            vec![
+                (Duration::from_secs(0), Duration::from_secs(180)),
+                (Duration::from_secs(165), Duration::from_secs(180)),
+                (Duration::from_secs(330), Duration::from_secs(30)),
+            ]
+        );
+        assert_eq!(
+            *transcriber.observed_requests.borrow(),
+            vec![
+                CapturedRequest {
+                    wav_bytes: audio1.wav_bytes,
+                    content_type: "audio/wav",
+                    model: TRANSCRIPTION_MODEL,
+                    response_format: ResponseFormat::DiarizedJson,
+                    chunking_strategy: ChunkingStrategy::Auto,
+                },
+                CapturedRequest {
+                    wav_bytes: audio2.wav_bytes,
+                    content_type: "audio/wav",
+                    model: TRANSCRIPTION_MODEL,
+                    response_format: ResponseFormat::DiarizedJson,
+                    chunking_strategy: ChunkingStrategy::Auto,
+                },
+                CapturedRequest {
+                    wav_bytes: audio3.wav_bytes,
+                    content_type: "audio/wav",
+                    model: TRANSCRIPTION_MODEL,
+                    response_format: ResponseFormat::DiarizedJson,
+                    chunking_strategy: ChunkingStrategy::Auto,
+                },
+            ]
         );
     }
 
     #[test]
-    /// 文字起こし結果を呼び出し元へ返す。
-    fn returns_transcription_result_to_caller() {
-        let config = CliConfig::new(Duration::from_secs(30));
-        let transcript = sample_transcript();
+    /// 文字起こし結果を capture 順にまとめて返す。
+    fn returns_transcription_results_to_caller() {
+        let config = CliConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let transcript1 = sample_transcript();
+        let transcript2 = DiarizedTranscript {
+            text: "別の capture".to_string(),
+            segments: vec![TranscriptSegment {
+                speaker: "spk_0".to_string(),
+                start_ms: 0,
+                end_ms: 500,
+                text: "別の capture".to_string(),
+            }],
+        };
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
-            observed_duration: RefCell::new(None),
-            audio: sample_audio(),
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
         };
         let mut transcriber = FakeTranscriber {
-            observed_request: RefCell::new(None),
-            response: transcript.clone(),
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
         };
         let mut capture_store = FakeCaptureStore {
-            observed_capture: RefCell::new(None),
+            observed_captures: RefCell::new(Vec::new()),
         };
         let mut stderr = Vec::new();
 
@@ -378,25 +631,49 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(returned, transcript);
+        assert_eq!(returned, vec![transcript1, transcript2]);
     }
 
     #[test]
-    /// 録音音声と文字起こし結果を capture store へ連番 1 で保存する。
-    fn persists_recorded_audio_and_transcription_result_via_capture_store() {
-        let config = CliConfig::new(Duration::from_secs(30));
-        let audio = sample_audio();
-        let transcript = sample_transcript();
+    /// capture store へ連番付きで各 capture を保存する。
+    fn persists_each_capture_via_capture_store() {
+        let config = CliConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let audio1 = sample_audio();
+        let audio2 = RecordedAudio {
+            wav_bytes: vec![0x05, 0x06],
+            content_type: "audio/wav",
+        };
+        let transcript1 = sample_transcript();
+        let transcript2 = DiarizedTranscript {
+            text: "二つ目".to_string(),
+            segments: vec![TranscriptSegment {
+                speaker: "spk_1".to_string(),
+                start_ms: 0,
+                end_ms: 600,
+                text: "二つ目".to_string(),
+            }],
+        };
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
-            observed_duration: RefCell::new(None),
-            audio: audio.clone(),
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![audio1.clone(), audio2.clone()]),
+            }),
         };
         let mut transcriber = FakeTranscriber {
-            observed_request: RefCell::new(None),
-            response: transcript.clone(),
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
         };
-        let observed_capture = RefCell::new(None);
-        let mut capture_store = FakeCaptureStore { observed_capture };
+        let mut capture_store = FakeCaptureStore {
+            observed_captures: RefCell::new(Vec::new()),
+        };
         let mut stderr = Vec::new();
 
         run_cli(
@@ -409,26 +686,35 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            *capture_store.observed_capture.borrow(),
-            Some((1, audio, transcript))
+            *capture_store.observed_captures.borrow(),
+            vec![(1, audio1, transcript1), (2, audio2, transcript2)]
         );
     }
 
     #[test]
-    /// 通常ログとして録音開始と終了および API の送受信を標準エラーへ順序通りに出力する。
+    /// 通常ログとして録音開始と capture ごとの API 送受信を標準エラーへ順序通りに出力する。
     fn writes_normal_operation_logs_to_stderr() {
-        let config = CliConfig::new(Duration::from_secs(30));
-        let transcript = sample_transcript();
+        let config = CliConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
-            observed_duration: RefCell::new(None),
-            audio: sample_audio(),
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
         };
         let mut transcriber = FakeTranscriber {
-            observed_request: RefCell::new(None),
-            response: transcript,
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
         };
         let mut capture_store = FakeCaptureStore {
-            observed_capture: RefCell::new(None),
+            observed_captures: RefCell::new(Vec::new()),
         };
         let mut stderr = Vec::new();
 
@@ -444,24 +730,66 @@ mod tests {
         let printed_logs = String::from_utf8(stderr).unwrap();
         assert_eq!(
             printed_logs,
-            "recording started\nrecording finished\ntranscription request sent\ntranscription response received\n"
+            "recording started\ntranscription request sent for capture 1\ntranscription response received for capture 1\nrecording finished\ntranscription request sent for capture 2\ntranscription response received for capture 2\n"
         );
     }
 
     #[test]
-    /// debug 無効時は標準出力へ何も書かず、有効時だけ pretty JSON を出力する。
+    /// debug 無効時は標準出力へ何も書かず、有効時だけ pretty JSON を capture ごとに出力する。
     fn writes_debug_transcript_only_when_debug_enabled() {
-        let transcript = sample_transcript();
+        let transcripts = vec![sample_transcript(), sample_transcript()];
         let mut disabled_output = Vec::new();
         let mut enabled_output = Vec::new();
 
-        write_debug_transcript(false, &mut disabled_output, &transcript).unwrap();
-        write_debug_transcript(true, &mut enabled_output, &transcript).unwrap();
+        write_debug_transcript(false, &mut disabled_output, &transcripts).unwrap();
+        write_debug_transcript(true, &mut enabled_output, &transcripts).unwrap();
 
         assert!(disabled_output.is_empty());
         assert_eq!(
             String::from_utf8(enabled_output).unwrap(),
-            serde_json::to_string_pretty(&transcript).unwrap() + "\n"
+            transcripts
+                .iter()
+                .map(|transcript| serde_json::to_string_pretty(transcript).unwrap() + "\n")
+                .collect::<String>()
         );
+    }
+
+    #[test]
+    /// 最終 capture を切り出したら最後の文字起こし前に録音 session を破棄する。
+    fn drops_recording_session_before_transcribing_final_capture() {
+        let config = CliConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
+        };
+        let mut capture_store = FakeCaptureStore {
+            observed_captures: RefCell::new(Vec::new()),
+        };
+        let mut stderr = Vec::new();
+
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(*transcriber.observed_drop_counts.borrow(), vec![0, 1]);
     }
 }

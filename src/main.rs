@@ -27,7 +27,11 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let config = CliConfig::new(runtime_config.recording_duration);
+    let config = CliConfig::new(
+        runtime_config.recording_duration,
+        runtime_config.capture_duration,
+        runtime_config.capture_overlap,
+    );
     let mut recorder = CpalRecorder::new(runtime_config.debug_enabled);
     let mut transcriber =
         match OpenAiTranscriber::new(runtime_config.openai_api_key, runtime_config.debug_enabled) {
@@ -54,9 +58,9 @@ fn main() -> ExitCode {
         &mut capture_store,
         &mut stderr,
     ) {
-        Ok(transcript) => {
+        Ok(transcripts) => {
             if let Err(error) =
-                write_debug_transcript(runtime_config.debug_enabled, &mut stdout, &transcript)
+                write_debug_transcript(runtime_config.debug_enabled, &mut stdout, &transcripts)
             {
                 eprintln!("{error}");
                 return ExitCode::FAILURE;

@@ -23,8 +23,15 @@ fn main() -> ExitCode {
             }
         };
     let mut stdout = io::stdout();
+    let mut stderr = io::stderr();
 
-    match run_cli(&config, &mut recorder, &mut transcriber, &mut stdout) {
+    match run_cli(
+        &config,
+        &mut recorder,
+        &mut transcriber,
+        &mut stdout,
+        &mut stderr,
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("{error}");

@@ -203,20 +203,25 @@ impl fmt::Display for CliError {
 impl std::error::Error for CliError {}
 
 /// CLI PoC のオーケストレーション入口です。
-pub fn run_cli<R, T, W>(
+pub fn run_cli<R, T, W, L>(
     config: &CliConfig,
     recorder: &mut R,
     transcriber: &mut T,
-    output: &mut W,
+    stdout: &mut W,
+    stderr: &mut L,
 ) -> Result<(), CliError>
 where
     R: Recorder,
     T: Transcriber,
     W: Write,
+    L: Write,
 {
+    info_log(stderr, "recording started").map_err(CliError::Write)?;
     let audio = recorder
         .record_wav(config.recording_duration)
         .map_err(CliError::Record)?;
+    info_log(stderr, "recording finished").map_err(CliError::Write)?;
+    info_log(stderr, "transcription request sent").map_err(CliError::Write)?;
     let transcript = transcriber
         .transcribe(TranscriptionRequest {
             audio: &audio,
@@ -225,12 +230,21 @@ where
             chunking_strategy: config.chunking_strategy,
         })
         .map_err(CliError::Transcribe)?;
+    info_log(stderr, "transcription response received").map_err(CliError::Write)?;
 
-    serde_json::to_writer_pretty(&mut *output, &transcript).map_err(CliError::Serialize)?;
-    output.write_all(b"\n").map_err(CliError::Write)?;
+    serde_json::to_writer_pretty(&mut *stdout, &transcript).map_err(CliError::Serialize)?;
+    stdout.write_all(b"\n").map_err(CliError::Write)?;
 
     Ok(())
 }
+
+fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
+where
+    W: Write,
+{
+    writeln!(output, "{message}")
+}
+
 fn debug_log(debug_enabled: bool, message: &str) {
     if debug_enabled {
         eprintln!("[debug] {message}");
@@ -328,8 +342,16 @@ mod tests {
             response: expected_transcript,
         };
         let mut output = Vec::new();
+        let mut stderr = Vec::new();
 
-        run_cli(&config, &mut recorder, &mut transcriber, &mut output).unwrap();
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut output,
+            &mut stderr,
+        )
+        .unwrap();
 
         assert_eq!(
             *recorder.observed_duration.borrow(),
@@ -361,11 +383,51 @@ mod tests {
             response: transcript.clone(),
         };
         let mut output = Vec::new();
+        let mut stderr = Vec::new();
 
-        run_cli(&config, &mut recorder, &mut transcriber, &mut output).unwrap();
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut output,
+            &mut stderr,
+        )
+        .unwrap();
 
         let printed = String::from_utf8(output).unwrap();
         let expected = serde_json::to_string_pretty(&transcript).unwrap() + "\n";
         assert_eq!(printed, expected);
+    }
+
+    #[test]
+    /// 通常ログとして録音開始と終了および API の送受信を標準エラーへ順序通りに出力する。
+    fn writes_normal_operation_logs_to_stderr() {
+        let config = CliConfig::default();
+        let transcript = sample_transcript();
+        let mut recorder = FakeRecorder {
+            observed_duration: RefCell::new(None),
+            audio: sample_audio(),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_request: RefCell::new(None),
+            response: transcript,
+        };
+        let mut output = Vec::new();
+        let mut stderr = Vec::new();
+
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut output,
+            &mut stderr,
+        )
+        .unwrap();
+
+        let printed_logs = String::from_utf8(stderr).unwrap();
+        assert_eq!(
+            printed_logs,
+            "recording started\nrecording finished\ntranscription request sent\ntranscription response received\n"
+        );
     }
 }

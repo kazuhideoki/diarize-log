@@ -1,12 +1,6 @@
+use crate::domain::RecordedAudio;
 use std::fmt;
 use std::time::Duration;
-
-/// 録音した WAV 音声です。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RecordedAudio {
-    pub wav_bytes: Vec<u8>,
-    pub content_type: &'static str,
-}
 
 /// 録音処理を抽象化します。
 pub trait Recorder {

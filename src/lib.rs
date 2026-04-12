@@ -2,6 +2,7 @@ pub mod adapters;
 pub mod application;
 pub mod cli;
 pub mod config;
+pub mod domain;
 pub mod ports;
 
 pub use application::{
@@ -10,11 +11,14 @@ pub use application::{
     write_debug_transcript,
 };
 pub use cli::{CliAction, CliArgumentError, parse_cli_args};
+pub use domain::{
+    CapturePolicy, CaptureRange, DiarizedTranscript, KnownSpeakerSample, RecordedAudio,
+    TranscriptSegment,
+};
 pub use ports::{
-    AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy,
-    DiarizedTranscript, KnownSpeakerSample, RecordedAudio, Recorder, RecorderError,
-    RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
-    TranscriberError, TranscriptSegment, TranscriptionRequest,
+    AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
+    RecorderError, RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
+    TranscriberError, TranscriptionRequest,
 };
 
 pub(crate) fn debug_log(debug_enabled: bool, message: &str) {

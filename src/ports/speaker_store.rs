@@ -1,4 +1,4 @@
-use crate::ports::{KnownSpeakerSample, RecordedAudio};
+use crate::domain::{KnownSpeakerSample, RecordedAudio};
 use std::fmt;
 
 /// 話者サンプル音声の保存先を抽象化します。

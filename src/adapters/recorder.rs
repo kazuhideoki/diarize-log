@@ -1,5 +1,6 @@
 use crate::debug_log;
-use crate::ports::{RecordedAudio, Recorder, RecorderError, RecordingSession};
+use crate::domain::RecordedAudio;
+use crate::ports::{Recorder, RecorderError, RecordingSession};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 use std::io::Cursor;
@@ -332,7 +333,7 @@ fn frames_to_millis(frame_count: u64, sample_rate: u32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{encode_wav, normalize_pcm_format};
-    use crate::ports::RecordedAudio;
+    use crate::domain::RecordedAudio;
     use std::io::Cursor;
 
     #[test]

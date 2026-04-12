@@ -1,7 +1,6 @@
 use crate::debug_log;
-use crate::ports::{
-    DiarizedTranscript, Transcriber, TranscriberError, TranscriptSegment, TranscriptionRequest,
-};
+use crate::domain::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
+use crate::ports::{Transcriber, TranscriberError, TranscriptionRequest};
 use base64::Engine;
 use reqwest::blocking::{Client, multipart};
 use serde::Deserialize;
@@ -155,7 +154,7 @@ fn seconds_to_millis(seconds: f64) -> u64 {
     (seconds * 1_000.0).round() as u64
 }
 
-fn audio_data_url(audio: &crate::ports::RecordedAudio) -> String {
+fn audio_data_url(audio: &RecordedAudio) -> String {
     format!(
         "data:{};base64,{}",
         audio.content_type,
@@ -166,7 +165,7 @@ fn audio_data_url(audio: &crate::ports::RecordedAudio) -> String {
 #[cfg(test)]
 mod tests {
     use super::{ApiDiarizedTranscript, ApiTranscriptSegment};
-    use crate::ports::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
+    use crate::domain::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
     /// API の秒単位セグメントをミリ秒単位の出力モデルへ変換する。

@@ -1,7 +1,7 @@
+use crate::domain::{CapturePolicy, DiarizedTranscript, KnownSpeakerSample};
 use crate::ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, KnownSpeakerSample,
-    Recorder, RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
-    TranscriptionRequest,
+    CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder, RecorderError, RecordingSession,
+    ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
 };
 use std::fmt;
 use std::io::Write;
@@ -12,9 +12,7 @@ pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 /// 連続録音から capture を切り出して文字起こしするユースケースの設定です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureConfig {
-    pub recording_duration: Duration,
-    pub capture_duration: Duration,
-    pub capture_overlap: Duration,
+    pub capture_policy: CapturePolicy,
     pub response_format: ResponseFormat,
     pub transcription_model: &'static str,
     pub chunking_strategy: ChunkingStrategy,
@@ -27,9 +25,11 @@ impl CaptureConfig {
         capture_overlap: Duration,
     ) -> Self {
         Self {
-            recording_duration,
-            capture_duration,
-            capture_overlap,
+            capture_policy: CapturePolicy {
+                recording_duration,
+                capture_duration,
+                capture_overlap,
+            },
             response_format: ResponseFormat::DiarizedJson,
             transcription_model: TRANSCRIPTION_MODEL,
             chunking_strategy: ChunkingStrategy::Auto,
@@ -75,15 +75,12 @@ where
 {
     info_log(stderr, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
-    let capture_ranges = build_capture_ranges(
-        config.recording_duration,
-        config.capture_duration,
-        config.capture_overlap,
-    );
+    let capture_ranges = config.capture_policy.capture_ranges();
     let mut transcripts = Vec::with_capacity(capture_ranges.len());
 
     for capture_range in capture_ranges {
-        let is_last_capture = capture_range.end_offset() == config.recording_duration;
+        let is_last_capture =
+            capture_range.end_offset() == config.capture_policy.recording_duration;
         session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
@@ -151,50 +148,6 @@ fn duration_to_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).expect("capture duration in millis must fit into u64")
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CaptureRange {
-    capture_index: u64,
-    start_offset: Duration,
-    duration: Duration,
-}
-
-impl CaptureRange {
-    fn end_offset(&self) -> Duration {
-        self.start_offset + self.duration
-    }
-}
-
-fn build_capture_ranges(
-    recording_duration: Duration,
-    capture_duration: Duration,
-    capture_overlap: Duration,
-) -> Vec<CaptureRange> {
-    let stride = capture_duration
-        .checked_sub(capture_overlap)
-        .expect("capture overlap must be smaller than capture duration");
-    let mut capture_ranges = Vec::new();
-    let mut capture_index = 1_u64;
-    let mut start_offset = Duration::ZERO;
-
-    while start_offset < recording_duration {
-        let duration = (recording_duration - start_offset).min(capture_duration);
-        capture_ranges.push(CaptureRange {
-            capture_index,
-            start_offset,
-            duration,
-        });
-
-        if duration < capture_duration {
-            break;
-        }
-
-        start_offset += stride;
-        capture_index += 1;
-    }
-
-    capture_ranges
-}
-
 #[derive(Debug)]
 pub enum DebugOutputError {
     Serialize(serde_json::Error),
@@ -239,7 +192,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::{RecordedAudio, RecordingSession, TranscriptSegment};
+    use crate::domain::{RecordedAudio, TranscriptSegment};
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -412,37 +365,6 @@ mod tests {
                 },
             ],
         }
-    }
-
-    #[test]
-    /// overlap を保ちながら capture 範囲を最後の端数まで計画する。
-    fn builds_overlapping_capture_ranges_until_recording_ends() {
-        let ranges = build_capture_ranges(
-            Duration::from_secs(360),
-            Duration::from_secs(180),
-            Duration::from_secs(15),
-        );
-
-        assert_eq!(
-            ranges,
-            vec![
-                CaptureRange {
-                    capture_index: 1,
-                    start_offset: Duration::from_secs(0),
-                    duration: Duration::from_secs(180),
-                },
-                CaptureRange {
-                    capture_index: 2,
-                    start_offset: Duration::from_secs(165),
-                    duration: Duration::from_secs(180),
-                },
-                CaptureRange {
-                    capture_index: 3,
-                    start_offset: Duration::from_secs(330),
-                    duration: Duration::from_secs(30),
-                },
-            ]
-        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::ports::{DiarizedTranscript, RecordedAudio};
+use crate::domain::{DiarizedTranscript, RecordedAudio};
 use std::fmt;
 
 /// 文字起こし結果の保存先を抽象化します。

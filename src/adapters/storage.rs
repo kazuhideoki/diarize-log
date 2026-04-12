@@ -1,7 +1,5 @@
-use crate::ports::{
-    CaptureStore, CaptureStoreError, DiarizedTranscript, KnownSpeakerSample, RecordedAudio,
-    SpeakerStore, SpeakerStoreError,
-};
+use crate::domain::{DiarizedTranscript, KnownSpeakerSample, RecordedAudio};
+use crate::ports::{CaptureStore, CaptureStoreError, SpeakerStore, SpeakerStoreError};
 use serde::Serialize;
 use std::fs::{File, create_dir_all, remove_file};
 use std::io::Write;
@@ -255,10 +253,8 @@ fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
 #[cfg(test)]
 mod tests {
     use super::{FileSystemCaptureStore, FileSystemSpeakerStore};
-    use crate::ports::{
-        CaptureStore, DiarizedTranscript, KnownSpeakerSample, RecordedAudio, SpeakerStore,
-        SpeakerStoreError, TranscriptSegment,
-    };
+    use crate::domain::{DiarizedTranscript, KnownSpeakerSample, RecordedAudio, TranscriptSegment};
+    use crate::ports::{CaptureStore, SpeakerStore, SpeakerStoreError};
 
     #[test]
     /// セッション配下に audios と captures ディレクトリおよび空の merged.jsonl を作成して開始時刻付き transcript を書き出す。

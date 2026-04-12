@@ -1,7 +1,7 @@
 //! レイヤー間の依存方向を検査する簡易アーキテクチャテストです。
 //!
-//! このテストは `src/ports/**/*.rs` と `src/application/**/*.rs` を走査し、
-//! それぞれが禁止された上位レイヤーへ直接依存していないことを確認します。
+//! このテストは `src/domain/**/*.rs`、`src/ports/**/*.rs`、`src/application/**/*.rs`
+//! を走査し、それぞれが禁止された外側レイヤーへ直接依存していないことを確認します。
 //! 該当パターンを含む行が見つかった場合は、ファイルパスと行番号を添えて失敗します。
 
 use std::fmt;
@@ -9,14 +9,21 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+const DOMAIN_DIRECTORY: &str = "src/domain";
 const PORTS_DIRECTORY: &str = "src/ports";
 const APPLICATION_DIRECTORY: &str = "src/application";
+const DOMAIN_FORBIDDEN_MODULES: [&str; 5] = ["adapters", "application", "cli", "config", "ports"];
 const PORTS_FORBIDDEN_MODULES: [&str; 4] = ["adapters", "application", "cli", "config"];
 const APPLICATION_FORBIDDEN_MODULES: [&str; 3] = ["adapters", "cli", "config"];
 const CRATE_PATH_PREFIX: &str = "crate::";
 const PARENT_PATH_PREFIX: &str = "super::super::";
 
-const LAYER_RULES: [LayerDependencyRule<'_>; 2] = [
+const LAYER_RULES: [LayerDependencyRule<'_>; 3] = [
+    LayerDependencyRule {
+        layer_name: "domain",
+        directory: DOMAIN_DIRECTORY,
+        forbidden_modules: &DOMAIN_FORBIDDEN_MODULES,
+    },
     LayerDependencyRule {
         layer_name: "ports",
         directory: PORTS_DIRECTORY,
@@ -29,16 +36,22 @@ const LAYER_RULES: [LayerDependencyRule<'_>; 2] = [
     },
 ];
 
-/// `ports` 配下のコードが上位レイヤーに依存していないことを保証する。
+/// `domain` 配下のコードが外側レイヤーに依存していないことを保証する。
 #[test]
-fn ports_layer_depends_only_on_ports_layer() {
+fn domain_layer_depends_only_on_domain_layer() {
     assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[0]).unwrap();
 }
 
-/// `application` 配下のコードが `ports` 以外の外側レイヤーへ依存していないことを保証する。
+/// `ports` 配下のコードが上位レイヤーに依存していないことを保証する。
 #[test]
-fn application_layer_depends_only_on_ports_layer() {
+fn ports_layer_depends_only_on_ports_layer() {
     assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[1]).unwrap();
+}
+
+/// `application` 配下のコードが `domain` と `ports` 以外の外側レイヤーへ依存していないことを保証する。
+#[test]
+fn application_layer_depends_only_on_domain_and_ports_layers() {
+    assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[2]).unwrap();
 }
 
 fn assert_layer_has_no_forbidden_dependencies(
@@ -325,7 +338,7 @@ mod tests {
     /// `ports` 層の自己参照は違反として扱わない。
     fn ignores_allowed_ports_self_reference() {
         assert!(!contains_forbidden_dependency(
-            "use crate::ports::RecordedAudio;",
+            "use crate::ports::Recorder;",
             &PORTS_FORBIDDEN_MODULES,
         ));
     }

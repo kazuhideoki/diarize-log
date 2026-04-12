@@ -1,4 +1,4 @@
-use crate::ports::RecordedAudio;
+use crate::domain::RecordedAudio;
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;

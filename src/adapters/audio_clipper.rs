@@ -1,4 +1,5 @@
-use crate::ports::{AudioClipper, AudioClipperError, RecordedAudio};
+use crate::domain::RecordedAudio;
+use crate::ports::{AudioClipper, AudioClipperError};
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use std::io::Cursor;
 use std::path::Path;

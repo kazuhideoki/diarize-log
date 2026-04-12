@@ -83,7 +83,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::{KnownSpeakerSample, RecordedAudio};
+    use crate::domain::{KnownSpeakerSample, RecordedAudio};
     use std::cell::RefCell;
 
     struct FakeAudioClipper {

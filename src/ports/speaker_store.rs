@@ -10,6 +10,8 @@ pub trait SpeakerStore {
     ) -> Result<(), SpeakerStoreError>;
 
     fn remove_sample(&mut self, speaker_name: &str) -> Result<(), SpeakerStoreError>;
+
+    fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,6 +22,7 @@ pub enum SpeakerStoreError {
     SpeakerNotFound { speaker_name: String },
     WriteSample(String),
     DeleteSample(String),
+    ListSamples(String),
 }
 
 impl fmt::Display for SpeakerStoreError {
@@ -39,6 +42,7 @@ impl fmt::Display for SpeakerStoreError {
             }
             Self::WriteSample(source) => write!(f, "failed to write speaker sample: {source}"),
             Self::DeleteSample(source) => write!(f, "failed to delete speaker sample: {source}"),
+            Self::ListSamples(source) => write!(f, "failed to list speaker samples: {source}"),
         }
     }
 }

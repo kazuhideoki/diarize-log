@@ -1,3 +1,4 @@
+use crate::domain::TranscriptMergePolicy;
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -12,9 +13,12 @@ const CAPTURE_OVERLAP_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_OVERLAP_SECON
 const SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 const STORAGE_ROOT_ENV_VAR: &str = "DIARIZE_LOG_STORAGE_ROOT";
+const MERGE_MIN_OVERLAP_CHARS_ENV_VAR: &str = "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS";
+const MERGE_ALIGNMENT_RATIO_ENV_VAR: &str = "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO";
+const MERGE_TRIGRAM_SIMILARITY_ENV_VAR: &str = "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY";
 
 /// 実行時設定の読み込み結果です。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub openai_api_key: String,
     pub openai_api_key_source: ConfigSource,
@@ -22,6 +26,7 @@ pub struct Config {
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
     pub speaker_sample_duration: Duration,
+    pub transcript_merge_policy: TranscriptMergePolicy,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
 }
@@ -78,6 +83,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidUnitIntervalValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     InvalidCaptureOverlap {
         overlap_name: &'static str,
         capture_duration_name: &'static str,
@@ -128,6 +138,14 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "invalid positive integer value for {name} from {source}: {value}"
             ),
+            Self::InvalidUnitIntervalValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid unit interval value for {name} from {source}: {value}"
+            ),
             Self::InvalidCaptureOverlap {
                 overlap_name,
                 capture_duration_name,
@@ -171,6 +189,9 @@ struct RawConfig {
     capture_duration_seconds: Option<ConfigValue<String>>,
     capture_overlap_seconds: Option<ConfigValue<String>>,
     speaker_sample_duration_seconds: Option<ConfigValue<String>>,
+    merge_min_overlap_chars: Option<ConfigValue<String>>,
+    merge_alignment_ratio: Option<ConfigValue<String>>,
+    merge_trigram_similarity: Option<ConfigValue<String>>,
     debug_enabled: Option<ConfigValue<String>>,
     storage_root: Option<ConfigValue<String>>,
 }
@@ -193,6 +214,18 @@ impl RawConfig {
             ),
             speaker_sample_duration_seconds: read_env_var(
                 SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            merge_min_overlap_chars: read_env_var(
+                MERGE_MIN_OVERLAP_CHARS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            merge_alignment_ratio: read_env_var(
+                MERGE_ALIGNMENT_RATIO_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            merge_trigram_similarity: read_env_var(
+                MERGE_TRIGRAM_SIMILARITY_ENV_VAR,
                 ConfigSource::Environment,
             ),
             debug_enabled: read_env_var(DEBUG_ENV_VAR, ConfigSource::Environment),
@@ -227,6 +260,18 @@ impl RawConfig {
                             raw.speaker_sample_duration_seconds =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
+                        MERGE_MIN_OVERLAP_CHARS_ENV_VAR => {
+                            raw.merge_min_overlap_chars =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        MERGE_ALIGNMENT_RATIO_ENV_VAR => {
+                            raw.merge_alignment_ratio =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        MERGE_TRIGRAM_SIMILARITY_ENV_VAR => {
+                            raw.merge_trigram_similarity =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
                         DEBUG_ENV_VAR => {
                             raw.debug_enabled = Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
@@ -259,6 +304,15 @@ impl RawConfig {
             speaker_sample_duration_seconds: self
                 .speaker_sample_duration_seconds
                 .or(fallback.speaker_sample_duration_seconds),
+            merge_min_overlap_chars: self
+                .merge_min_overlap_chars
+                .or(fallback.merge_min_overlap_chars),
+            merge_alignment_ratio: self
+                .merge_alignment_ratio
+                .or(fallback.merge_alignment_ratio),
+            merge_trigram_similarity: self
+                .merge_trigram_similarity
+                .or(fallback.merge_trigram_similarity),
             debug_enabled: self.debug_enabled.or(fallback.debug_enabled),
             storage_root: self.storage_root.or(fallback.storage_root),
         }
@@ -386,6 +440,40 @@ impl RawConfig {
             }
         };
 
+        let default_merge_policy = TranscriptMergePolicy::recommended();
+        let merge_min_overlap_chars = match self.merge_min_overlap_chars {
+            Some(value) => match parse_positive_integer(value, MERGE_MIN_OVERLAP_CHARS_ENV_VAR) {
+                Ok(chars) => Some(
+                    usize::try_from(chars).expect("merge min overlap chars must fit into usize"),
+                ),
+                Err(error) => {
+                    errors.push(error);
+                    None
+                }
+            },
+            None => Some(default_merge_policy.min_overlap_chars),
+        };
+        let merge_alignment_ratio = match self.merge_alignment_ratio {
+            Some(value) => match parse_unit_interval(value, MERGE_ALIGNMENT_RATIO_ENV_VAR) {
+                Ok(ratio) => Some(ratio),
+                Err(error) => {
+                    errors.push(error);
+                    None
+                }
+            },
+            None => Some(default_merge_policy.min_alignment_ratio),
+        };
+        let merge_trigram_similarity = match self.merge_trigram_similarity {
+            Some(value) => match parse_unit_interval(value, MERGE_TRIGRAM_SIMILARITY_ENV_VAR) {
+                Ok(ratio) => Some(ratio),
+                Err(error) => {
+                    errors.push(error);
+                    None
+                }
+            },
+            None => Some(default_merge_policy.min_trigram_similarity),
+        };
+
         let capture_duration = capture_duration.and_then(|(seconds, _source)| {
             if let Some((overlap_seconds, overlap_source)) = capture_overlap
                 && overlap_seconds >= seconds
@@ -430,6 +518,18 @@ impl RawConfig {
             Some(value) => value,
             None => unreachable!("validated missing speaker sample duration"),
         };
+        let merge_min_overlap_chars = match merge_min_overlap_chars {
+            Some(value) => value,
+            None => unreachable!("validated missing merge min overlap chars"),
+        };
+        let merge_alignment_ratio = match merge_alignment_ratio {
+            Some(value) => value,
+            None => unreachable!("validated missing merge alignment ratio"),
+        };
+        let merge_trigram_similarity = match merge_trigram_similarity {
+            Some(value) => value,
+            None => unreachable!("validated missing merge trigram similarity"),
+        };
         let storage_root = match storage_root {
             Some(value) => value,
             None => unreachable!("validated missing storage root"),
@@ -442,6 +542,11 @@ impl RawConfig {
             capture_duration,
             capture_overlap,
             speaker_sample_duration,
+            transcript_merge_policy: TranscriptMergePolicy {
+                min_overlap_chars: merge_min_overlap_chars,
+                min_alignment_ratio: merge_alignment_ratio,
+                min_trigram_similarity: merge_trigram_similarity,
+            },
             debug_enabled,
             storage_root,
         })
@@ -497,6 +602,27 @@ fn parse_positive_integer(
     }
 }
 
+fn parse_unit_interval(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<f64, ConfigValidationError> {
+    if value.value.trim().is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match value.value.parse::<f64>() {
+        Ok(parsed) if (0.0..=1.0).contains(&parsed) => Ok(parsed),
+        _ => Err(ConfigValidationError::InvalidUnitIntervalValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
+    }
+}
+
 fn parse_absolute_path(
     value: ConfigValue<String>,
     name: &'static str,
@@ -539,7 +665,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=18\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=3\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=18\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=3\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS=14\nDIARIZE_LOG_MERGE_ALIGNMENT_RATIO=0.9\nDIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY=0.7\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -551,6 +677,11 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::set_var("OPENAI_API_KEY", "from-env");
@@ -558,6 +689,9 @@ mod tests {
             std::env::set_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS", "20");
             std::env::set_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS", "5");
             std::env::set_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS", "8");
+            std::env::set_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS", "11");
+            std::env::set_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO", "0.85");
+            std::env::set_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY", "0.6");
             std::env::set_var("DIARIZE_LOG_STORAGE_ROOT", storage_root.as_os_str());
         }
 
@@ -577,6 +711,18 @@ mod tests {
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
         );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
+        );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
@@ -584,6 +730,9 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(20));
         assert_eq!(config.capture_overlap, Duration::from_secs(5));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(8));
+        assert_eq!(config.transcript_merge_policy.min_overlap_chars, 11);
+        assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.85);
+        assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.6);
         assert!(!config.debug_enabled);
         assert_eq!(config.storage_root, storage_root);
     }
@@ -600,7 +749,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS=12\nDIARIZE_LOG_MERGE_ALIGNMENT_RATIO=0.88\nDIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY=0.66\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -612,6 +761,11 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
@@ -619,6 +773,9 @@ mod tests {
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -638,6 +795,18 @@ mod tests {
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
         );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
+        );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-dotenv");
         assert_eq!(config.openai_api_key_source, ConfigSource::DotEnv);
@@ -645,6 +814,9 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(12));
         assert_eq!(config.capture_overlap, Duration::from_secs(2));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(6));
+        assert_eq!(config.transcript_merge_policy.min_overlap_chars, 12);
+        assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.88);
+        assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.66);
         assert_eq!(config.storage_root, storage_root);
     }
 
@@ -662,6 +834,11 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
@@ -669,6 +846,9 @@ mod tests {
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -687,6 +867,18 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -737,12 +929,20 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -760,6 +960,18 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -793,12 +1005,20 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -816,6 +1036,18 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -886,6 +1118,11 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
@@ -893,6 +1130,9 @@ mod tests {
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
             std::env::remove_var("DIARIZE_LOG_DEBUG");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
@@ -911,6 +1151,18 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             original_sample_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
         );
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);

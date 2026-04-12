@@ -1,7 +1,9 @@
 use crate::application::ports::{CaptureStore, CaptureStoreError, SpeakerStore, SpeakerStoreError};
-use crate::domain::{DiarizedTranscript, KnownSpeakerSample, RecordedAudio};
+use crate::domain::{
+    DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
+};
 use serde::Serialize;
-use std::fs::{File, create_dir_all, remove_file};
+use std::fs::{File, OpenOptions, create_dir_all, remove_file};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use time::macros::format_description;
@@ -133,6 +135,28 @@ impl CaptureStore for FileSystemCaptureStore {
 
         Ok(())
     }
+
+    fn persist_merged_segments(
+        &mut self,
+        segments: &[MergedTranscriptSegment],
+    ) -> Result<(), CaptureStoreError> {
+        self.ensure_session_dirs()?;
+
+        let mut merged_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.paths.merged_path)
+            .map_err(|error| CaptureStoreError::OpenMerged(error.to_string()))?;
+        for segment in segments {
+            serde_json::to_writer(&mut merged_file, segment)
+                .map_err(|error| CaptureStoreError::SerializeMerged(error.to_string()))?;
+            merged_file
+                .write_all(b"\n")
+                .map_err(|error| CaptureStoreError::WriteMerged(error.to_string()))?;
+        }
+
+        Ok(())
+    }
 }
 
 impl SpeakerStore for FileSystemSpeakerStore {
@@ -254,7 +278,10 @@ fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
 mod tests {
     use super::{FileSystemCaptureStore, FileSystemSpeakerStore};
     use crate::application::ports::{CaptureStore, SpeakerStore, SpeakerStoreError};
-    use crate::domain::{DiarizedTranscript, KnownSpeakerSample, RecordedAudio, TranscriptSegment};
+    use crate::domain::{
+        DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
+        TranscriptSegment,
+    };
 
     #[test]
     /// セッション配下に audios と captures ディレクトリおよび空の merged.jsonl を作成して開始時刻付き transcript を書き出す。
@@ -327,6 +354,45 @@ mod tests {
 
         assert!(session_dir.join("audios/capture-000012.wav").exists());
         assert!(session_dir.join("captures/capture-000012.json").exists());
+    }
+
+    #[test]
+    /// merged segment は absolute 時刻つき JSONL として追記する。
+    fn appends_merged_segments_to_jsonl() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
+
+        store
+            .persist_merged_segments(&[
+                MergedTranscriptSegment {
+                    speaker: "spk_0".to_string(),
+                    start_ms: 1_000,
+                    end_ms: 2_300,
+                    text: "こんにちは".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_1".to_string(),
+                    start_ms: 2_500,
+                    end_ms: 4_000,
+                    text: "よろしくお願いします".to_string(),
+                },
+            ])
+            .unwrap();
+
+        let session_dir = std::fs::read_dir(temp_dir.path())
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+
+        assert_eq!(
+            std::fs::read_to_string(session_dir.join("merged.jsonl")).unwrap(),
+            concat!(
+                "{\"speaker\":\"spk_0\",\"start_ms\":1000,\"end_ms\":2300,\"text\":\"こんにちは\"}\n",
+                "{\"speaker\":\"spk_1\",\"start_ms\":2500,\"end_ms\":4000,\"text\":\"よろしくお願いします\"}\n"
+            )
+        );
     }
 
     #[test]

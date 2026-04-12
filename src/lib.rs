@@ -13,7 +13,8 @@ pub use application::{
 };
 pub use cli::{CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{
-    CapturePolicy, CaptureRange, DiarizedTranscript, KnownSpeakerSample, RecordedAudio,
+    CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
+    KnownSpeakerSample, MergeBatch, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
     TranscriptSegment,
 };
 

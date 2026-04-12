@@ -40,6 +40,10 @@ fn main() -> ExitCode {
                 runtime_config.capture_duration,
                 runtime_config.capture_overlap,
             );
+            let config = CaptureConfig {
+                merge_policy: runtime_config.transcript_merge_policy.clone(),
+                ..config
+            };
             let mut recorder = CpalRecorder::new(runtime_config.debug_enabled);
             let mut transcriber = match OpenAiTranscriber::new(
                 runtime_config.openai_api_key,

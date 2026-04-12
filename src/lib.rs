@@ -1,5 +1,6 @@
 pub mod adapters;
 pub mod config;
+pub mod storage;
 
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -185,7 +186,6 @@ impl std::error::Error for TranscriberError {}
 pub enum CliError {
     Record(RecorderError),
     Transcribe(TranscriberError),
-    Serialize(serde_json::Error),
     Write(std::io::Error),
 }
 
@@ -194,8 +194,7 @@ impl fmt::Display for CliError {
         match self {
             Self::Record(error) => write!(f, "recording failed: {error}"),
             Self::Transcribe(error) => write!(f, "transcription failed: {error}"),
-            Self::Serialize(error) => write!(f, "output serialization failed: {error}"),
-            Self::Write(error) => write!(f, "stdout write failed: {error}"),
+            Self::Write(error) => write!(f, "stderr write failed: {error}"),
         }
     }
 }
@@ -203,17 +202,15 @@ impl fmt::Display for CliError {
 impl std::error::Error for CliError {}
 
 /// CLI PoC のオーケストレーション入口です。
-pub fn run_cli<R, T, W, L>(
+pub fn run_cli<R, T, L>(
     config: &CliConfig,
     recorder: &mut R,
     transcriber: &mut T,
-    stdout: &mut W,
     stderr: &mut L,
-) -> Result<(), CliError>
+) -> Result<DiarizedTranscript, CliError>
 where
     R: Recorder,
     T: Transcriber,
-    W: Write,
     L: Write,
 {
     info_log(stderr, "recording started").map_err(CliError::Write)?;
@@ -232,10 +229,7 @@ where
         .map_err(CliError::Transcribe)?;
     info_log(stderr, "transcription response received").map_err(CliError::Write)?;
 
-    serde_json::to_writer_pretty(&mut *stdout, &transcript).map_err(CliError::Serialize)?;
-    stdout.write_all(b"\n").map_err(CliError::Write)?;
-
-    Ok(())
+    Ok(transcript)
 }
 
 fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
@@ -341,17 +335,9 @@ mod tests {
             observed_request,
             response: expected_transcript,
         };
-        let mut output = Vec::new();
         let mut stderr = Vec::new();
 
-        run_cli(
-            &config,
-            &mut recorder,
-            &mut transcriber,
-            &mut output,
-            &mut stderr,
-        )
-        .unwrap();
+        run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
 
         assert_eq!(
             *recorder.observed_duration.borrow(),
@@ -370,8 +356,8 @@ mod tests {
     }
 
     #[test]
-    /// 文字起こし結果を pretty JSON で標準出力に書き出す。
-    fn writes_transcription_result_to_stdout_as_pretty_json() {
+    /// 文字起こし結果を呼び出し元へ返す。
+    fn returns_transcription_result_to_caller() {
         let config = CliConfig::default();
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
@@ -382,21 +368,11 @@ mod tests {
             observed_request: RefCell::new(None),
             response: transcript.clone(),
         };
-        let mut output = Vec::new();
         let mut stderr = Vec::new();
 
-        run_cli(
-            &config,
-            &mut recorder,
-            &mut transcriber,
-            &mut output,
-            &mut stderr,
-        )
-        .unwrap();
+        let returned = run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
 
-        let printed = String::from_utf8(output).unwrap();
-        let expected = serde_json::to_string_pretty(&transcript).unwrap() + "\n";
-        assert_eq!(printed, expected);
+        assert_eq!(returned, transcript);
     }
 
     #[test]
@@ -412,17 +388,9 @@ mod tests {
             observed_request: RefCell::new(None),
             response: transcript,
         };
-        let mut output = Vec::new();
         let mut stderr = Vec::new();
 
-        run_cli(
-            &config,
-            &mut recorder,
-            &mut transcriber,
-            &mut output,
-            &mut stderr,
-        )
-        .unwrap();
+        run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
 
         let printed_logs = String::from_utf8(stderr).unwrap();
         assert_eq!(

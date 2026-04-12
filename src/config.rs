@@ -1,11 +1,12 @@
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// 既定の `.env` ファイルパスです。
 pub const DEFAULT_DOTENV_PATH: &str = ".env";
 const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
+const STORAGE_ROOT_ENV_VAR: &str = "DIARIZE_LOG_STORAGE_ROOT";
 
 /// 実行時設定の読み込み結果です。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,6 +14,7 @@ pub struct Config {
     pub openai_api_key: String,
     pub openai_api_key_source: ConfigSource,
     pub debug_enabled: bool,
+    pub storage_root: PathBuf,
 }
 
 impl Config {
@@ -62,6 +64,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    RelativePathValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
 }
 
 impl fmt::Display for ConfigError {
@@ -94,6 +101,14 @@ impl fmt::Display for ConfigValidationError {
                 value,
                 source,
             } => write!(f, "invalid boolean value for {name} from {source}: {value}"),
+            Self::RelativePathValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "relative path is not allowed for {name} from {source}: {value}"
+            ),
         }
     }
 }
@@ -116,6 +131,7 @@ impl<T> ConfigValue<T> {
 struct RawConfig {
     openai_api_key: Option<ConfigValue<String>>,
     debug_enabled: Option<ConfigValue<String>>,
+    storage_root: Option<ConfigValue<String>>,
 }
 
 impl RawConfig {
@@ -123,6 +139,7 @@ impl RawConfig {
         Self {
             openai_api_key: read_env_var(OPENAI_API_KEY_ENV_VAR, ConfigSource::Environment),
             debug_enabled: read_env_var(DEBUG_ENV_VAR, ConfigSource::Environment),
+            storage_root: read_env_var(STORAGE_ROOT_ENV_VAR, ConfigSource::Environment),
         }
     }
 
@@ -140,6 +157,9 @@ impl RawConfig {
                         DEBUG_ENV_VAR => {
                             raw.debug_enabled = Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
+                        STORAGE_ROOT_ENV_VAR => {
+                            raw.storage_root = Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
                         _ => {}
                     }
                 }
@@ -155,6 +175,7 @@ impl RawConfig {
         Self {
             openai_api_key: self.openai_api_key.or(fallback.openai_api_key),
             debug_enabled: self.debug_enabled.or(fallback.debug_enabled),
+            storage_root: self.storage_root.or(fallback.storage_root),
         }
     }
 
@@ -190,6 +211,22 @@ impl RawConfig {
             None => false,
         };
 
+        let storage_root = match self.storage_root {
+            Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
+                Ok(path) => path,
+                Err(error) => {
+                    errors.push(error);
+                    PathBuf::new()
+                }
+            },
+            None => {
+                errors.push(ConfigValidationError::MissingRequiredValue {
+                    name: STORAGE_ROOT_ENV_VAR,
+                });
+                PathBuf::new()
+            }
+        };
+
         if !errors.is_empty() {
             return Err(ConfigError::InvalidConfig(errors));
         }
@@ -198,6 +235,7 @@ impl RawConfig {
             openai_api_key: openai_api_key.value,
             openai_api_key_source: openai_api_key.source,
             debug_enabled,
+            storage_root,
         })
     }
 }
@@ -230,9 +268,33 @@ fn parse_bool(
     }
 }
 
+fn parse_absolute_path(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<PathBuf, ConfigValidationError> {
+    if value.value.trim().is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    let path = PathBuf::from(&value.value);
+    if !path.is_absolute() {
+        return Err(ConfigValidationError::RelativePathValue {
+            name,
+            value: value.value,
+            source: value.source,
+        });
+    }
+
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
+    use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
 
     #[test]
@@ -243,7 +305,14 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
+        )
+        .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
         unsafe {
@@ -256,6 +325,7 @@ mod tests {
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
         assert!(!config.debug_enabled);
+        assert_eq!(config.storage_root, expected_default_storage_root());
     }
 
     #[test]
@@ -266,7 +336,14 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OTHER_KEY=value\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OTHER_KEY=value\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
+        )
+        .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
         unsafe {
@@ -278,6 +355,7 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
+        assert_eq!(config.storage_root, expected_default_storage_root());
     }
 
     #[test]
@@ -299,9 +377,14 @@ mod tests {
         assert!(matches!(
             result,
             Err(ConfigError::InvalidConfig(errors))
-            if errors == vec![ConfigValidationError::MissingRequiredValue {
-                name: "OPENAI_API_KEY"
-            }]
+            if errors == vec![
+                ConfigValidationError::MissingRequiredValue {
+                    name: "OPENAI_API_KEY"
+                },
+                ConfigValidationError::MissingRequiredValue {
+                    name: "DIARIZE_LOG_STORAGE_ROOT"
+                },
+            ]
         ));
     }
 
@@ -315,7 +398,10 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=true\n",
+            &format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=true\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -327,6 +413,7 @@ mod tests {
 
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
         assert!(config.debug_enabled);
+        assert_eq!(config.storage_root, expected_default_storage_root());
     }
 
     #[test]
@@ -339,7 +426,10 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\n",
+            &format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -363,7 +453,10 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=maybe\n",
+            &format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=maybe\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -386,6 +479,93 @@ mod tests {
     }
 
     #[test]
+    /// DIARIZE_LOG_STORAGE_ROOT は .env より環境変数の絶対パスを優先する。
+    fn prefers_environment_variable_for_storage_root_over_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let dotenv_storage_root = temp_dir.path().join("dotenv-storage");
+        let env_storage_root = temp_dir.path().join("env-storage");
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                dotenv_storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
+        unsafe {
+            std::env::set_var("DIARIZE_LOG_STORAGE_ROOT", env_storage_root.as_os_str());
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
+        assert_eq!(config.storage_root, env_storage_root);
+    }
+
+    #[test]
+    /// 保存先が未指定なら設定エラーにする。
+    fn returns_error_when_storage_root_is_missing_everywhere() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::MissingRequiredValue {
+                name: "DIARIZE_LOG_STORAGE_ROOT"
+            }]
+        ));
+    }
+
+    #[test]
+    /// 保存先に相対パスを指定すると設定エラーにする。
+    fn returns_error_when_storage_root_is_relative_path() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT=./storage\n",
+        )
+        .unwrap();
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::RelativePathValue {
+                name: "DIARIZE_LOG_STORAGE_ROOT",
+                value: "./storage".to_string(),
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
     /// 空文字の設定値は一括検証で不正値としてまとめて扱う。
     fn returns_aggregated_errors_for_empty_values() {
         let _guard = env_lock()
@@ -393,7 +573,11 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=\nDIARIZE_LOG_DEBUG=\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=\nDIARIZE_LOG_DEBUG=\nDIARIZE_LOG_STORAGE_ROOT=\n",
+        )
+        .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
         unsafe {
@@ -417,6 +601,10 @@ mod tests {
                     name: "DIARIZE_LOG_DEBUG",
                     source: ConfigSource::DotEnv,
                 },
+                ConfigValidationError::EmptyValue {
+                    name: "DIARIZE_LOG_STORAGE_ROOT",
+                    source: ConfigSource::DotEnv,
+                },
             ]
         ));
     }
@@ -431,7 +619,10 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\n",
+            &format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                expected_default_storage_root().display()
+            ),
         )
         .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");
@@ -466,5 +657,12 @@ mod tests {
     fn env_lock() -> &'static Mutex<()> {
         static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn expected_default_storage_root() -> PathBuf {
+        std::env::current_dir()
+            .unwrap()
+            .join("diarize-log")
+            .join("storage")
     }
 }

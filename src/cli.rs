@@ -42,7 +42,7 @@ impl std::error::Error for CliArgumentError {}
 #[derive(Debug, Parser)]
 #[command(
     version,
-    about = "Records audio, requests diarized transcription, and stores the capture.",
+    about = "Records audio, requests diarized transcription for each capture, and stores the results.",
     long_about = None
 )]
 struct CliArgs {
@@ -216,6 +216,9 @@ mod tests {
 
         match action {
             CliAction::PrintOutput(message) => {
+                assert!(message.contains(
+                    "Records audio, requests diarized transcription for each capture, and stores the results."
+                ));
                 assert!(message.contains("Usage: diarize-log"));
                 assert!(message.contains("-h, --help"));
                 assert!(message.contains("-s, --speaker-sample <SPEAKER_SAMPLES>"));
@@ -231,6 +234,9 @@ mod tests {
 
         match action {
             CliAction::PrintOutput(message) => {
+                assert!(message.contains(
+                    "Records audio, requests diarized transcription for each capture, and stores the results."
+                ));
                 assert!(message.contains("Usage: diarize-log"));
                 assert!(message.contains("-h, --help"));
             }

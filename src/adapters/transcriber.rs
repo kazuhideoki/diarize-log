@@ -46,7 +46,7 @@ impl Transcriber for OpenAiTranscriber {
             ),
         );
         let audio_part = multipart::Part::bytes(request.audio.wav_bytes.clone())
-            .file_name("recording.wav")
+            .file_name("capture.wav")
             .mime_str(request.audio.content_type)
             .map_err(|error| TranscriberError::InvalidMimeType(error.to_string()))?;
         let mut form = multipart::Form::new()

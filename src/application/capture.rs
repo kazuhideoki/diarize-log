@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 
-/// 連続録音ユースケースの設定です。
+/// 連続録音から capture を切り出して文字起こしするユースケースの設定です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureConfig {
     pub recording_duration: Duration,
@@ -75,30 +75,30 @@ where
 {
     info_log(stderr, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
-    let windows = build_capture_windows(
+    let capture_ranges = build_capture_ranges(
         config.recording_duration,
         config.capture_duration,
         config.capture_overlap,
     );
-    let mut transcripts = Vec::with_capacity(windows.len());
+    let mut transcripts = Vec::with_capacity(capture_ranges.len());
 
-    for window in windows {
-        let is_last_window = window.end_offset() == config.recording_duration;
+    for capture_range in capture_ranges {
+        let is_last_capture = capture_range.end_offset() == config.recording_duration;
         session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
-            .wait_until(window.end_offset())
+            .wait_until(capture_range.end_offset())
             .map_err(CaptureError::Record)?;
 
         let audio = session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
-            .capture_wav(window.start_offset, window.duration)
+            .capture_wav(capture_range.start_offset, capture_range.duration)
             .map_err(CaptureError::Record)?;
         capture_store
-            .persist_audio(window.capture_index, &audio)
+            .persist_audio(capture_range.capture_index, &audio)
             .map_err(CaptureError::Store)?;
-        if is_last_window {
+        if is_last_capture {
             drop(session.take());
             info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
         }
@@ -106,7 +106,7 @@ where
             stderr,
             &format!(
                 "transcription request sent for capture {}",
-                window.capture_index
+                capture_range.capture_index
             ),
         )
         .map_err(CaptureError::Write)?;
@@ -123,14 +123,14 @@ where
             stderr,
             &format!(
                 "transcription response received for capture {}",
-                window.capture_index
+                capture_range.capture_index
             ),
         )
         .map_err(CaptureError::Write)?;
         capture_store
             .persist_transcript(
-                window.capture_index,
-                duration_to_millis(window.start_offset),
+                capture_range.capture_index,
+                duration_to_millis(capture_range.start_offset),
                 &transcript,
             )
             .map_err(CaptureError::Store)?;
@@ -152,33 +152,33 @@ fn duration_to_millis(duration: Duration) -> u64 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct CaptureWindow {
+struct CaptureRange {
     capture_index: u64,
     start_offset: Duration,
     duration: Duration,
 }
 
-impl CaptureWindow {
+impl CaptureRange {
     fn end_offset(&self) -> Duration {
         self.start_offset + self.duration
     }
 }
 
-fn build_capture_windows(
+fn build_capture_ranges(
     recording_duration: Duration,
     capture_duration: Duration,
     capture_overlap: Duration,
-) -> Vec<CaptureWindow> {
+) -> Vec<CaptureRange> {
     let stride = capture_duration
         .checked_sub(capture_overlap)
         .expect("capture overlap must be smaller than capture duration");
-    let mut windows = Vec::new();
+    let mut capture_ranges = Vec::new();
     let mut capture_index = 1_u64;
     let mut start_offset = Duration::ZERO;
 
     while start_offset < recording_duration {
         let duration = (recording_duration - start_offset).min(capture_duration);
-        windows.push(CaptureWindow {
+        capture_ranges.push(CaptureRange {
             capture_index,
             start_offset,
             duration,
@@ -192,7 +192,7 @@ fn build_capture_windows(
         capture_index += 1;
     }
 
-    windows
+    capture_ranges
 }
 
 #[derive(Debug)]
@@ -415,28 +415,28 @@ mod tests {
     }
 
     #[test]
-    /// overlap を保ちながら capture 窓を最後の端数まで計画する。
-    fn builds_overlapping_capture_windows_until_recording_ends() {
-        let windows = build_capture_windows(
+    /// overlap を保ちながら capture 範囲を最後の端数まで計画する。
+    fn builds_overlapping_capture_ranges_until_recording_ends() {
+        let ranges = build_capture_ranges(
             Duration::from_secs(360),
             Duration::from_secs(180),
             Duration::from_secs(15),
         );
 
         assert_eq!(
-            windows,
+            ranges,
             vec![
-                CaptureWindow {
+                CaptureRange {
                     capture_index: 1,
                     start_offset: Duration::from_secs(0),
                     duration: Duration::from_secs(180),
                 },
-                CaptureWindow {
+                CaptureRange {
                     capture_index: 2,
                     start_offset: Duration::from_secs(165),
                     duration: Duration::from_secs(180),
                 },
-                CaptureWindow {
+                CaptureRange {
                     capture_index: 3,
                     start_offset: Duration::from_secs(330),
                     duration: Duration::from_secs(30),

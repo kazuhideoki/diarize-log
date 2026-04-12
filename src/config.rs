@@ -396,13 +396,19 @@ mod tests {
         .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::set_var("OPENAI_API_KEY", "from-env");
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("OPENAI_API_KEY", original);
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
@@ -429,13 +435,19 @@ mod tests {
         .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::set_var("OPENAI_API_KEY", "from-env");
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("OPENAI_API_KEY", original);
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
@@ -499,13 +511,19 @@ mod tests {
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_DEBUG");
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert!(config.debug_enabled);
         assert_eq!(config.storage_root, storage_root);
@@ -529,13 +547,16 @@ mod tests {
         )
         .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert_eq!(config.storage_root, storage_root);
     }
@@ -720,13 +741,16 @@ mod tests {
             ),
         )
         .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::set_var("DIARIZE_LOG_STORAGE_ROOT", env_storage_root.as_os_str());
         }
 
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.storage_root, env_storage_root);
     }

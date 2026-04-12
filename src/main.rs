@@ -4,8 +4,8 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    CliAction, CliConfig, SpeakerCommandResult, parse_cli_args, render_help, run_cli,
-    run_speaker_command, write_debug_transcript,
+    CliAction, CliConfig, SpeakerCommandResult, parse_cli_args, run_cli, run_speaker_command,
+    write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;
@@ -13,8 +13,8 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     match parse_cli_args(std::env::args_os()) {
-        Ok(CliAction::ShowHelp) => {
-            print!("{}", render_help(env!("CARGO_PKG_NAME")));
+        Ok(CliAction::PrintOutput(message)) => {
+            print!("{message}");
             return ExitCode::SUCCESS;
         }
         Ok(CliAction::Speaker(command)) => {

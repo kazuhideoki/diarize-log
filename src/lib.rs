@@ -5,8 +5,8 @@ pub mod ports;
 
 pub use cli::{
     CliAction, CliArgumentError, CliConfig, CliError, DebugOutputError, SpeakerCliError,
-    SpeakerCommand, SpeakerCommandResult, TRANSCRIPTION_MODEL, parse_cli_args, render_help,
-    run_cli, run_speaker_command, write_debug_transcript,
+    SpeakerCommand, SpeakerCommandResult, TRANSCRIPTION_MODEL, parse_cli_args, run_cli,
+    run_speaker_command, write_debug_transcript,
 };
 pub use ports::{
     AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy,

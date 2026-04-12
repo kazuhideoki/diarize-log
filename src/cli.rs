@@ -113,6 +113,8 @@ enum SpeakerCommandArgs {
         wav_path: PathBuf,
         start_second: u64,
     },
+    /// List registered speaker samples.
+    List,
     /// Remove a registered speaker sample.
     Remove { speaker_name: String },
 }
@@ -164,36 +166,13 @@ impl SpeakerSubcommandArgs {
                     start_second,
                 }
             }
+            SpeakerCommandArgs::List => SpeakerCommand::List,
             SpeakerCommandArgs::Remove { speaker_name } => SpeakerCommand::Remove { speaker_name },
         };
 
-<<<<<<< HEAD
         Ok(CliAction::Speaker(command))
     }
 }
-
-=======
-            Ok(CliAction::Speaker(SpeakerCommand::Remove { speaker_name }))
-        }
-        "list" => {
-            if let Some(argument) = arguments.next() {
-                return Err(CliArgumentError::UnexpectedArgument { argument });
-            }
-
-            Ok(CliAction::Speaker(SpeakerCommand::List))
-        }
-        _ => Err(CliArgumentError::UnknownSpeakerSubcommand { subcommand }),
-    }
-}
-
-/// `--help` で表示する usage 文です。
-pub fn render_help(program_name: &str) -> String {
-    format!(
-        "Usage: {program_name} [--help]\n       {program_name} speaker add <speaker_name> <abs_path_of_wav> <start_second>\n       {program_name} speaker list\n       {program_name} speaker remove <speaker_name>\n\nRecords audio, requests diarized transcription, and stores the capture.\n\nCommands:\n  speaker add       Cut a sample wav from the source file and register it.\n  speaker list      List registered speaker samples.\n  speaker remove    Remove a registered speaker sample.\n\nOptions:\n  --help    Show this help message and exit.\n"
-    )
-}
-
->>>>>>> main
 #[derive(Debug)]
 pub enum DebugOutputError {
     Serialize(serde_json::Error),

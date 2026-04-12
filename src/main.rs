@@ -4,12 +4,8 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-<<<<<<< HEAD
-    CliAction, CliConfig, parse_cli_args, run_cli, run_speaker_command, write_debug_transcript,
-=======
-    CliAction, CliConfig, SpeakerCommandResult, parse_cli_args, render_help, run_cli,
-    run_speaker_command, write_debug_transcript,
->>>>>>> main
+    CliAction, CliConfig, SpeakerCommandResult, parse_cli_args, run_cli, run_speaker_command,
+    write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;

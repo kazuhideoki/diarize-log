@@ -3,10 +3,15 @@ use std::fmt;
 
 /// 文字起こし結果の保存先を抽象化します。
 pub trait CaptureStore {
-    fn persist_capture(
+    fn persist_audio(
         &mut self,
         capture_index: u64,
         audio: &RecordedAudio,
+    ) -> Result<(), CaptureStoreError>;
+
+    fn persist_transcript(
+        &mut self,
+        capture_index: u64,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError>;
 }

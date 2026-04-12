@@ -9,6 +9,7 @@ const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 const RECORDING_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_RECORDING_DURATION_SECONDS";
 const CAPTURE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_DURATION_SECONDS";
 const CAPTURE_OVERLAP_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS";
+const SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 const STORAGE_ROOT_ENV_VAR: &str = "DIARIZE_LOG_STORAGE_ROOT";
 
@@ -20,6 +21,7 @@ pub struct Config {
     pub recording_duration: Duration,
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
+    pub speaker_sample_duration: Duration,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
 }
@@ -168,6 +170,7 @@ struct RawConfig {
     recording_duration_seconds: Option<ConfigValue<String>>,
     capture_duration_seconds: Option<ConfigValue<String>>,
     capture_overlap_seconds: Option<ConfigValue<String>>,
+    speaker_sample_duration_seconds: Option<ConfigValue<String>>,
     debug_enabled: Option<ConfigValue<String>>,
     storage_root: Option<ConfigValue<String>>,
 }
@@ -186,6 +189,10 @@ impl RawConfig {
             ),
             capture_overlap_seconds: read_env_var(
                 CAPTURE_OVERLAP_SECONDS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            speaker_sample_duration_seconds: read_env_var(
+                SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
                 ConfigSource::Environment,
             ),
             debug_enabled: read_env_var(DEBUG_ENV_VAR, ConfigSource::Environment),
@@ -214,6 +221,10 @@ impl RawConfig {
                         }
                         CAPTURE_OVERLAP_SECONDS_ENV_VAR => {
                             raw.capture_overlap_seconds =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR => {
+                            raw.speaker_sample_duration_seconds =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         DEBUG_ENV_VAR => {
@@ -245,6 +256,9 @@ impl RawConfig {
             capture_overlap_seconds: self
                 .capture_overlap_seconds
                 .or(fallback.capture_overlap_seconds),
+            speaker_sample_duration_seconds: self
+                .speaker_sample_duration_seconds
+                .or(fallback.speaker_sample_duration_seconds),
             debug_enabled: self.debug_enabled.or(fallback.debug_enabled),
             storage_root: self.storage_root.or(fallback.storage_root),
         }
@@ -338,6 +352,24 @@ impl RawConfig {
             None => false,
         };
 
+        let speaker_sample_duration = match self.speaker_sample_duration_seconds {
+            Some(value) => {
+                match parse_positive_integer(value, SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR) {
+                    Ok(seconds) => Some(Duration::from_secs(seconds)),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => {
+                errors.push(ConfigValidationError::MissingRequiredValue {
+                    name: SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
+                });
+                None
+            }
+        };
+
         let storage_root = match self.storage_root {
             Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
                 Ok(path) => Some(path),
@@ -394,6 +426,10 @@ impl RawConfig {
             Some(value) => value,
             None => unreachable!("validated missing capture overlap"),
         };
+        let speaker_sample_duration = match speaker_sample_duration {
+            Some(value) => value,
+            None => unreachable!("validated missing speaker sample duration"),
+        };
         let storage_root = match storage_root {
             Some(value) => value,
             None => unreachable!("validated missing storage root"),
@@ -405,6 +441,7 @@ impl RawConfig {
             recording_duration,
             capture_duration,
             capture_overlap,
+            speaker_sample_duration,
             debug_enabled,
             storage_root,
         })
@@ -502,7 +539,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=18\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=3\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=18\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=3\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -512,12 +549,15 @@ mod tests {
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::set_var("OPENAI_API_KEY", "from-env");
             std::env::set_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", "45");
             std::env::set_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS", "20");
             std::env::set_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS", "5");
+            std::env::set_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS", "8");
             std::env::set_var("DIARIZE_LOG_STORAGE_ROOT", storage_root.as_os_str());
         }
 
@@ -533,12 +573,17 @@ mod tests {
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
         );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
+        );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
         assert_eq!(config.recording_duration, Duration::from_secs(45));
         assert_eq!(config.capture_duration, Duration::from_secs(20));
         assert_eq!(config.capture_overlap, Duration::from_secs(5));
+        assert_eq!(config.speaker_sample_duration, Duration::from_secs(8));
         assert!(!config.debug_enabled);
         assert_eq!(config.storage_root, storage_root);
     }
@@ -555,7 +600,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -565,12 +610,15 @@ mod tests {
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -586,12 +634,17 @@ mod tests {
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
         );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
+        );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert_eq!(config.openai_api_key, "from-dotenv");
         assert_eq!(config.openai_api_key_source, ConfigSource::DotEnv);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert_eq!(config.capture_duration, Duration::from_secs(12));
         assert_eq!(config.capture_overlap, Duration::from_secs(2));
+        assert_eq!(config.speaker_sample_duration, Duration::from_secs(6));
         assert_eq!(config.storage_root, storage_root);
     }
 
@@ -607,12 +660,15 @@ mod tests {
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -627,6 +683,10 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -644,6 +704,9 @@ mod tests {
                 },
                 ConfigValidationError::MissingRequiredValue {
                     name: "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS"
+                },
+                ConfigValidationError::MissingRequiredValue {
+                    name: "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS"
                 },
                 ConfigValidationError::MissingRequiredValue {
                     name: "DIARIZE_LOG_STORAGE_ROOT"
@@ -664,7 +727,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=15\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=15\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=15\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=15\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -672,11 +735,14 @@ mod tests {
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -690,6 +756,10 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -715,17 +785,20 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_STORAGE_ROOT=./storage\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT=./storage\n",
         )
         .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
@@ -739,6 +812,10 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
         );
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
@@ -764,7 +841,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -799,7 +876,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_DEBUG=maybe\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_DEBUG=maybe\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -807,12 +884,15 @@ mod tests {
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_DEBUG");
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
@@ -827,6 +907,10 @@ mod tests {
         restore_env_var(
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             original_capture_overlap,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
         );
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
         restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);

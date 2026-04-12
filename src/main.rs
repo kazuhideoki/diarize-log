@@ -1,7 +1,11 @@
-use diarize_log::adapters::{CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber};
+use diarize_log::adapters::{
+    CpalRecorder, FileSystemCaptureStore, FileSystemSpeakerStore, HoundAudioClipper,
+    OpenAiTranscriber,
+};
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    CliAction, CliConfig, parse_cli_args, render_help, run_cli, write_debug_transcript,
+    CliAction, CliConfig, parse_cli_args, render_help, run_cli, run_speaker_command,
+    write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;
@@ -12,6 +16,30 @@ fn main() -> ExitCode {
         Ok(CliAction::ShowHelp) => {
             print!("{}", render_help(env!("CARGO_PKG_NAME")));
             return ExitCode::SUCCESS;
+        }
+        Ok(CliAction::Speaker(command)) => {
+            let runtime_config = match Config::from_dotenv_path(Path::new(DEFAULT_DOTENV_PATH)) {
+                Ok(config) => config,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let clipper = HoundAudioClipper;
+            let mut speaker_store = FileSystemSpeakerStore::new(&runtime_config.storage_root);
+
+            return match run_speaker_command(
+                &command,
+                runtime_config.speaker_sample_duration,
+                &clipper,
+                &mut speaker_store,
+            ) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("{error}");
+                    ExitCode::FAILURE
+                }
+            };
         }
         Ok(CliAction::Run) => {}
         Err(error) => {

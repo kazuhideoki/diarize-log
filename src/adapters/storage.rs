@@ -1,6 +1,9 @@
-use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
+use crate::ports::{
+    CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio, SpeakerStore,
+    SpeakerStoreError,
+};
 use serde::Serialize;
-use std::fs::{File, create_dir_all};
+use std::fs::{File, create_dir_all, remove_file};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use time::macros::format_description;
@@ -41,6 +44,12 @@ pub struct FileSystemCaptureStore {
     paths: SessionPaths,
 }
 
+/// filesystem へ話者サンプルを保存します。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileSystemSpeakerStore {
+    speakers_dir: PathBuf,
+}
+
 #[derive(Serialize)]
 struct StoredCapture<'a> {
     capture_start_ms: u64,
@@ -69,6 +78,19 @@ impl FileSystemCaptureStore {
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
 
         Ok(())
+    }
+}
+
+impl FileSystemSpeakerStore {
+    pub fn new(storage_root: &Path) -> Self {
+        Self {
+            speakers_dir: storage_root.join("speakers"),
+        }
+    }
+
+    fn sample_path(&self, speaker_name: &str) -> Result<PathBuf, SpeakerStoreError> {
+        validate_speaker_name(speaker_name)?;
+        Ok(self.speakers_dir.join(format!("{speaker_name}.wav")))
     }
 }
 
@@ -115,6 +137,43 @@ impl CaptureStore for FileSystemCaptureStore {
     }
 }
 
+impl SpeakerStore for FileSystemSpeakerStore {
+    fn create_sample(
+        &mut self,
+        speaker_name: &str,
+        audio: &RecordedAudio,
+    ) -> Result<(), SpeakerStoreError> {
+        create_dir_all(&self.speakers_dir)
+            .map_err(|error| SpeakerStoreError::CreateDirectory(error.to_string()))?;
+
+        let sample_path = self.sample_path(speaker_name)?;
+        if sample_path.exists() {
+            return Err(SpeakerStoreError::SpeakerAlreadyExists {
+                speaker_name: speaker_name.to_string(),
+            });
+        }
+
+        let mut sample_file = File::create(sample_path)
+            .map_err(|error| SpeakerStoreError::WriteSample(error.to_string()))?;
+        sample_file
+            .write_all(&audio.wav_bytes)
+            .map_err(|error| SpeakerStoreError::WriteSample(error.to_string()))?;
+
+        Ok(())
+    }
+
+    fn remove_sample(&mut self, speaker_name: &str) -> Result<(), SpeakerStoreError> {
+        let sample_path = self.sample_path(speaker_name)?;
+        if !sample_path.exists() {
+            return Err(SpeakerStoreError::SpeakerNotFound {
+                speaker_name: speaker_name.to_string(),
+            });
+        }
+
+        remove_file(sample_path).map_err(|error| SpeakerStoreError::DeleteSample(error.to_string()))
+    }
+}
+
 fn current_session_dir_name() -> Result<String, CaptureStoreError> {
     let local_offset = UtcOffset::current_local_offset()
         .map_err(|error| CaptureStoreError::ResolveLocalOffset(error.to_string()))?;
@@ -127,10 +186,27 @@ fn current_session_dir_name() -> Result<String, CaptureStoreError> {
         .map_err(|error| CaptureStoreError::FormatSessionName(error.to_string()))
 }
 
+fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
+    if speaker_name.is_empty()
+        || speaker_name == "."
+        || speaker_name == ".."
+        || speaker_name.contains(std::path::MAIN_SEPARATOR)
+    {
+        return Err(SpeakerStoreError::InvalidSpeakerName {
+            speaker_name: speaker_name.to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::FileSystemCaptureStore;
-    use crate::ports::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
+    use super::{FileSystemCaptureStore, FileSystemSpeakerStore};
+    use crate::ports::{
+        CaptureStore, DiarizedTranscript, RecordedAudio, SpeakerStore, SpeakerStoreError,
+        TranscriptSegment,
+    };
 
     #[test]
     /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して開始時刻付き transcript を書き出す。
@@ -203,6 +279,65 @@ mod tests {
 
         assert!(session_dir.join("audios/capture-000012.wav").exists());
         assert!(session_dir.join("captures/capture-000012.json").exists());
+    }
+
+    #[test]
+    /// 話者サンプルは speakers 配下に `<speaker_name>.wav` で保存する。
+    fn persists_speaker_sample_under_speakers_directory() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemSpeakerStore::new(temp_dir.path());
+
+        store.create_sample("suzuki", &sample_audio()).unwrap();
+
+        assert_eq!(
+            std::fs::read(temp_dir.path().join("speakers").join("suzuki.wav")).unwrap(),
+            sample_audio().wav_bytes
+        );
+    }
+
+    #[test]
+    /// 同名の話者サンプルが既に存在する場合は上書きせずエラーにする。
+    fn returns_error_when_speaker_sample_already_exists() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemSpeakerStore::new(temp_dir.path());
+        store.create_sample("suzuki", &sample_audio()).unwrap();
+
+        let error = store.create_sample("suzuki", &sample_audio()).unwrap_err();
+
+        assert_eq!(
+            error,
+            SpeakerStoreError::SpeakerAlreadyExists {
+                speaker_name: "suzuki".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    /// 登録済みの話者サンプルを削除する。
+    fn removes_existing_speaker_sample() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemSpeakerStore::new(temp_dir.path());
+        store.create_sample("suzuki", &sample_audio()).unwrap();
+
+        store.remove_sample("suzuki").unwrap();
+
+        assert!(!temp_dir.path().join("speakers").join("suzuki.wav").exists());
+    }
+
+    #[test]
+    /// 削除対象が存在しない場合はエラーにする。
+    fn returns_error_when_removing_unknown_speaker_sample() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemSpeakerStore::new(temp_dir.path());
+
+        let error = store.remove_sample("suzuki").unwrap_err();
+
+        assert_eq!(
+            error,
+            SpeakerStoreError::SpeakerNotFound {
+                speaker_name: "suzuki".to_string(),
+            }
+        );
     }
 
     fn sample_audio() -> RecordedAudio {

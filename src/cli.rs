@@ -1,10 +1,12 @@
 use crate::ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, Recorder, RecorderError,
-    RecordingSession, ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+    AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy,
+    DiarizedTranscript, Recorder, RecorderError, RecordingSession, ResponseFormat, SpeakerStore,
+    SpeakerStoreError, Transcriber, TranscriberError, TranscriptionRequest,
 };
 use std::ffi::OsString;
 use std::fmt;
 use std::io::Write;
+use std::path::PathBuf;
 use std::time::Duration;
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
@@ -13,13 +15,33 @@ pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliAction {
     Run,
+    Speaker(SpeakerCommand),
     ShowHelp,
+}
+
+/// 話者サンプル管理コマンドです。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpeakerCommand {
+    Add {
+        speaker_name: String,
+        wav_path: PathBuf,
+        start_second: u64,
+    },
+    Remove {
+        speaker_name: String,
+    },
 }
 
 /// CLI 引数の解釈失敗です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliArgumentError {
     UnexpectedArgument { argument: OsString },
+    MissingCommand,
+    MissingValue { name: &'static str },
+    UnknownCommand { command: OsString },
+    UnknownSpeakerSubcommand { subcommand: OsString },
+    InvalidStartSecond { value: OsString },
+    RelativePathArgument { value: PathBuf },
 }
 
 impl fmt::Display for CliArgumentError {
@@ -27,6 +49,24 @@ impl fmt::Display for CliArgumentError {
         match self {
             Self::UnexpectedArgument { argument } => {
                 write!(f, "unexpected argument: {}", argument.to_string_lossy())
+            }
+            Self::MissingCommand => f.write_str("missing command"),
+            Self::MissingValue { name } => write!(f, "missing value: {name}"),
+            Self::UnknownCommand { command } => {
+                write!(f, "unknown command: {}", command.to_string_lossy())
+            }
+            Self::UnknownSpeakerSubcommand { subcommand } => {
+                write!(
+                    f,
+                    "unknown speaker subcommand: {}",
+                    subcommand.to_string_lossy()
+                )
+            }
+            Self::InvalidStartSecond { value } => {
+                write!(f, "invalid start second: {}", value.to_string_lossy())
+            }
+            Self::RelativePathArgument { value } => {
+                write!(f, "relative path is not allowed: {}", value.display())
             }
         }
     }
@@ -67,24 +107,94 @@ pub fn parse_cli_args<I>(args: I) -> Result<CliAction, CliArgumentError>
 where
     I: IntoIterator<Item = OsString>,
 {
-    let mut parsed_action = CliAction::Run;
+    let mut arguments = args.into_iter().skip(1);
+    let Some(first_argument) = arguments.next() else {
+        return Ok(CliAction::Run);
+    };
 
-    for argument in args.into_iter().skip(1) {
-        if argument == "--help" {
-            parsed_action = CliAction::ShowHelp;
-            continue;
+    if first_argument == "--help" {
+        if let Some(argument) = arguments.next() {
+            return Err(CliArgumentError::UnexpectedArgument { argument });
         }
-
-        return Err(CliArgumentError::UnexpectedArgument { argument });
+        return Ok(CliAction::ShowHelp);
     }
 
-    Ok(parsed_action)
+    if first_argument == "speaker" {
+        return parse_speaker_command(arguments);
+    }
+
+    Err(CliArgumentError::UnknownCommand {
+        command: first_argument,
+    })
+}
+
+fn parse_speaker_command<I>(mut arguments: I) -> Result<CliAction, CliArgumentError>
+where
+    I: Iterator<Item = OsString>,
+{
+    let Some(subcommand) = arguments.next() else {
+        return Err(CliArgumentError::MissingCommand);
+    };
+
+    match subcommand.to_string_lossy().as_ref() {
+        "add" => {
+            let speaker_name = arguments
+                .next()
+                .ok_or(CliArgumentError::MissingValue {
+                    name: "speaker_name",
+                })?
+                .to_string_lossy()
+                .into_owned();
+            let wav_path =
+                PathBuf::from(arguments.next().ok_or(CliArgumentError::MissingValue {
+                    name: "abs_path_of_wav",
+                })?);
+            if !wav_path.is_absolute() {
+                return Err(CliArgumentError::RelativePathArgument { value: wav_path });
+            }
+            let start_second = arguments
+                .next()
+                .ok_or(CliArgumentError::MissingValue {
+                    name: "start_second",
+                })
+                .and_then(|value| {
+                    value
+                        .to_string_lossy()
+                        .parse::<u64>()
+                        .map_err(|_| CliArgumentError::InvalidStartSecond { value })
+                })?;
+            if let Some(argument) = arguments.next() {
+                return Err(CliArgumentError::UnexpectedArgument { argument });
+            }
+
+            Ok(CliAction::Speaker(SpeakerCommand::Add {
+                speaker_name,
+                wav_path,
+                start_second,
+            }))
+        }
+        "remove" => {
+            let speaker_name = arguments
+                .next()
+                .ok_or(CliArgumentError::MissingValue {
+                    name: "speaker_name",
+                })?
+                .to_string_lossy()
+                .into_owned();
+            if let Some(argument) = arguments.next() {
+                return Err(CliArgumentError::UnexpectedArgument { argument });
+            }
+
+            Ok(CliAction::Speaker(SpeakerCommand::Remove { speaker_name }))
+        }
+        _ => Err(CliArgumentError::UnknownSpeakerSubcommand { subcommand }),
+    }
 }
 
 /// `--help` で表示する usage 文です。
 pub fn render_help(program_name: &str) -> String {
     format!(
-        "Usage: {program_name} [--help]\n\nRecords audio, requests diarized transcription, and stores the capture.\n\nOptions:\n  --help    Show this help message and exit.\n"
+        "Usage: {program_name} [--help]\n       {program_name} speaker add <speaker_name> <abs_path_of_wav> <start_second>\n       {program_name} speaker remove <speaker_name>\n\nRecords audio, requests diarized transcription, and stores the capture.\n\nCommands:\n  speaker add       Cut a sample wav from the source file and register it.\n  speaker remove    Remove a registered speaker sample.\n\nOptions:\n  --help    Show this help message and exit.\n"
     )
 }
 
@@ -127,6 +237,23 @@ impl fmt::Display for CliError {
 }
 
 impl std::error::Error for CliError {}
+
+#[derive(Debug)]
+pub enum SpeakerCliError {
+    Clip(AudioClipperError),
+    Store(SpeakerStoreError),
+}
+
+impl fmt::Display for SpeakerCliError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Clip(error) => write!(f, "speaker sample clipping failed: {error}"),
+            Self::Store(error) => write!(f, "speaker sample persistence failed: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for SpeakerCliError {}
 
 /// CLI PoC のオーケストレーション入口です。
 pub fn run_cli<R, T, S, L>(
@@ -230,6 +357,40 @@ where
     Ok(())
 }
 
+/// 話者サンプル管理コマンドを実行します。
+pub fn run_speaker_command<C, S>(
+    command: &SpeakerCommand,
+    sample_duration: Duration,
+    clipper: &C,
+    speaker_store: &mut S,
+) -> Result<(), SpeakerCliError>
+where
+    C: AudioClipper,
+    S: SpeakerStore,
+{
+    match command {
+        SpeakerCommand::Add {
+            speaker_name,
+            wav_path,
+            start_second,
+        } => {
+            let clipped_audio = clipper
+                .clip_wav_segment(
+                    wav_path,
+                    Duration::from_secs(*start_second),
+                    sample_duration,
+                )
+                .map_err(SpeakerCliError::Clip)?;
+            speaker_store
+                .create_sample(speaker_name, &clipped_audio)
+                .map_err(SpeakerCliError::Store)
+        }
+        SpeakerCommand::Remove { speaker_name } => speaker_store
+            .remove_sample(speaker_name)
+            .map_err(SpeakerCliError::Store),
+    }
+}
+
 fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
 where
     W: Write,
@@ -311,15 +472,78 @@ mod tests {
     }
 
     #[test]
-    /// 未知の引数を受け取ると失敗する。
+    /// `speaker add` を受け取ると話者サンプル追加コマンドとして解釈する。
+    fn parses_speaker_add_command() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("speaker"),
+            OsString::from("add"),
+            OsString::from("suzuki"),
+            OsString::from("/tmp/source.wav"),
+            OsString::from("4"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Speaker(SpeakerCommand::Add {
+                speaker_name: "suzuki".to_string(),
+                wav_path: PathBuf::from("/tmp/source.wav"),
+                start_second: 4,
+            })
+        );
+    }
+
+    #[test]
+    /// `speaker remove` を受け取ると話者サンプル削除コマンドとして解釈する。
+    fn parses_speaker_remove_command() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("speaker"),
+            OsString::from("remove"),
+            OsString::from("suzuki"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Speaker(SpeakerCommand::Remove {
+                speaker_name: "suzuki".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    /// `speaker add` の WAV パスは絶対パスでなければ失敗する。
+    fn rejects_relative_wav_path_for_speaker_add() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("speaker"),
+            OsString::from("add"),
+            OsString::from("suzuki"),
+            OsString::from("storage/source.wav"),
+            OsString::from("4"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            CliArgumentError::RelativePathArgument {
+                value: PathBuf::from("storage/source.wav"),
+            }
+        );
+    }
+
+    #[test]
+    /// 未知のコマンドを受け取ると失敗する。
     fn rejects_unknown_argument() {
         let error = parse_cli_args([OsString::from("diarize-log"), OsString::from("--verbose")])
             .unwrap_err();
 
         assert_eq!(
             error,
-            CliArgumentError::UnexpectedArgument {
-                argument: OsString::from("--verbose"),
+            CliArgumentError::UnknownCommand {
+                command: OsString::from("--verbose"),
             }
         );
     }
@@ -451,6 +675,53 @@ mod tests {
                 capture_start_ms,
                 transcript.clone(),
             ));
+            Ok(())
+        }
+    }
+
+    struct FakeAudioClipper {
+        observed_requests: RefCell<Vec<(PathBuf, Duration, Duration)>>,
+        clipped_audio: RecordedAudio,
+    }
+
+    impl AudioClipper for FakeAudioClipper {
+        fn clip_wav_segment(
+            &self,
+            wav_path: &std::path::Path,
+            start_offset: Duration,
+            duration: Duration,
+        ) -> Result<RecordedAudio, AudioClipperError> {
+            self.observed_requests.borrow_mut().push((
+                wav_path.to_path_buf(),
+                start_offset,
+                duration,
+            ));
+            Ok(self.clipped_audio.clone())
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeSpeakerStore {
+        created_samples: RefCell<Vec<(String, RecordedAudio)>>,
+        removed_speakers: RefCell<Vec<String>>,
+    }
+
+    impl SpeakerStore for FakeSpeakerStore {
+        fn create_sample(
+            &mut self,
+            speaker_name: &str,
+            audio: &RecordedAudio,
+        ) -> Result<(), SpeakerStoreError> {
+            self.created_samples
+                .borrow_mut()
+                .push((speaker_name.to_string(), audio.clone()));
+            Ok(())
+        }
+
+        fn remove_sample(&mut self, speaker_name: &str) -> Result<(), SpeakerStoreError> {
+            self.removed_speakers
+                .borrow_mut()
+                .push(speaker_name.to_string());
             Ok(())
         }
     }
@@ -866,5 +1137,68 @@ mod tests {
         .unwrap();
 
         assert_eq!(*transcriber.observed_drop_counts.borrow(), vec![0, 1]);
+    }
+
+    #[test]
+    /// `speaker add` は指定秒数から設定秒数ぶん WAV を切り出して保存する。
+    fn clips_and_persists_speaker_sample_for_add_command() {
+        let clipper = FakeAudioClipper {
+            observed_requests: RefCell::new(Vec::new()),
+            clipped_audio: sample_audio(),
+        };
+        let mut speaker_store = FakeSpeakerStore::default();
+        let command = SpeakerCommand::Add {
+            speaker_name: "suzuki".to_string(),
+            wav_path: PathBuf::from("/tmp/source.wav"),
+            start_second: 4,
+        };
+
+        run_speaker_command(
+            &command,
+            Duration::from_secs(6),
+            &clipper,
+            &mut speaker_store,
+        )
+        .unwrap();
+
+        assert_eq!(
+            *clipper.observed_requests.borrow(),
+            vec![(
+                PathBuf::from("/tmp/source.wav"),
+                Duration::from_secs(4),
+                Duration::from_secs(6),
+            )]
+        );
+        assert_eq!(
+            *speaker_store.created_samples.borrow(),
+            vec![("suzuki".to_string(), sample_audio())]
+        );
+    }
+
+    #[test]
+    /// `speaker remove` は指定名の登録済みサンプル削除を保存先へ委譲する。
+    fn removes_speaker_sample_for_remove_command() {
+        let clipper = FakeAudioClipper {
+            observed_requests: RefCell::new(Vec::new()),
+            clipped_audio: sample_audio(),
+        };
+        let mut speaker_store = FakeSpeakerStore::default();
+        let command = SpeakerCommand::Remove {
+            speaker_name: "suzuki".to_string(),
+        };
+
+        run_speaker_command(
+            &command,
+            Duration::from_secs(6),
+            &clipper,
+            &mut speaker_store,
+        )
+        .unwrap();
+
+        assert!(clipper.observed_requests.borrow().is_empty());
+        assert_eq!(
+            *speaker_store.removed_speakers.borrow(),
+            vec!["suzuki".to_string()]
+        );
     }
 }

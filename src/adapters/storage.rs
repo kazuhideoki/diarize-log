@@ -53,25 +53,40 @@ impl FileSystemCaptureStore {
 
         Ok(Self { paths })
     }
-}
 
-impl CaptureStore for FileSystemCaptureStore {
-    fn persist_capture(
-        &mut self,
-        capture_index: u64,
-        audio: &RecordedAudio,
-        transcript: &DiarizedTranscript,
-    ) -> Result<(), CaptureStoreError> {
+    fn ensure_session_dirs(&self) -> Result<(), CaptureStoreError> {
         create_dir_all(&self.paths.audios_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         create_dir_all(&self.paths.captures_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
+
+        Ok(())
+    }
+}
+
+impl CaptureStore for FileSystemCaptureStore {
+    fn persist_audio(
+        &mut self,
+        capture_index: u64,
+        audio: &RecordedAudio,
+    ) -> Result<(), CaptureStoreError> {
+        self.ensure_session_dirs()?;
 
         let mut audio_file = File::create(self.paths.audio_path(capture_index))
             .map_err(|error| CaptureStoreError::WriteAudio(error.to_string()))?;
         audio_file
             .write_all(&audio.wav_bytes)
             .map_err(|error| CaptureStoreError::WriteAudio(error.to_string()))?;
+
+        Ok(())
+    }
+
+    fn persist_transcript(
+        &mut self,
+        capture_index: u64,
+        transcript: &DiarizedTranscript,
+    ) -> Result<(), CaptureStoreError> {
+        self.ensure_session_dirs()?;
 
         let mut capture_file = File::create(self.paths.capture_path(capture_index))
             .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
@@ -103,14 +118,13 @@ mod tests {
     use crate::ports::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
-    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して capture を書き出す。
+    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して wav と transcript を別々に書き出す。
     fn persists_audio_wav_and_capture_json_and_keeps_final_jsonl_empty_before_merge() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
-        store
-            .persist_capture(1, &sample_audio(), &sample_transcript())
-            .unwrap();
+        store.persist_audio(1, &sample_audio()).unwrap();
+        store.persist_transcript(1, &sample_transcript()).unwrap();
 
         let mut session_dirs = std::fs::read_dir(temp_dir.path())
             .unwrap()
@@ -134,14 +148,13 @@ mod tests {
     }
 
     #[test]
-    /// capture ファイル名は 6 桁ゼロ埋めの連番にする。
+    /// wav と transcript のファイル名は 6 桁ゼロ埋めの連番にする。
     fn names_capture_files_with_zero_padded_sequence() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
-        store
-            .persist_capture(12, &sample_audio(), &sample_transcript())
-            .unwrap();
+        store.persist_audio(12, &sample_audio()).unwrap();
+        store.persist_transcript(12, &sample_transcript()).unwrap();
 
         let session_dir = std::fs::read_dir(temp_dir.path())
             .unwrap()

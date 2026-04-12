@@ -24,11 +24,21 @@ pub trait RecordingSession {
 pub enum RecorderError {
     NoInputDevice,
     ReadInputConfig(String),
+    ReadShareableContent(String),
+    ApplicationNotFound {
+        bundle_id: String,
+    },
+    ApplicationDisplayNotFound {
+        bundle_id: String,
+    },
     BuildStream(String),
     PlayStream(String),
+    AddStreamOutput(String),
+    StartCapture(String),
     UnsupportedSampleFormat(String),
     CallbackStream(String),
     SampleBufferPoisoned,
+    DecodeCapturedAudio(String),
     EncodeWav(String),
     CaptureOutOfRange {
         requested_end_ms: u64,
@@ -43,13 +53,35 @@ impl fmt::Display for RecorderError {
             Self::ReadInputConfig(source) => {
                 write!(f, "failed to read default input config: {source}")
             }
+            Self::ReadShareableContent(source) => {
+                write!(
+                    f,
+                    "failed to read shareable screen capture content: {source}"
+                )
+            }
+            Self::ApplicationNotFound { bundle_id } => {
+                write!(f, "capture target application is not running: {bundle_id}")
+            }
+            Self::ApplicationDisplayNotFound { bundle_id } => write!(
+                f,
+                "failed to resolve a display for the target application: {bundle_id}"
+            ),
             Self::BuildStream(source) => write!(f, "failed to build input stream: {source}"),
             Self::PlayStream(source) => write!(f, "failed to start input stream: {source}"),
+            Self::AddStreamOutput(source) => {
+                write!(f, "failed to add screen capture stream output: {source}")
+            }
+            Self::StartCapture(source) => {
+                write!(f, "failed to start screen capture stream: {source}")
+            }
             Self::UnsupportedSampleFormat(sample_format) => {
                 write!(f, "unsupported input sample format: {sample_format}")
             }
             Self::CallbackStream(message) => write!(f, "stream callback failed: {message}"),
             Self::SampleBufferPoisoned => f.write_str("sample buffer was poisoned"),
+            Self::DecodeCapturedAudio(source) => {
+                write!(f, "failed to decode captured audio: {source}")
+            }
             Self::EncodeWav(source) => write!(f, "failed to encode wav: {source}"),
             Self::CaptureOutOfRange {
                 requested_end_ms,

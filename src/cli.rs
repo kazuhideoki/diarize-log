@@ -1,5 +1,5 @@
 use crate::application::SpeakerCommand;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 use std::fmt;
 use std::path::PathBuf;
@@ -7,9 +7,25 @@ use std::path::PathBuf;
 /// CLI 起動時の振る舞いです。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliAction {
-    Run { speaker_samples: Vec<String> },
+    Run {
+        speaker_samples: Vec<String>,
+        audio_source: AudioSource,
+    },
     Speaker(SpeakerCommand),
     PrintOutput(String),
+}
+
+/// 実行時に選ぶ音源です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AudioSource {
+    Microphone,
+    Application { bundle_id: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum AudioSourceKind {
+    Microphone,
+    Application,
 }
 
 /// CLI 引数の解釈失敗です。
@@ -18,6 +34,8 @@ pub enum CliArgumentError {
     Parse { message: String },
     RelativePathArgument { value: PathBuf },
     TooManySpeakerSamples { count: usize, max: usize },
+    MissingApplicationBundleId,
+    UnexpectedApplicationBundleId,
 }
 
 impl fmt::Display for CliArgumentError {
@@ -33,6 +51,12 @@ impl fmt::Display for CliArgumentError {
                     "too many speaker samples: {count} provided, maximum is {max}"
                 )
             }
+            Self::MissingApplicationBundleId => {
+                f.write_str("--application-bundle-id is required for --audio-source application")
+            }
+            Self::UnexpectedApplicationBundleId => f.write_str(
+                "--application-bundle-id can only be used with --audio-source application",
+            ),
         }
     }
 }
@@ -49,6 +73,14 @@ struct CliArgs {
     /// Attach a registered speaker sample to the diarization request. Can be passed up to 4 times.
     #[arg(short = 's', long = "speaker-sample")]
     speaker_samples: Vec<String>,
+
+    /// Select which audio source to capture.
+    #[arg(short = 'i', long = "audio-source", value_enum, default_value_t = AudioSourceKind::Microphone)]
+    audio_source: AudioSourceKind,
+
+    /// Specify the target application's bundle ID when capturing application audio.
+    #[arg(long = "application-bundle-id")]
+    application_bundle_id: Option<String>,
 
     #[command(subcommand)]
     command: Option<CliSubcommandArgs>,
@@ -112,9 +144,23 @@ impl CliArgs {
             });
         }
 
+        let audio_source = match (self.audio_source, self.application_bundle_id) {
+            (AudioSourceKind::Microphone, None) => AudioSource::Microphone,
+            (AudioSourceKind::Microphone, Some(_)) => {
+                return Err(CliArgumentError::UnexpectedApplicationBundleId);
+            }
+            (AudioSourceKind::Application, Some(bundle_id)) => {
+                AudioSource::Application { bundle_id }
+            }
+            (AudioSourceKind::Application, None) => {
+                return Err(CliArgumentError::MissingApplicationBundleId);
+            }
+        };
+
         match self.command {
             None => Ok(CliAction::Run {
                 speaker_samples: self.speaker_samples,
+                audio_source,
             }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
@@ -160,6 +206,7 @@ mod tests {
             action,
             CliAction::Run {
                 speaker_samples: Vec::new(),
+                audio_source: AudioSource::Microphone,
             }
         );
     }
@@ -180,8 +227,58 @@ mod tests {
             action,
             CliAction::Run {
                 speaker_samples: vec!["suzuki".to_string(), "sato".to_string()],
+                audio_source: AudioSource::Microphone,
             }
         );
+    }
+
+    #[test]
+    /// `-i application` と bundle ID を指定すると対象アプリ音声を選べる。
+    fn parses_application_audio_source_with_short_flag() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("-i"),
+            OsString::from("application"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("com.apple.Safari"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Application {
+                    bundle_id: "com.apple.Safari".to_string(),
+                },
+            }
+        );
+    }
+
+    #[test]
+    /// アプリ音声指定では bundle ID が必須。
+    fn rejects_application_audio_source_without_bundle_id() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--audio-source"),
+            OsString::from("application"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, CliArgumentError::MissingApplicationBundleId);
+    }
+
+    #[test]
+    /// マイク指定で bundle ID を渡すと失敗する。
+    fn rejects_application_bundle_id_for_microphone_audio_source() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("com.apple.Safari"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, CliArgumentError::UnexpectedApplicationBundleId);
     }
 
     #[test]
@@ -221,7 +318,9 @@ mod tests {
                 ));
                 assert!(message.contains("Usage: diarize-log"));
                 assert!(message.contains("-h, --help"));
+                assert!(message.contains("-i, --audio-source <AUDIO_SOURCE>"));
                 assert!(message.contains("-s, --speaker-sample <SPEAKER_SAMPLES>"));
+                assert!(message.contains("--application-bundle-id <APPLICATION_BUNDLE_ID>"));
             }
             other => panic!("unexpected action: {other:?}"),
         }

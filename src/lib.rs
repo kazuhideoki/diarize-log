@@ -3,7 +3,6 @@ pub mod cli;
 pub mod config;
 pub mod ports;
 
-pub use adapters::{CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber};
 pub use cli::{
     CliConfig, CliError, DebugOutputError, TRANSCRIPTION_MODEL, run_cli, write_debug_transcript,
 };

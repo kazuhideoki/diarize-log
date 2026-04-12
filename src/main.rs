@@ -1,8 +1,6 @@
+use diarize_log::adapters::{CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber};
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
-use diarize_log::{
-    CliConfig, CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber, run_cli,
-    write_debug_transcript,
-};
+use diarize_log::{CliConfig, run_cli, write_debug_transcript};
 use std::io::{self};
 use std::path::Path;
 use std::process::ExitCode;

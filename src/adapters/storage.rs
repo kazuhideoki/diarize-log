@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-use crate::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
-=======
-use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript};
->>>>>>> main
+use crate::ports::{CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio};
 use std::fs::{File, OpenOptions, create_dir_all};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -48,13 +44,10 @@ impl FileSystemCaptureStore {
     pub fn new(storage_root: &Path) -> Result<Self, CaptureStoreError> {
         let session_dir_name = current_session_dir_name()?;
         let paths = SessionPaths::new(storage_root, &session_dir_name);
-<<<<<<< HEAD
-        create_dir_all(&paths.audios_dir).map_err(CaptureStoreError::CreateSession)?;
-        create_dir_all(&paths.captures_dir).map_err(CaptureStoreError::CreateSession)?;
-=======
+        create_dir_all(&paths.audios_dir)
+            .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         create_dir_all(&paths.captures_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
->>>>>>> main
 
         Ok(Self { paths })
     }
@@ -67,19 +60,16 @@ impl CaptureStore for FileSystemCaptureStore {
         audio: &RecordedAudio,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError> {
-<<<<<<< HEAD
-        create_dir_all(&self.paths.audios_dir).map_err(CaptureStoreError::CreateSession)?;
-        create_dir_all(&self.paths.captures_dir).map_err(CaptureStoreError::CreateSession)?;
-=======
+        create_dir_all(&self.paths.audios_dir)
+            .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         create_dir_all(&self.paths.captures_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
->>>>>>> main
 
         let mut audio_file = File::create(self.paths.audio_path(capture_index))
-            .map_err(CaptureStoreError::WriteAudio)?;
+            .map_err(|error| CaptureStoreError::WriteAudio(error.to_string()))?;
         audio_file
             .write_all(&audio.wav_bytes)
-            .map_err(CaptureStoreError::WriteAudio)?;
+            .map_err(|error| CaptureStoreError::WriteAudio(error.to_string()))?;
 
         let mut capture_file = File::create(self.paths.capture_path(capture_index))
             .map_err(|error| CaptureStoreError::WriteCapture(error.to_string()))?;
@@ -119,11 +109,7 @@ fn current_session_dir_name() -> Result<String, CaptureStoreError> {
 #[cfg(test)]
 mod tests {
     use super::FileSystemCaptureStore;
-<<<<<<< HEAD
-    use crate::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
-=======
-    use crate::ports::{CaptureStore, DiarizedTranscript, TranscriptSegment};
->>>>>>> main
+    use crate::ports::{CaptureStore, DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
     /// セッション配下に audios と captures ディレクトリおよび final.jsonl を作成して録音音声と文字起こし結果を書き出す。

@@ -1,6 +1,5 @@
 pub mod adapters;
 pub mod config;
-pub mod storage;
 
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -8,7 +7,7 @@ use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 
-pub use adapters::{CpalRecorder, OpenAiTranscriber};
+pub use adapters::{CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber};
 
 pub const DEFAULT_RECORDING_DURATION: Duration = Duration::from_secs(30);
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
@@ -107,6 +106,15 @@ pub trait Transcriber {
     ) -> Result<DiarizedTranscript, TranscriberError>;
 }
 
+/// 文字起こし結果の保存先を抽象化します。
+pub trait CaptureStore {
+    fn persist_capture(
+        &mut self,
+        capture_index: u64,
+        transcript: &DiarizedTranscript,
+    ) -> Result<(), CaptureStoreError>;
+}
+
 #[derive(Debug)]
 pub enum RecorderError {
     NoInputDevice,
@@ -183,9 +191,68 @@ impl fmt::Display for TranscriberError {
 impl std::error::Error for TranscriberError {}
 
 #[derive(Debug)]
+pub enum CaptureStoreError {
+    CreateSession(std::io::Error),
+    ResolveLocalOffset(time::error::IndeterminateOffset),
+    FormatSessionName(time::error::Format),
+    WriteCapture(std::io::Error),
+    SerializeCapture(serde_json::Error),
+    OpenFinal(std::io::Error),
+    WriteFinal(std::io::Error),
+    SerializeFinal(serde_json::Error),
+}
+
+impl fmt::Display for CaptureStoreError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CreateSession(source) => {
+                write!(f, "failed to create storage directories: {source}")
+            }
+            Self::ResolveLocalOffset(source) => {
+                write!(f, "failed to resolve local timezone offset: {source}")
+            }
+            Self::FormatSessionName(source) => {
+                write!(f, "failed to format session directory name: {source}")
+            }
+            Self::WriteCapture(source) => write!(f, "failed to write capture file: {source}"),
+            Self::SerializeCapture(source) => {
+                write!(f, "failed to serialize capture file: {source}")
+            }
+            Self::OpenFinal(source) => write!(f, "failed to open final log file: {source}"),
+            Self::WriteFinal(source) => write!(f, "failed to append final log file: {source}"),
+            Self::SerializeFinal(source) => {
+                write!(f, "failed to serialize final log entry: {source}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CaptureStoreError {}
+
+#[derive(Debug)]
+pub enum DebugOutputError {
+    Serialize(serde_json::Error),
+    Write(std::io::Error),
+}
+
+impl fmt::Display for DebugOutputError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Serialize(source) => {
+                write!(f, "failed to serialize debug stdout: {source}")
+            }
+            Self::Write(source) => write!(f, "failed to write debug stdout: {source}"),
+        }
+    }
+}
+
+impl std::error::Error for DebugOutputError {}
+
+#[derive(Debug)]
 pub enum CliError {
     Record(RecorderError),
     Transcribe(TranscriberError),
+    Store(CaptureStoreError),
     Write(std::io::Error),
 }
 
@@ -194,6 +261,7 @@ impl fmt::Display for CliError {
         match self {
             Self::Record(error) => write!(f, "recording failed: {error}"),
             Self::Transcribe(error) => write!(f, "transcription failed: {error}"),
+            Self::Store(error) => write!(f, "capture persistence failed: {error}"),
             Self::Write(error) => write!(f, "stderr write failed: {error}"),
         }
     }
@@ -202,15 +270,17 @@ impl fmt::Display for CliError {
 impl std::error::Error for CliError {}
 
 /// CLI PoC のオーケストレーション入口です。
-pub fn run_cli<R, T, L>(
+pub fn run_cli<R, T, S, L>(
     config: &CliConfig,
     recorder: &mut R,
     transcriber: &mut T,
+    capture_store: &mut S,
     stderr: &mut L,
 ) -> Result<DiarizedTranscript, CliError>
 where
     R: Recorder,
     T: Transcriber,
+    S: CaptureStore,
     L: Write,
 {
     info_log(stderr, "recording started").map_err(CliError::Write)?;
@@ -228,8 +298,30 @@ where
         })
         .map_err(CliError::Transcribe)?;
     info_log(stderr, "transcription response received").map_err(CliError::Write)?;
+    capture_store
+        .persist_capture(1, &transcript)
+        .map_err(CliError::Store)?;
 
     Ok(transcript)
+}
+
+/// debug 有効時だけ pretty JSON を出力します。
+pub fn write_debug_transcript<W>(
+    debug_enabled: bool,
+    output: &mut W,
+    transcript: &DiarizedTranscript,
+) -> Result<(), DebugOutputError>
+where
+    W: Write,
+{
+    if !debug_enabled {
+        return Ok(());
+    }
+
+    serde_json::to_writer_pretty(&mut *output, transcript).map_err(DebugOutputError::Serialize)?;
+    output.write_all(b"\n").map_err(DebugOutputError::Write)?;
+
+    Ok(())
 }
 
 fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
@@ -292,6 +384,21 @@ mod tests {
         }
     }
 
+    struct FakeCaptureStore {
+        observed_capture: RefCell<Option<(u64, DiarizedTranscript)>>,
+    }
+
+    impl CaptureStore for FakeCaptureStore {
+        fn persist_capture(
+            &mut self,
+            capture_index: u64,
+            transcript: &DiarizedTranscript,
+        ) -> Result<(), CaptureStoreError> {
+            *self.observed_capture.borrow_mut() = Some((capture_index, transcript.clone()));
+            Ok(())
+        }
+    }
+
     fn sample_audio() -> RecordedAudio {
         RecordedAudio {
             wav_bytes: vec![0x52, 0x49, 0x46, 0x46],
@@ -335,9 +442,19 @@ mod tests {
             observed_request,
             response: expected_transcript,
         };
+        let mut capture_store = FakeCaptureStore {
+            observed_capture: RefCell::new(None),
+        };
         let mut stderr = Vec::new();
 
-        run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
 
         assert_eq!(
             *recorder.observed_duration.borrow(),
@@ -368,11 +485,53 @@ mod tests {
             observed_request: RefCell::new(None),
             response: transcript.clone(),
         };
+        let mut capture_store = FakeCaptureStore {
+            observed_capture: RefCell::new(None),
+        };
         let mut stderr = Vec::new();
 
-        let returned = run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
+        let returned = run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
 
         assert_eq!(returned, transcript);
+    }
+
+    #[test]
+    /// 文字起こし結果を capture store へ連番 1 で保存する。
+    fn persists_transcription_result_via_capture_store() {
+        let config = CliConfig::default();
+        let transcript = sample_transcript();
+        let mut recorder = FakeRecorder {
+            observed_duration: RefCell::new(None),
+            audio: sample_audio(),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_request: RefCell::new(None),
+            response: transcript.clone(),
+        };
+        let observed_capture = RefCell::new(None);
+        let mut capture_store = FakeCaptureStore { observed_capture };
+        let mut stderr = Vec::new();
+
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            *capture_store.observed_capture.borrow(),
+            Some((1, transcript))
+        );
     }
 
     #[test]
@@ -388,14 +547,41 @@ mod tests {
             observed_request: RefCell::new(None),
             response: transcript,
         };
+        let mut capture_store = FakeCaptureStore {
+            observed_capture: RefCell::new(None),
+        };
         let mut stderr = Vec::new();
 
-        run_cli(&config, &mut recorder, &mut transcriber, &mut stderr).unwrap();
+        run_cli(
+            &config,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
 
         let printed_logs = String::from_utf8(stderr).unwrap();
         assert_eq!(
             printed_logs,
             "recording started\nrecording finished\ntranscription request sent\ntranscription response received\n"
+        );
+    }
+
+    #[test]
+    /// debug 無効時は標準出力へ何も書かず、有効時だけ pretty JSON を出力する。
+    fn writes_debug_transcript_only_when_debug_enabled() {
+        let transcript = sample_transcript();
+        let mut disabled_output = Vec::new();
+        let mut enabled_output = Vec::new();
+
+        write_debug_transcript(false, &mut disabled_output, &transcript).unwrap();
+        write_debug_transcript(true, &mut enabled_output, &transcript).unwrap();
+
+        assert!(disabled_output.is_empty());
+        assert_eq!(
+            String::from_utf8(enabled_output).unwrap(),
+            serde_json::to_string_pretty(&transcript).unwrap() + "\n"
         );
     }
 }

@@ -1,9 +1,9 @@
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
-use diarize_log::storage::{
-    create_timestamped_session_paths, persist_capture, write_debug_transcript,
+use diarize_log::{
+    CliConfig, CpalRecorder, FileSystemCaptureStore, OpenAiTranscriber, run_cli,
+    write_debug_transcript,
 };
-use diarize_log::{CliConfig, CpalRecorder, OpenAiTranscriber, run_cli};
-use std::io;
+use std::io::{self};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -27,20 +27,22 @@ fn main() -> ExitCode {
         };
     let mut stderr = io::stderr();
     let mut stdout = io::stdout();
-    let session_paths = match create_timestamped_session_paths(&runtime_config.storage_root) {
-        Ok(paths) => paths,
+    let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
+        Ok(store) => store,
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::FAILURE;
         }
     };
 
-    match run_cli(&config, &mut recorder, &mut transcriber, &mut stderr) {
+    match run_cli(
+        &config,
+        &mut recorder,
+        &mut transcriber,
+        &mut capture_store,
+        &mut stderr,
+    ) {
         Ok(transcript) => {
-            if let Err(error) = persist_capture(&session_paths, 1, &transcript) {
-                eprintln!("{error}");
-                return ExitCode::FAILURE;
-            }
             if let Err(error) =
                 write_debug_transcript(runtime_config.debug_enabled, &mut stdout, &transcript)
             {

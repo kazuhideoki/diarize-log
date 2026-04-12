@@ -1,10 +1,12 @@
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
 use std::path::Path;
+use std::time::Duration;
 
 /// 既定の `.env` ファイルパスです。
 pub const DEFAULT_DOTENV_PATH: &str = ".env";
 const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
+const RECORDING_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_RECORDING_DURATION_SECONDS";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 
 /// 実行時設定の読み込み結果です。
@@ -12,6 +14,7 @@ const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 pub struct Config {
     pub openai_api_key: String,
     pub openai_api_key_source: ConfigSource,
+    pub recording_duration: Duration,
     pub debug_enabled: bool,
 }
 
@@ -62,6 +65,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidPositiveIntegerValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
 }
 
 impl fmt::Display for ConfigError {
@@ -94,6 +102,14 @@ impl fmt::Display for ConfigValidationError {
                 value,
                 source,
             } => write!(f, "invalid boolean value for {name} from {source}: {value}"),
+            Self::InvalidPositiveIntegerValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid positive integer value for {name} from {source}: {value}"
+            ),
         }
     }
 }
@@ -115,6 +131,7 @@ impl<T> ConfigValue<T> {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct RawConfig {
     openai_api_key: Option<ConfigValue<String>>,
+    recording_duration_seconds: Option<ConfigValue<String>>,
     debug_enabled: Option<ConfigValue<String>>,
 }
 
@@ -122,6 +139,10 @@ impl RawConfig {
     fn from_env() -> Self {
         Self {
             openai_api_key: read_env_var(OPENAI_API_KEY_ENV_VAR, ConfigSource::Environment),
+            recording_duration_seconds: read_env_var(
+                RECORDING_DURATION_SECONDS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
             debug_enabled: read_env_var(DEBUG_ENV_VAR, ConfigSource::Environment),
         }
     }
@@ -136,6 +157,10 @@ impl RawConfig {
                     match key.as_str() {
                         OPENAI_API_KEY_ENV_VAR => {
                             raw.openai_api_key = Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        RECORDING_DURATION_SECONDS_ENV_VAR => {
+                            raw.recording_duration_seconds =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         DEBUG_ENV_VAR => {
                             raw.debug_enabled = Some(ConfigValue::new(value, ConfigSource::DotEnv))
@@ -154,6 +179,9 @@ impl RawConfig {
     fn merge_missing(self, fallback: Self) -> Self {
         Self {
             openai_api_key: self.openai_api_key.or(fallback.openai_api_key),
+            recording_duration_seconds: self
+                .recording_duration_seconds
+                .or(fallback.recording_duration_seconds),
             debug_enabled: self.debug_enabled.or(fallback.debug_enabled),
         }
     }
@@ -169,13 +197,31 @@ impl RawConfig {
                         source: value.source,
                     });
                 }
-                value
+                Some(value)
             }
             None => {
                 errors.push(ConfigValidationError::MissingRequiredValue {
                     name: OPENAI_API_KEY_ENV_VAR,
                 });
-                ConfigValue::new(String::new(), ConfigSource::Environment)
+                None
+            }
+        };
+
+        let recording_duration = match self.recording_duration_seconds {
+            Some(value) => {
+                match parse_positive_integer(value, RECORDING_DURATION_SECONDS_ENV_VAR) {
+                    Ok(seconds) => Some(Duration::from_secs(seconds)),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => {
+                errors.push(ConfigValidationError::MissingRequiredValue {
+                    name: RECORDING_DURATION_SECONDS_ENV_VAR,
+                });
+                None
             }
         };
 
@@ -194,9 +240,19 @@ impl RawConfig {
             return Err(ConfigError::InvalidConfig(errors));
         }
 
+        let openai_api_key = match openai_api_key {
+            Some(value) => value,
+            None => unreachable!("validated missing OPENAI_API_KEY"),
+        };
+        let recording_duration = match recording_duration {
+            Some(value) => value,
+            None => unreachable!("validated missing recording duration"),
+        };
+
         Ok(Config {
             openai_api_key: openai_api_key.value,
             openai_api_key_source: openai_api_key.source,
+            recording_duration,
             debug_enabled,
         })
     }
@@ -230,10 +286,32 @@ fn parse_bool(
     }
 }
 
+fn parse_positive_integer(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<u64, ConfigValidationError> {
+    if value.value.trim().is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match value.value.parse::<u64>() {
+        Ok(parsed) if parsed > 0 => Ok(parsed),
+        _ => Err(ConfigValidationError::InvalidPositiveIntegerValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
     use std::sync::{Mutex, OnceLock};
+    use std::time::Duration;
 
     #[test]
     /// OPENAI_API_KEY は .env より環境変数の値を優先する。
@@ -243,7 +321,11 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+        )
+        .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
         unsafe {
@@ -255,6 +337,7 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
+        assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert!(!config.debug_enabled);
     }
 
@@ -266,7 +349,11 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OTHER_KEY=value\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            "OTHER_KEY=value\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+        )
+        .unwrap();
 
         let original = std::env::var_os("OPENAI_API_KEY");
         unsafe {
@@ -278,6 +365,7 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
+        assert_eq!(config.recording_duration, Duration::from_secs(30));
     }
 
     #[test]
@@ -288,6 +376,7 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(&dotenv_path, "DIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n").unwrap();
         let original = std::env::var_os("OPENAI_API_KEY");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
@@ -315,7 +404,7 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=true\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=true\n",
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -326,7 +415,114 @@ mod tests {
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
+        assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert!(config.debug_enabled);
+    }
+
+    #[test]
+    /// DIARIZE_LOG_RECORDING_DURATION_SECONDS が環境変数になければ .env の値で補完する。
+    fn resolves_recording_duration_from_dotenv_when_environment_variable_is_missing() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+        )
+        .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        assert_eq!(config.recording_duration, Duration::from_secs(30));
+    }
+
+    #[test]
+    /// DIARIZE_LOG_RECORDING_DURATION_SECONDS は .env より環境変数の値を優先する。
+    fn prefers_environment_variable_for_recording_duration_over_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+        )
+        .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        unsafe {
+            std::env::set_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", "45");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        assert_eq!(config.recording_duration, Duration::from_secs(45));
+    }
+
+    #[test]
+    /// .env と環境変数のどちらにも録音時間がなければ必須設定エラーにする。
+    fn returns_error_when_recording_duration_is_missing_everywhere() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::MissingRequiredValue {
+                name: "DIARIZE_LOG_RECORDING_DURATION_SECONDS"
+            }]
+        ));
+    }
+
+    #[test]
+    /// 1以上の整数として解釈できない録音時間は設定エラーにする。
+    fn returns_error_for_invalid_recording_duration() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=0\n",
+        )
+        .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidPositiveIntegerValue {
+                name: "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+                value: "0".to_string(),
+                source: ConfigSource::DotEnv,
+            }]
+        ));
     }
 
     #[test]
@@ -339,7 +535,7 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\n",
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -363,7 +559,7 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=maybe\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=maybe\n",
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -393,17 +589,24 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=\nDIARIZE_LOG_DEBUG=\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=\nDIARIZE_LOG_DEBUG=\n",
+        )
+        .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_DEBUG");
         }
 
         let result = Config::from_dotenv_path(&dotenv_path);
 
         restore_env_var("OPENAI_API_KEY", original_api_key);
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
         assert!(matches!(
             result,
@@ -411,6 +614,10 @@ mod tests {
             if errors == vec![
                 ConfigValidationError::EmptyValue {
                     name: "OPENAI_API_KEY",
+                    source: ConfigSource::DotEnv,
+                },
+                ConfigValidationError::EmptyValue {
+                    name: "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
                     source: ConfigSource::DotEnv,
                 },
                 ConfigValidationError::EmptyValue {
@@ -431,7 +638,7 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\n",
         )
         .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");

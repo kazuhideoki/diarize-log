@@ -9,7 +9,6 @@ use std::time::Duration;
 
 pub use adapters::{CpalRecorder, OpenAiTranscriber};
 
-pub const DEFAULT_RECORDING_DURATION: Duration = Duration::from_secs(30);
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 const TRANSCRIPTIONS_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
 
@@ -22,10 +21,10 @@ pub struct CliConfig {
     pub chunking_strategy: ChunkingStrategy,
 }
 
-impl Default for CliConfig {
-    fn default() -> Self {
+impl CliConfig {
+    pub fn new(recording_duration: Duration) -> Self {
         Self {
-            recording_duration: DEFAULT_RECORDING_DURATION,
+            recording_duration,
             response_format: ResponseFormat::DiarizedJson,
             transcription_model: TRANSCRIPTION_MODEL,
             chunking_strategy: ChunkingStrategy::Auto,
@@ -328,7 +327,7 @@ mod tests {
     #[test]
     /// 30秒録音し diarized_json と auto chunking で文字起こしを要求する。
     fn records_for_30_seconds_and_requests_diarized_transcription() {
-        let config = CliConfig::default();
+        let config = CliConfig::new(Duration::from_secs(30));
         let expected_audio = sample_audio();
         let expected_transcript = sample_transcript();
         let observed_duration = RefCell::new(None);
@@ -355,7 +354,7 @@ mod tests {
 
         assert_eq!(
             *recorder.observed_duration.borrow(),
-            Some(DEFAULT_RECORDING_DURATION)
+            Some(Duration::from_secs(30))
         );
         assert_eq!(
             *transcriber.observed_request.borrow(),
@@ -372,7 +371,7 @@ mod tests {
     #[test]
     /// 文字起こし結果を pretty JSON で標準出力に書き出す。
     fn writes_transcription_result_to_stdout_as_pretty_json() {
-        let config = CliConfig::default();
+        let config = CliConfig::new(Duration::from_secs(30));
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
             observed_duration: RefCell::new(None),
@@ -402,7 +401,7 @@ mod tests {
     #[test]
     /// 通常ログとして録音開始と終了および API の送受信を標準エラーへ順序通りに出力する。
     fn writes_normal_operation_logs_to_stderr() {
-        let config = CliConfig::default();
+        let config = CliConfig::new(Duration::from_secs(30));
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
             observed_duration: RefCell::new(None),

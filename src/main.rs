@@ -12,7 +12,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let config = CliConfig::default();
+    let config = CliConfig::new(runtime_config.recording_duration);
     let mut recorder = CpalRecorder::new(runtime_config.debug_enabled);
     let mut transcriber =
         match OpenAiTranscriber::new(runtime_config.openai_api_key, runtime_config.debug_enabled) {

@@ -172,6 +172,38 @@ impl SpeakerStore for FileSystemSpeakerStore {
 
         remove_file(sample_path).map_err(|error| SpeakerStoreError::DeleteSample(error.to_string()))
     }
+
+    fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError> {
+        if !self.speakers_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut speaker_names = Vec::new();
+        for entry in std::fs::read_dir(&self.speakers_dir)
+            .map_err(|error| SpeakerStoreError::ListSamples(error.to_string()))?
+        {
+            let path = entry
+                .map_err(|error| SpeakerStoreError::ListSamples(error.to_string()))?
+                .path();
+            if path.extension().is_none_or(|extension| extension != "wav") {
+                continue;
+            }
+
+            let speaker_name =
+                path.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .ok_or_else(|| {
+                        SpeakerStoreError::ListSamples(format!(
+                            "speaker sample filename is not valid UTF-8: {}",
+                            path.display()
+                        ))
+                    })?;
+            speaker_names.push(speaker_name.to_string());
+        }
+        speaker_names.sort();
+
+        Ok(speaker_names)
+    }
 }
 
 fn current_session_dir_name() -> Result<String, CaptureStoreError> {
@@ -338,6 +370,34 @@ mod tests {
                 speaker_name: "suzuki".to_string(),
             }
         );
+    }
+
+    #[test]
+    /// 話者サンプル保存ディレクトリがまだ無い場合は空一覧を返す。
+    fn returns_empty_list_when_speaker_directory_does_not_exist() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = FileSystemSpeakerStore::new(temp_dir.path());
+
+        let speakers = store.list_samples().unwrap();
+
+        assert!(speakers.is_empty());
+    }
+
+    #[test]
+    /// 登録済みの話者サンプル名をファイル名から昇順で一覧する。
+    fn lists_registered_speaker_names_in_sorted_order() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let speakers_dir = temp_dir.path().join("speakers");
+        std::fs::create_dir_all(&speakers_dir).unwrap();
+        std::fs::write(speakers_dir.join("tanaka.wav"), b"RIFF").unwrap();
+        std::fs::write(speakers_dir.join("sato.wav"), b"RIFF").unwrap();
+        std::fs::write(speakers_dir.join("notes.txt"), b"ignore").unwrap();
+
+        let store = FileSystemSpeakerStore::new(temp_dir.path());
+
+        let speakers = store.list_samples().unwrap();
+
+        assert_eq!(speakers, vec!["sato".to_string(), "tanaka".to_string()]);
     }
 
     fn sample_audio() -> RecordedAudio {

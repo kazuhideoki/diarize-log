@@ -4,7 +4,12 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
+<<<<<<< HEAD
     CliAction, CliConfig, parse_cli_args, run_cli, run_speaker_command, write_debug_transcript,
+=======
+    CliAction, CliConfig, SpeakerCommandResult, parse_cli_args, render_help, run_cli,
+    run_speaker_command, write_debug_transcript,
+>>>>>>> main
 };
 use std::io::{self};
 use std::path::Path;
@@ -33,7 +38,13 @@ fn main() -> ExitCode {
                 &clipper,
                 &mut speaker_store,
             ) {
-                Ok(()) => ExitCode::SUCCESS,
+                Ok(SpeakerCommandResult::Updated) => ExitCode::SUCCESS,
+                Ok(SpeakerCommandResult::ListedSpeakers(speaker_names)) => {
+                    for speaker_name in speaker_names {
+                        println!("{speaker_name}");
+                    }
+                    ExitCode::SUCCESS
+                }
                 Err(error) => {
                     eprintln!("{error}");
                     ExitCode::FAILURE

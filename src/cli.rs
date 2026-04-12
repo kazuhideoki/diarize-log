@@ -28,6 +28,7 @@ pub enum SpeakerCommand {
         wav_path: PathBuf,
         start_second: u64,
     },
+    List,
     Remove {
         speaker_name: String,
     },
@@ -166,10 +167,33 @@ impl SpeakerSubcommandArgs {
             SpeakerCommandArgs::Remove { speaker_name } => SpeakerCommand::Remove { speaker_name },
         };
 
+<<<<<<< HEAD
         Ok(CliAction::Speaker(command))
     }
 }
 
+=======
+            Ok(CliAction::Speaker(SpeakerCommand::Remove { speaker_name }))
+        }
+        "list" => {
+            if let Some(argument) = arguments.next() {
+                return Err(CliArgumentError::UnexpectedArgument { argument });
+            }
+
+            Ok(CliAction::Speaker(SpeakerCommand::List))
+        }
+        _ => Err(CliArgumentError::UnknownSpeakerSubcommand { subcommand }),
+    }
+}
+
+/// `--help` で表示する usage 文です。
+pub fn render_help(program_name: &str) -> String {
+    format!(
+        "Usage: {program_name} [--help]\n       {program_name} speaker add <speaker_name> <abs_path_of_wav> <start_second>\n       {program_name} speaker list\n       {program_name} speaker remove <speaker_name>\n\nRecords audio, requests diarized transcription, and stores the capture.\n\nCommands:\n  speaker add       Cut a sample wav from the source file and register it.\n  speaker list      List registered speaker samples.\n  speaker remove    Remove a registered speaker sample.\n\nOptions:\n  --help    Show this help message and exit.\n"
+    )
+}
+
+>>>>>>> main
 #[derive(Debug)]
 pub enum DebugOutputError {
     Serialize(serde_json::Error),
@@ -226,6 +250,12 @@ impl fmt::Display for SpeakerCliError {
 }
 
 impl std::error::Error for SpeakerCliError {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpeakerCommandResult {
+    Updated,
+    ListedSpeakers(Vec<String>),
+}
 
 /// CLI PoC のオーケストレーション入口です。
 pub fn run_cli<R, T, S, L>(
@@ -335,7 +365,7 @@ pub fn run_speaker_command<C, S>(
     sample_duration: Duration,
     clipper: &C,
     speaker_store: &mut S,
-) -> Result<(), SpeakerCliError>
+) -> Result<SpeakerCommandResult, SpeakerCliError>
 where
     C: AudioClipper,
     S: SpeakerStore,
@@ -355,11 +385,17 @@ where
                 .map_err(SpeakerCliError::Clip)?;
             speaker_store
                 .create_sample(speaker_name, &clipped_audio)
-                .map_err(SpeakerCliError::Store)
+                .map_err(SpeakerCliError::Store)?;
+            Ok(SpeakerCommandResult::Updated)
         }
+        SpeakerCommand::List => speaker_store
+            .list_samples()
+            .map(SpeakerCommandResult::ListedSpeakers)
+            .map_err(SpeakerCliError::Store),
         SpeakerCommand::Remove { speaker_name } => speaker_store
             .remove_sample(speaker_name)
-            .map_err(SpeakerCliError::Store),
+            .map_err(SpeakerCliError::Store)
+            .map(|()| SpeakerCommandResult::Updated),
     }
 }
 
@@ -504,6 +540,19 @@ mod tests {
                 speaker_name: "suzuki".to_string(),
             })
         );
+    }
+
+    #[test]
+    /// `speaker list` を受け取ると話者サンプル一覧コマンドとして解釈する。
+    fn parses_speaker_list_command() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("speaker"),
+            OsString::from("list"),
+        ])
+        .unwrap();
+
+        assert_eq!(action, CliAction::Speaker(SpeakerCommand::List));
     }
 
     #[test]
@@ -757,6 +806,7 @@ mod tests {
     #[derive(Default)]
     struct FakeSpeakerStore {
         created_samples: RefCell<Vec<(String, RecordedAudio)>>,
+        listed_speakers: RefCell<Vec<String>>,
         removed_speakers: RefCell<Vec<String>>,
     }
 
@@ -777,6 +827,10 @@ mod tests {
                 .borrow_mut()
                 .push(speaker_name.to_string());
             Ok(())
+        }
+
+        fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError> {
+            Ok(self.listed_speakers.borrow().clone())
         }
     }
 
@@ -1253,6 +1307,36 @@ mod tests {
         assert_eq!(
             *speaker_store.removed_speakers.borrow(),
             vec!["suzuki".to_string()]
+        );
+    }
+
+    #[test]
+    /// `speaker list` は登録済みの話者名一覧取得を保存先へ委譲する。
+    fn lists_registered_speakers_for_list_command() {
+        let clipper = FakeAudioClipper {
+            observed_requests: RefCell::new(Vec::new()),
+            clipped_audio: sample_audio(),
+        };
+        let mut speaker_store = FakeSpeakerStore {
+            created_samples: RefCell::new(Vec::new()),
+            listed_speakers: RefCell::new(vec!["sato".to_string(), "suzuki".to_string()]),
+            removed_speakers: RefCell::new(Vec::new()),
+        };
+
+        let result = run_speaker_command(
+            &SpeakerCommand::List,
+            Duration::from_secs(6),
+            &clipper,
+            &mut speaker_store,
+        )
+        .unwrap();
+
+        assert!(clipper.observed_requests.borrow().is_empty());
+        assert!(speaker_store.created_samples.borrow().is_empty());
+        assert!(speaker_store.removed_speakers.borrow().is_empty());
+        assert_eq!(
+            result,
+            SpeakerCommandResult::ListedSpeakers(vec!["sato".to_string(), "suzuki".to_string()])
         );
     }
 }

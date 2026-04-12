@@ -1,11 +1,7 @@
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
-<<<<<<< HEAD
-use std::path::Path;
-use std::time::Duration;
-=======
 use std::path::{Path, PathBuf};
->>>>>>> main
+use std::time::Duration;
 
 /// 既定の `.env` ファイルパスです。
 pub const DEFAULT_DOTENV_PATH: &str = ".env";
@@ -71,11 +67,12 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
-<<<<<<< HEAD
     InvalidPositiveIntegerValue {
-=======
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     RelativePathValue {
->>>>>>> main
         name: &'static str,
         value: String,
         source: ConfigSource,
@@ -101,9 +98,7 @@ impl fmt::Display for ConfigError {
 impl fmt::Display for ConfigValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingRequiredValue { name } => {
-                write!(f, "missing required value: {name}")
-            }
+            Self::MissingRequiredValue { name } => write!(f, "missing required value: {name}"),
             Self::EmptyValue { name, source } => {
                 write!(f, "empty value for {name} from {source}")
             }
@@ -112,21 +107,21 @@ impl fmt::Display for ConfigValidationError {
                 value,
                 source,
             } => write!(f, "invalid boolean value for {name} from {source}: {value}"),
-<<<<<<< HEAD
             Self::InvalidPositiveIntegerValue {
-=======
-            Self::RelativePathValue {
->>>>>>> main
                 name,
                 value,
                 source,
             } => write!(
                 f,
-<<<<<<< HEAD
                 "invalid positive integer value for {name} from {source}: {value}"
-=======
+            ),
+            Self::RelativePathValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
                 "relative path is not allowed for {name} from {source}: {value}"
->>>>>>> main
             ),
         }
     }
@@ -262,17 +257,17 @@ impl RawConfig {
 
         let storage_root = match self.storage_root {
             Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
-                Ok(path) => path,
+                Ok(path) => Some(path),
                 Err(error) => {
                     errors.push(error);
-                    PathBuf::new()
+                    None
                 }
             },
             None => {
                 errors.push(ConfigValidationError::MissingRequiredValue {
                     name: STORAGE_ROOT_ENV_VAR,
                 });
-                PathBuf::new()
+                None
             }
         };
 
@@ -287,6 +282,10 @@ impl RawConfig {
         let recording_duration = match recording_duration {
             Some(value) => value,
             None => unreachable!("validated missing recording duration"),
+        };
+        let storage_root = match storage_root {
+            Some(value) => value,
+            None => unreachable!("validated missing storage root"),
         };
 
         Ok(Config {
@@ -327,17 +326,10 @@ fn parse_bool(
     }
 }
 
-<<<<<<< HEAD
 fn parse_positive_integer(
     value: ConfigValue<String>,
     name: &'static str,
 ) -> Result<u64, ConfigValidationError> {
-=======
-fn parse_absolute_path(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<PathBuf, ConfigValidationError> {
->>>>>>> main
     if value.value.trim().is_empty() {
         return Err(ConfigValidationError::EmptyValue {
             name,
@@ -345,7 +337,6 @@ fn parse_absolute_path(
         });
     }
 
-<<<<<<< HEAD
     match value.value.parse::<u64>() {
         Ok(parsed) if parsed > 0 => Ok(parsed),
         _ => Err(ConfigValidationError::InvalidPositiveIntegerValue {
@@ -354,7 +345,19 @@ fn parse_absolute_path(
             source: value.source,
         }),
     }
-=======
+}
+
+fn parse_absolute_path(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<PathBuf, ConfigValidationError> {
+    if value.value.trim().is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
     let path = PathBuf::from(&value.value);
     if !path.is_absolute() {
         return Err(ConfigValidationError::RelativePathValue {
@@ -365,13 +368,12 @@ fn parse_absolute_path(
     }
 
     Ok(path)
->>>>>>> main
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
 
@@ -383,16 +385,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
-=======
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
 
@@ -408,7 +407,7 @@ mod tests {
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert!(!config.debug_enabled);
-        assert_eq!(config.storage_root, expected_default_storage_root());
+        assert_eq!(config.storage_root, storage_root);
     }
 
     #[test]
@@ -419,16 +418,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OTHER_KEY=value\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
-=======
             format!(
-                "OTHER_KEY=value\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+                "OTHER_KEY=value\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
 
@@ -442,11 +438,8 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(config.openai_api_key, "from-env");
         assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
-<<<<<<< HEAD
         assert_eq!(config.recording_duration, Duration::from_secs(30));
-=======
-        assert_eq!(config.storage_root, expected_default_storage_root());
->>>>>>> main
+        assert_eq!(config.storage_root, storage_root);
     }
 
     #[test]
@@ -457,21 +450,29 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "DIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n").unwrap();
-        let original = std::env::var_os("OPENAI_API_KEY");
+        let original_api_key = std::env::var_os("OPENAI_API_KEY");
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let result = Config::from_dotenv_path(&dotenv_path);
 
-        restore_env_var("OPENAI_API_KEY", original);
+        restore_env_var("OPENAI_API_KEY", original_api_key);
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
             result,
             Err(ConfigError::InvalidConfig(errors))
             if errors == vec![
                 ConfigValidationError::MissingRequiredValue {
                     name: "OPENAI_API_KEY"
+                },
+                ConfigValidationError::MissingRequiredValue {
+                    name: "DIARIZE_LOG_RECORDING_DURATION_SECONDS"
                 },
                 ConfigValidationError::MissingRequiredValue {
                     name: "DIARIZE_LOG_STORAGE_ROOT"
@@ -488,16 +489,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=true\n",
-=======
-            &format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=true\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=true\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -510,7 +508,7 @@ mod tests {
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
         assert!(config.debug_enabled);
-        assert_eq!(config.storage_root, expected_default_storage_root());
+        assert_eq!(config.storage_root, storage_root);
     }
 
     #[test]
@@ -521,9 +519,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
         )
         .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
@@ -535,6 +537,7 @@ mod tests {
 
         restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
         assert_eq!(config.recording_duration, Duration::from_secs(30));
+        assert_eq!(config.storage_root, storage_root);
     }
 
     #[test]
@@ -545,9 +548,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
         )
         .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
@@ -569,7 +576,15 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
@@ -595,9 +610,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=0\n",
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=0\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
         )
         .unwrap();
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
@@ -627,16 +646,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\n",
-=======
-            &format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -658,16 +674,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=maybe\n",
-=======
-            &format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=maybe\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=maybe\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
@@ -702,7 +715,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 dotenv_storage_root.display()
             ),
         )
@@ -726,7 +739,11 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
-        std::fs::write(&dotenv_path, "OPENAI_API_KEY=from-dotenv\n").unwrap();
+        std::fs::write(
+            &dotenv_path,
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\n",
+        )
+        .unwrap();
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
@@ -754,7 +771,7 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_STORAGE_ROOT=./storage\n",
+            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_STORAGE_ROOT=./storage\n",
         )
         .unwrap();
         let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
@@ -786,20 +803,18 @@ mod tests {
         let dotenv_path = temp_dir.path().join(".env");
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=\nDIARIZE_LOG_DEBUG=\n",
-=======
-            "OPENAI_API_KEY=\nDIARIZE_LOG_DEBUG=\nDIARIZE_LOG_STORAGE_ROOT=\n",
->>>>>>> main
+            "OPENAI_API_KEY=\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=\nDIARIZE_LOG_DEBUG=\nDIARIZE_LOG_STORAGE_ROOT=\n",
         )
         .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");
         let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
         let original_debug = std::env::var_os("DIARIZE_LOG_DEBUG");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
         unsafe {
             std::env::remove_var("OPENAI_API_KEY");
             std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_DEBUG");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
         }
 
         let result = Config::from_dotenv_path(&dotenv_path);
@@ -807,6 +822,7 @@ mod tests {
         restore_env_var("OPENAI_API_KEY", original_api_key);
         restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
         restore_env_var("DIARIZE_LOG_DEBUG", original_debug);
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
         assert!(matches!(
             result,
             Err(ConfigError::InvalidConfig(errors))
@@ -839,16 +855,13 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
         std::fs::write(
             &dotenv_path,
-<<<<<<< HEAD
-            "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\n",
-=======
-            &format!(
-                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
-                expected_default_storage_root().display()
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
             ),
->>>>>>> main
         )
         .unwrap();
         let original_api_key = std::env::var_os("OPENAI_API_KEY");
@@ -885,10 +898,7 @@ mod tests {
         ENV_LOCK.get_or_init(|| Mutex::new(()))
     }
 
-    fn expected_default_storage_root() -> PathBuf {
-        std::env::current_dir()
-            .unwrap()
-            .join("diarize-log")
-            .join("storage")
+    fn sample_storage_root(base_dir: &Path) -> PathBuf {
+        base_dir.join("storage-root")
     }
 }

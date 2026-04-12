@@ -355,15 +355,9 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-    /// 文字起こし結果を pretty JSON で標準出力に書き出す。
-    fn writes_transcription_result_to_stdout_as_pretty_json() {
-        let config = CliConfig::new(Duration::from_secs(30));
-=======
     /// 文字起こし結果を呼び出し元へ返す。
     fn returns_transcription_result_to_caller() {
-        let config = CliConfig::default();
->>>>>>> main
+        let config = CliConfig::new(Duration::from_secs(30));
         let transcript = sample_transcript();
         let mut recorder = FakeRecorder {
             observed_duration: RefCell::new(None),

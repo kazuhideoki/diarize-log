@@ -13,7 +13,7 @@ use time::{OffsetDateTime, UtcOffset};
 struct SessionPaths {
     audios_dir: PathBuf,
     captures_dir: PathBuf,
-    final_path: PathBuf,
+    merged_path: PathBuf,
 }
 
 impl SessionPaths {
@@ -23,7 +23,7 @@ impl SessionPaths {
         Self {
             audios_dir: session_dir.join("audios"),
             captures_dir: session_dir.join("captures"),
-            final_path: session_dir.join("final.jsonl"),
+            merged_path: session_dir.join("merged.jsonl"),
         }
     }
 
@@ -65,8 +65,8 @@ impl FileSystemCaptureStore {
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         create_dir_all(&paths.captures_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
-        File::create(&paths.final_path)
-            .map_err(|error| CaptureStoreError::OpenFinal(error.to_string()))?;
+        File::create(&paths.merged_path)
+            .map_err(|error| CaptureStoreError::OpenMerged(error.to_string()))?;
 
         Ok(Self { paths })
     }
@@ -261,8 +261,8 @@ mod tests {
     };
 
     #[test]
-    /// セッション配下に audios と captures ディレクトリおよび空の final.jsonl を作成して開始時刻付き transcript を書き出す。
-    fn persists_audio_wav_and_capture_json_and_keeps_final_jsonl_empty_before_merge() {
+    /// セッション配下に audios と captures ディレクトリおよび空の merged.jsonl を作成して開始時刻付き transcript を書き出す。
+    fn persists_audio_wav_and_capture_json_and_keeps_merged_jsonl_empty_before_merge() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
 
@@ -282,7 +282,7 @@ mod tests {
         let session_dir = &session_dirs[0];
         let audio_path = session_dir.join("audios").join("capture-000001.wav");
         let capture_path = session_dir.join("captures").join("capture-000001.json");
-        let final_path = session_dir.join("final.jsonl");
+        let merged_path = session_dir.join("merged.jsonl");
 
         assert_eq!(std::fs::read(audio_path).unwrap(), sample_audio().wav_bytes);
         assert_eq!(
@@ -308,7 +308,7 @@ mod tests {
                 "}\n"
             )
         );
-        assert_eq!(std::fs::read_to_string(final_path).unwrap(), "");
+        assert_eq!(std::fs::read_to_string(merged_path).unwrap(), "");
     }
 
     #[test]

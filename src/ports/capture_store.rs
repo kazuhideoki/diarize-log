@@ -25,9 +25,9 @@ pub enum CaptureStoreError {
     WriteAudio(String),
     WriteCapture(String),
     SerializeCapture(String),
-    OpenFinal(String),
-    WriteFinal(String),
-    SerializeFinal(String),
+    OpenMerged(String),
+    WriteMerged(String),
+    SerializeMerged(String),
 }
 
 impl fmt::Display for CaptureStoreError {
@@ -47,10 +47,10 @@ impl fmt::Display for CaptureStoreError {
             Self::SerializeCapture(source) => {
                 write!(f, "failed to serialize capture file: {source}")
             }
-            Self::OpenFinal(source) => write!(f, "failed to open final log file: {source}"),
-            Self::WriteFinal(source) => write!(f, "failed to append final log file: {source}"),
-            Self::SerializeFinal(source) => {
-                write!(f, "failed to serialize final log entry: {source}")
+            Self::OpenMerged(source) => write!(f, "failed to open merged log file: {source}"),
+            Self::WriteMerged(source) => write!(f, "failed to append merged log file: {source}"),
+            Self::SerializeMerged(source) => {
+                write!(f, "failed to serialize merged log entry: {source}")
             }
         }
     }

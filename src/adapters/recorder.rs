@@ -7,6 +7,9 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
+const TARGET_CHANNELS: u16 = 1;
+const TARGET_SAMPLE_RATE: u32 = 24_000;
+
 /// `cpal` を使ってデフォルトマイクから録音します。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CpalRecorder {
@@ -91,8 +94,24 @@ impl Recorder for CpalRecorder {
             &format!("captured pcm samples: count={}", captured_samples.len()),
         );
 
-        encode_wav(captured_samples, channels, sample_rate)
+        let normalized_samples = normalize_pcm_format(captured_samples, channels, sample_rate);
+        debug_log(
+            self.debug_enabled,
+            &format!(
+                "normalized pcm samples: count={} channels={} sample_rate={}",
+                normalized_samples.len(),
+                TARGET_CHANNELS,
+                TARGET_SAMPLE_RATE
+            ),
+        );
+
+        encode_wav(normalized_samples, TARGET_CHANNELS, TARGET_SAMPLE_RATE)
     }
+}
+
+fn normalize_pcm_format(pcm_samples: Vec<i16>, channels: u16, sample_rate: u32) -> Vec<i16> {
+    let mono_samples = downmix_to_mono(&pcm_samples, channels);
+    resample_mono_pcm(&mono_samples, sample_rate, TARGET_SAMPLE_RATE)
 }
 
 fn build_input_stream<T>(
@@ -140,6 +159,46 @@ where
     i16::from_sample(sample)
 }
 
+fn downmix_to_mono(pcm_samples: &[i16], channels: u16) -> Vec<i16> {
+    if channels == TARGET_CHANNELS {
+        return pcm_samples.to_vec();
+    }
+
+    let channels = usize::from(channels);
+    pcm_samples
+        .chunks_exact(channels)
+        .map(|frame| {
+            let sum = frame.iter().map(|sample| i32::from(*sample)).sum::<i32>();
+            (sum / i32::try_from(channels).expect("channels must fit into i32")) as i16
+        })
+        .collect()
+}
+
+fn resample_mono_pcm(
+    pcm_samples: &[i16],
+    input_sample_rate: u32,
+    output_sample_rate: u32,
+) -> Vec<i16> {
+    if input_sample_rate == output_sample_rate || pcm_samples.is_empty() {
+        return pcm_samples.to_vec();
+    }
+
+    let output_len = ((pcm_samples.len() as u64 * output_sample_rate as u64)
+        / input_sample_rate as u64) as usize;
+
+    (0..output_len)
+        .map(|index| {
+            let position = index as f64 * input_sample_rate as f64 / output_sample_rate as f64;
+            let lower_index = position.floor() as usize;
+            let upper_index = (lower_index + 1).min(pcm_samples.len() - 1);
+            let ratio = position - lower_index as f64;
+            let lower = pcm_samples[lower_index] as f64;
+            let upper = pcm_samples[upper_index] as f64;
+            ((lower * (1.0 - ratio)) + (upper * ratio)).round() as i16
+        })
+        .collect()
+}
+
 fn encode_wav(
     pcm_samples: Vec<i16>,
     channels: u16,
@@ -173,7 +232,7 @@ fn encode_wav(
 
 #[cfg(test)]
 mod tests {
-    use super::encode_wav;
+    use super::{encode_wav, normalize_pcm_format};
     use crate::ports::RecordedAudio;
     use std::io::Cursor;
 
@@ -193,5 +252,26 @@ mod tests {
         let reader = hound::WavReader::new(Cursor::new(audio.wav_bytes)).unwrap();
         assert_eq!(reader.spec().channels, 2);
         assert_eq!(reader.spec().sample_rate, 16_000);
+    }
+
+    #[test]
+    /// 48kHz ステレオの PCM サンプル列を 24kHz モノラルへ正規化して WAV に変換する。
+    fn normalizes_stereo_pcm_into_24khz_mono_wav_bytes() {
+        let normalized = normalize_pcm_format(
+            vec![1000, 3000, 5000, 7000, 9000, 11000, 13000, 15000],
+            2,
+            48_000,
+        );
+        let audio = encode_wav(normalized, 1, 24_000).unwrap();
+
+        let reader = hound::WavReader::new(Cursor::new(audio.wav_bytes)).unwrap();
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.spec().sample_rate, 24_000);
+
+        let samples = reader
+            .into_samples::<i16>()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(samples, vec![2000, 10000]);
     }
 }

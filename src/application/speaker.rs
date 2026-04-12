@@ -83,7 +83,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::RecordedAudio;
+    use crate::ports::{KnownSpeakerSample, RecordedAudio};
     use std::cell::RefCell;
 
     struct FakeAudioClipper {
@@ -135,6 +135,13 @@ mod tests {
 
         fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError> {
             Ok(self.listed_speakers.borrow().clone())
+        }
+
+        fn read_sample(&self, speaker_name: &str) -> Result<KnownSpeakerSample, SpeakerStoreError> {
+            Ok(KnownSpeakerSample {
+                speaker_name: speaker_name.to_string(),
+                audio: sample_audio(),
+            })
         }
     }
 

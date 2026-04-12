@@ -4,8 +4,8 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    CaptureConfig, CliAction, SpeakerCommandResult, parse_cli_args, run_capture,
-    run_speaker_command, write_debug_transcript,
+    CaptureConfig, CliAction, KnownSpeakerSample, SpeakerCommandResult, SpeakerStore,
+    parse_cli_args, run_capture, run_speaker_command, write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;
@@ -34,7 +34,7 @@ fn main() -> ExitCode {
     };
 
     match action {
-        CliAction::Run => {
+        CliAction::Run { speaker_samples } => {
             let config = CaptureConfig::new(
                 runtime_config.recording_duration,
                 runtime_config.capture_duration,
@@ -61,9 +61,20 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
+            let speaker_samples = match load_known_speaker_samples(
+                &FileSystemSpeakerStore::new(&runtime_config.storage_root),
+                &speaker_samples,
+            ) {
+                Ok(samples) => samples,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
 
             match run_capture(
                 &config,
+                &speaker_samples,
                 &mut recorder,
                 &mut transcriber,
                 &mut capture_store,
@@ -111,4 +122,17 @@ fn main() -> ExitCode {
         }
         CliAction::PrintOutput(_) => unreachable!("print output is handled before config load"),
     }
+}
+
+fn load_known_speaker_samples<S>(
+    speaker_store: &S,
+    speaker_names: &[String],
+) -> Result<Vec<KnownSpeakerSample>, diarize_log::SpeakerStoreError>
+where
+    S: SpeakerStore,
+{
+    speaker_names
+        .iter()
+        .map(|speaker_name| speaker_store.read_sample(speaker_name))
+        .collect()
 }

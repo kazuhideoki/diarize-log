@@ -1,4 +1,4 @@
-use crate::ports::RecordedAudio;
+use crate::ports::{KnownSpeakerSample, RecordedAudio};
 use std::fmt;
 
 /// 話者サンプル音声の保存先を抽象化します。
@@ -12,6 +12,8 @@ pub trait SpeakerStore {
     fn remove_sample(&mut self, speaker_name: &str) -> Result<(), SpeakerStoreError>;
 
     fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError>;
+
+    fn read_sample(&self, speaker_name: &str) -> Result<KnownSpeakerSample, SpeakerStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +23,7 @@ pub enum SpeakerStoreError {
     SpeakerAlreadyExists { speaker_name: String },
     SpeakerNotFound { speaker_name: String },
     WriteSample(String),
+    ReadSample(String),
     DeleteSample(String),
     ListSamples(String),
 }
@@ -41,6 +44,7 @@ impl fmt::Display for SpeakerStoreError {
                 write!(f, "speaker sample was not found: {speaker_name}")
             }
             Self::WriteSample(source) => write!(f, "failed to write speaker sample: {source}"),
+            Self::ReadSample(source) => write!(f, "failed to read speaker sample: {source}"),
             Self::DeleteSample(source) => write!(f, "failed to delete speaker sample: {source}"),
             Self::ListSamples(source) => write!(f, "failed to list speaker samples: {source}"),
         }

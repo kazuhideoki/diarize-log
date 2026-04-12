@@ -1,6 +1,7 @@
 use crate::ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, Recorder, RecorderError,
-    RecordingSession, ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+    CaptureStore, CaptureStoreError, ChunkingStrategy, DiarizedTranscript, KnownSpeakerSample,
+    Recorder, RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
+    TranscriptionRequest,
 };
 use std::fmt;
 use std::io::Write;
@@ -60,6 +61,7 @@ impl std::error::Error for CaptureError {}
 /// 連続録音と文字起こしを実行します。
 pub fn run_capture<R, T, S, L>(
     config: &CaptureConfig,
+    speaker_samples: &[KnownSpeakerSample],
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -111,6 +113,7 @@ where
         let transcript = transcriber
             .transcribe(TranscriptionRequest {
                 audio: &audio,
+                speaker_samples,
                 model: config.transcription_model,
                 response_format: config.response_format,
                 chunking_strategy: config.chunking_strategy,
@@ -245,6 +248,7 @@ mod tests {
     struct CapturedRequest {
         wav_bytes: Vec<u8>,
         content_type: &'static str,
+        speaker_samples: Vec<KnownSpeakerSample>,
         model: &'static str,
         response_format: ResponseFormat,
         chunking_strategy: ChunkingStrategy,
@@ -327,6 +331,7 @@ mod tests {
             self.observed_requests.borrow_mut().push(CapturedRequest {
                 wav_bytes: request.audio.wav_bytes.clone(),
                 content_type: request.audio.content_type,
+                speaker_samples: request.speaker_samples.to_vec(),
                 model: request.model,
                 response_format: request.response_format,
                 chunking_strategy: request.chunking_strategy,
@@ -376,6 +381,16 @@ mod tests {
         RecordedAudio {
             wav_bytes: vec![0x52, 0x49, 0x46, 0x46],
             content_type: "audio/wav",
+        }
+    }
+
+    fn sample_known_speaker() -> KnownSpeakerSample {
+        KnownSpeakerSample {
+            speaker_name: "suzuki".to_string(),
+            audio: RecordedAudio {
+                wav_bytes: vec![0x10, 0x20, 0x30],
+                content_type: "audio/wav",
+            },
         }
     }
 
@@ -474,13 +489,13 @@ mod tests {
 
         run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
             &mut stderr,
         )
         .unwrap();
-
         assert_eq!(observation.borrow().start_call_count, 1);
         assert_eq!(
             observation.borrow().waited_until,
@@ -504,6 +519,7 @@ mod tests {
                 CapturedRequest {
                     wav_bytes: audio1.wav_bytes,
                     content_type: "audio/wav",
+                    speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
@@ -511,6 +527,7 @@ mod tests {
                 CapturedRequest {
                     wav_bytes: audio2.wav_bytes,
                     content_type: "audio/wav",
+                    speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
@@ -518,11 +535,62 @@ mod tests {
                 CapturedRequest {
                     wav_bytes: audio3.wav_bytes,
                     content_type: "audio/wav",
+                    speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
             ]
+        );
+    }
+
+    #[test]
+    /// 指定した既知話者サンプルを各 capture の文字起こしリクエストへ添付する。
+    fn attaches_known_speaker_samples_to_each_transcription_request() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
+        };
+        let mut capture_store = FakeCaptureStore {
+            observed_audios: RefCell::new(Vec::new()),
+            observed_transcripts: RefCell::new(Vec::new()),
+        };
+        let mut stderr = Vec::new();
+        let speaker_sample = sample_known_speaker();
+
+        run_capture(
+            &config,
+            std::slice::from_ref(&speaker_sample),
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            transcriber
+                .observed_requests
+                .borrow()
+                .iter()
+                .map(|request| request.speaker_samples.clone())
+                .collect::<Vec<_>>(),
+            vec![vec![speaker_sample.clone()], vec![speaker_sample],]
         );
     }
 
@@ -566,6 +634,7 @@ mod tests {
 
         let returned = run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -621,6 +690,7 @@ mod tests {
 
         run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -669,6 +739,7 @@ mod tests {
 
         let error = run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -711,6 +782,7 @@ mod tests {
 
         run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -775,6 +847,7 @@ mod tests {
 
         run_capture(
             &config,
+            &[],
             &mut recorder,
             &mut transcriber,
             &mut capture_store,

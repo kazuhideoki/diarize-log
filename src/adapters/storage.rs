@@ -1,6 +1,6 @@
 use crate::ports::{
-    CaptureStore, CaptureStoreError, DiarizedTranscript, RecordedAudio, SpeakerStore,
-    SpeakerStoreError,
+    CaptureStore, CaptureStoreError, DiarizedTranscript, KnownSpeakerSample, RecordedAudio,
+    SpeakerStore, SpeakerStoreError,
 };
 use serde::Serialize;
 use std::fs::{File, create_dir_all, remove_file};
@@ -204,6 +204,26 @@ impl SpeakerStore for FileSystemSpeakerStore {
 
         Ok(speaker_names)
     }
+
+    fn read_sample(&self, speaker_name: &str) -> Result<KnownSpeakerSample, SpeakerStoreError> {
+        let sample_path = self.sample_path(speaker_name)?;
+        if !sample_path.exists() {
+            return Err(SpeakerStoreError::SpeakerNotFound {
+                speaker_name: speaker_name.to_string(),
+            });
+        }
+
+        let wav_bytes = std::fs::read(sample_path)
+            .map_err(|error| SpeakerStoreError::ReadSample(error.to_string()))?;
+
+        Ok(KnownSpeakerSample {
+            speaker_name: speaker_name.to_string(),
+            audio: RecordedAudio {
+                wav_bytes,
+                content_type: "audio/wav",
+            },
+        })
+    }
 }
 
 fn current_session_dir_name() -> Result<String, CaptureStoreError> {
@@ -236,8 +256,8 @@ fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
 mod tests {
     use super::{FileSystemCaptureStore, FileSystemSpeakerStore};
     use crate::ports::{
-        CaptureStore, DiarizedTranscript, RecordedAudio, SpeakerStore, SpeakerStoreError,
-        TranscriptSegment,
+        CaptureStore, DiarizedTranscript, KnownSpeakerSample, RecordedAudio, SpeakerStore,
+        SpeakerStoreError, TranscriptSegment,
     };
 
     #[test]
@@ -354,6 +374,24 @@ mod tests {
         store.remove_sample("suzuki").unwrap();
 
         assert!(!temp_dir.path().join("speakers").join("suzuki.wav").exists());
+    }
+
+    #[test]
+    /// 登録済みの話者サンプルは capture 添付用に読み出せる。
+    fn reads_registered_speaker_sample_for_capture_attachment() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemSpeakerStore::new(temp_dir.path());
+        store.create_sample("suzuki", &sample_audio()).unwrap();
+
+        let sample = store.read_sample("suzuki").unwrap();
+
+        assert_eq!(
+            sample,
+            KnownSpeakerSample {
+                speaker_name: "suzuki".to_string(),
+                audio: sample_audio(),
+            }
+        );
     }
 
     #[test]

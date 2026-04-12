@@ -31,10 +31,18 @@ impl ChunkingStrategy {
 
 use crate::ports::RecordedAudio;
 
+/// 既知話者として転写 API に添付する参照サンプルです。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnownSpeakerSample {
+    pub speaker_name: String,
+    pub audio: RecordedAudio,
+}
+
 /// 話者分離文字起こしリクエストです。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranscriptionRequest<'a> {
     pub audio: &'a RecordedAudio,
+    pub speaker_samples: &'a [KnownSpeakerSample],
     pub model: &'static str,
     pub response_format: ResponseFormat,
     pub chunking_strategy: ChunkingStrategy,

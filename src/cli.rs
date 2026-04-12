@@ -7,7 +7,7 @@ use std::path::PathBuf;
 /// CLI 起動時の振る舞いです。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliAction {
-    Run,
+    Run { speaker_samples: Vec<String> },
     Speaker(SpeakerCommand),
     PrintOutput(String),
 }
@@ -17,6 +17,7 @@ pub enum CliAction {
 pub enum CliArgumentError {
     Parse { message: String },
     RelativePathArgument { value: PathBuf },
+    TooManySpeakerSamples { count: usize, max: usize },
 }
 
 impl fmt::Display for CliArgumentError {
@@ -25,6 +26,12 @@ impl fmt::Display for CliArgumentError {
             Self::Parse { message } => f.write_str(message),
             Self::RelativePathArgument { value } => {
                 write!(f, "relative path is not allowed: {}", value.display())
+            }
+            Self::TooManySpeakerSamples { count, max } => {
+                write!(
+                    f,
+                    "too many speaker samples: {count} provided, maximum is {max}"
+                )
             }
         }
     }
@@ -39,6 +46,10 @@ impl std::error::Error for CliArgumentError {}
     long_about = None
 )]
 struct CliArgs {
+    /// Attach a registered speaker sample to the diarization request. Can be passed up to 4 times.
+    #[arg(short = 's', long = "speaker-sample")]
+    speaker_samples: Vec<String>,
+
     #[command(subcommand)]
     command: Option<CliSubcommandArgs>,
 }
@@ -92,8 +103,19 @@ where
 
 impl CliArgs {
     fn into_action(self) -> Result<CliAction, CliArgumentError> {
+        const MAX_SPEAKER_SAMPLES: usize = 4;
+
+        if self.speaker_samples.len() > MAX_SPEAKER_SAMPLES {
+            return Err(CliArgumentError::TooManySpeakerSamples {
+                count: self.speaker_samples.len(),
+                max: MAX_SPEAKER_SAMPLES,
+            });
+        }
+
         match self.command {
-            None => Ok(CliAction::Run),
+            None => Ok(CliAction::Run {
+                speaker_samples: self.speaker_samples,
+            }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
     }
@@ -134,7 +156,56 @@ mod tests {
     fn returns_run_action_when_no_flags_are_given() {
         let action = parse_cli_args([OsString::from("diarize-log")]).unwrap();
 
-        assert_eq!(action, CliAction::Run);
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+            }
+        );
+    }
+
+    #[test]
+    /// `-s` を繰り返すと capture 時に添付する話者サンプル名として解釈する。
+    fn parses_short_speaker_sample_flags_for_run_action() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("-s"),
+            OsString::from("suzuki"),
+            OsString::from("-s"),
+            OsString::from("sato"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: vec!["suzuki".to_string(), "sato".to_string()],
+            }
+        );
+    }
+
+    #[test]
+    /// 話者サンプル指定は 4 件を超えると失敗する。
+    fn rejects_more_than_four_speaker_samples() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("-s"),
+            OsString::from("a"),
+            OsString::from("-s"),
+            OsString::from("b"),
+            OsString::from("-s"),
+            OsString::from("c"),
+            OsString::from("-s"),
+            OsString::from("d"),
+            OsString::from("-s"),
+            OsString::from("e"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            CliArgumentError::TooManySpeakerSamples { count: 5, max: 4 }
+        );
     }
 
     #[test]
@@ -147,6 +218,7 @@ mod tests {
             CliAction::PrintOutput(message) => {
                 assert!(message.contains("Usage: diarize-log"));
                 assert!(message.contains("-h, --help"));
+                assert!(message.contains("-s, --speaker-sample <SPEAKER_SAMPLES>"));
             }
             other => panic!("unexpected action: {other:?}"),
         }

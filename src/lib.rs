@@ -12,9 +12,9 @@ pub use application::{
 pub use cli::{CliAction, CliArgumentError, parse_cli_args};
 pub use ports::{
     AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy,
-    DiarizedTranscript, RecordedAudio, Recorder, RecorderError, RecordingSession, ResponseFormat,
-    SpeakerStore, SpeakerStoreError, Transcriber, TranscriberError, TranscriptSegment,
-    TranscriptionRequest,
+    DiarizedTranscript, KnownSpeakerSample, RecordedAudio, Recorder, RecorderError,
+    RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
+    TranscriberError, TranscriptSegment, TranscriptionRequest,
 };
 
 pub(crate) fn debug_log(debug_enabled: bool, message: &str) {

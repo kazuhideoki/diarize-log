@@ -2,6 +2,7 @@ use crate::debug_log;
 use crate::ports::{
     DiarizedTranscript, Transcriber, TranscriberError, TranscriptSegment, TranscriptionRequest,
 };
+use base64::Engine;
 use reqwest::blocking::{Client, multipart};
 use serde::Deserialize;
 
@@ -48,7 +49,7 @@ impl Transcriber for OpenAiTranscriber {
             .file_name("recording.wav")
             .mime_str(request.audio.content_type)
             .map_err(|error| TranscriberError::InvalidMimeType(error.to_string()))?;
-        let form = multipart::Form::new()
+        let mut form = multipart::Form::new()
             .part("file", audio_part)
             .text("model", request.model.to_owned())
             .text(
@@ -59,6 +60,14 @@ impl Transcriber for OpenAiTranscriber {
                 "chunking_strategy",
                 request.chunking_strategy.as_api_value().to_owned(),
             );
+        for speaker_sample in request.speaker_samples {
+            form = form
+                .text("known_speaker_names[]", speaker_sample.speaker_name.clone())
+                .text(
+                    "known_speaker_references[]",
+                    audio_data_url(&speaker_sample.audio),
+                );
+        }
         let response = self
             .client
             .post(TRANSCRIPTIONS_ENDPOINT)
@@ -146,10 +155,18 @@ fn seconds_to_millis(seconds: f64) -> u64 {
     (seconds * 1_000.0).round() as u64
 }
 
+fn audio_data_url(audio: &crate::ports::RecordedAudio) -> String {
+    format!(
+        "data:{};base64,{}",
+        audio.content_type,
+        base64::engine::general_purpose::STANDARD.encode(&audio.wav_bytes)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ApiDiarizedTranscript, ApiTranscriptSegment};
-    use crate::ports::{DiarizedTranscript, TranscriptSegment};
+    use crate::ports::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
 
     #[test]
     /// API の秒単位セグメントをミリ秒単位の出力モデルへ変換する。
@@ -177,6 +194,20 @@ mod tests {
                     text: "hello".to_string(),
                 }],
             }
+        );
+    }
+
+    #[test]
+    /// 既知話者サンプルは multipart 送信用に data URL へ変換する。
+    fn encodes_known_speaker_reference_as_data_url() {
+        let audio = RecordedAudio {
+            wav_bytes: vec![0x52, 0x49, 0x46, 0x46],
+            content_type: "audio/wav",
+        };
+
+        assert_eq!(
+            super::audio_data_url(&audio),
+            "data:audio/wav;base64,UklGRg=="
         );
     }
 }

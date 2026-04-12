@@ -1,4 +1,4 @@
-use crate::ports::DiarizedTranscript;
+use crate::ports::{DiarizedTranscript, RecordedAudio};
 use std::fmt;
 
 /// 文字起こし結果の保存先を抽象化します。
@@ -6,6 +6,7 @@ pub trait CaptureStore {
     fn persist_capture(
         &mut self,
         capture_index: u64,
+        audio: &RecordedAudio,
         transcript: &DiarizedTranscript,
     ) -> Result<(), CaptureStoreError>;
 }
@@ -15,6 +16,7 @@ pub enum CaptureStoreError {
     CreateSession(String),
     ResolveLocalOffset(String),
     FormatSessionName(String),
+    WriteAudio(String),
     WriteCapture(String),
     SerializeCapture(String),
     OpenFinal(String),
@@ -34,6 +36,7 @@ impl fmt::Display for CaptureStoreError {
             Self::FormatSessionName(source) => {
                 write!(f, "failed to format session directory name: {source}")
             }
+            Self::WriteAudio(source) => write!(f, "failed to write audio file: {source}"),
             Self::WriteCapture(source) => write!(f, "failed to write capture file: {source}"),
             Self::SerializeCapture(source) => {
                 write!(f, "failed to serialize capture file: {source}")

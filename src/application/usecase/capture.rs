@@ -1,8 +1,8 @@
-use crate::domain::{CapturePolicy, DiarizedTranscript, KnownSpeakerSample};
-use crate::ports::{
+use crate::application::ports::{
     CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder, RecorderError, RecordingSession,
     ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
 };
+use crate::domain::{CapturePolicy, DiarizedTranscript, KnownSpeakerSample};
 use std::fmt;
 use std::io::Write;
 use std::time::Duration;

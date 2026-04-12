@@ -1,6 +1,7 @@
 //! レイヤー間の依存方向を検査する簡易アーキテクチャテストです。
 //!
-//! このテストは `src/domain/**/*.rs`、`src/ports/**/*.rs`、`src/application/**/*.rs`
+//! このテストは `src/domain/**/*.rs`、`src/application/ports/**/*.rs`、
+//! `src/application/usecase/**/*.rs`
 //! を走査し、それぞれが禁止された外側レイヤーへ直接依存していないことを確認します。
 //! 該当パターンを含む行が見つかった場合は、ファイルパスと行番号を添えて失敗します。
 
@@ -10,29 +11,52 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 const DOMAIN_DIRECTORY: &str = "src/domain";
-const PORTS_DIRECTORY: &str = "src/ports";
-const APPLICATION_DIRECTORY: &str = "src/application";
-const DOMAIN_FORBIDDEN_MODULES: [&str; 5] = ["adapters", "application", "cli", "config", "ports"];
-const PORTS_FORBIDDEN_MODULES: [&str; 4] = ["adapters", "application", "cli", "config"];
-const APPLICATION_FORBIDDEN_MODULES: [&str; 3] = ["adapters", "cli", "config"];
-const CRATE_PATH_PREFIX: &str = "crate::";
-const PARENT_PATH_PREFIX: &str = "super::super::";
+const APPLICATION_PORTS_DIRECTORY: &str = "src/application/ports";
+const APPLICATION_USECASE_DIRECTORY: &str = "src/application/usecase";
+const DOMAIN_FORBIDDEN_PATHS: [&str; 8] = [
+    "crate::adapters",
+    "crate::application",
+    "crate::cli",
+    "crate::config",
+    "super::super::adapters",
+    "super::super::application",
+    "super::super::cli",
+    "super::super::config",
+];
+const PORTS_FORBIDDEN_PATHS: [&str; 8] = [
+    "crate::adapters",
+    "crate::application::usecase",
+    "crate::cli",
+    "crate::config",
+    "super::super::usecase",
+    "super::super::super::adapters",
+    "super::super::super::cli",
+    "super::super::super::config",
+];
+const APPLICATION_FORBIDDEN_PATHS: [&str; 6] = [
+    "crate::adapters",
+    "crate::cli",
+    "crate::config",
+    "super::super::super::adapters",
+    "super::super::super::cli",
+    "super::super::super::config",
+];
 
 const LAYER_RULES: [LayerDependencyRule<'_>; 3] = [
     LayerDependencyRule {
         layer_name: "domain",
         directory: DOMAIN_DIRECTORY,
-        forbidden_modules: &DOMAIN_FORBIDDEN_MODULES,
+        forbidden_paths: &DOMAIN_FORBIDDEN_PATHS,
     },
     LayerDependencyRule {
         layer_name: "ports",
-        directory: PORTS_DIRECTORY,
-        forbidden_modules: &PORTS_FORBIDDEN_MODULES,
+        directory: APPLICATION_PORTS_DIRECTORY,
+        forbidden_paths: &PORTS_FORBIDDEN_PATHS,
     },
     LayerDependencyRule {
         layer_name: "application",
-        directory: APPLICATION_DIRECTORY,
-        forbidden_modules: &APPLICATION_FORBIDDEN_MODULES,
+        directory: APPLICATION_USECASE_DIRECTORY,
+        forbidden_paths: &APPLICATION_FORBIDDEN_PATHS,
     },
 ];
 
@@ -84,7 +108,7 @@ fn assert_layer_has_no_forbidden_dependencies(
 struct LayerDependencyRule<'a> {
     layer_name: &'static str,
     directory: &'static str,
-    forbidden_modules: &'a [&'a str],
+    forbidden_paths: &'a [&'a str],
 }
 
 #[derive(Debug)]
@@ -205,7 +229,7 @@ fn find_forbidden_dependencies(
     let violations = source
         .lines()
         .enumerate()
-        .filter(|(_, line)| contains_forbidden_dependency(line, rule.forbidden_modules))
+        .filter(|(_, line)| contains_forbidden_dependency(line, rule.forbidden_paths))
         .map(|(line_index, line)| DependencyViolation {
             path: relative_path.clone(),
             line_number: line_index + 1,
@@ -216,19 +240,18 @@ fn find_forbidden_dependencies(
     Ok(violations)
 }
 
-fn contains_forbidden_dependency(line: &str, forbidden_modules: &[&str]) -> bool {
+fn contains_forbidden_dependency(line: &str, forbidden_paths: &[&str]) -> bool {
     let normalized_line = line.replace(' ', "");
 
-    forbidden_modules.iter().any(|module| {
-        contains_forbidden_module_path(&normalized_line, CRATE_PATH_PREFIX, module)
-            || contains_forbidden_grouped_crate_import(&normalized_line, module)
-            || contains_forbidden_module_path(&normalized_line, PARENT_PATH_PREFIX, module)
+    forbidden_paths.iter().any(|forbidden_path| {
+        contains_forbidden_path(&normalized_line, forbidden_path)
+            || contains_forbidden_grouped_crate_import(&normalized_line, forbidden_path)
     })
 }
 
-fn contains_forbidden_module_path(line: &str, prefix: &str, module: &str) -> bool {
+fn contains_forbidden_path(line: &str, forbidden_path: &str) -> bool {
     let mut offset = 0;
-    let needle = format!("{prefix}{module}");
+    let needle = forbidden_path;
 
     while let Some(index) = line[offset..].find(&needle) {
         let matched_index = offset + index;
@@ -245,7 +268,10 @@ fn contains_forbidden_module_path(line: &str, prefix: &str, module: &str) -> boo
     false
 }
 
-fn contains_forbidden_grouped_crate_import(line: &str, module: &str) -> bool {
+fn contains_forbidden_grouped_crate_import(line: &str, forbidden_path: &str) -> bool {
+    let Some(grouped_path) = forbidden_path.strip_prefix("crate::") else {
+        return false;
+    };
     let mut search_start = 0;
 
     while let Some(relative_index) = line[search_start..].find("crate::{") {
@@ -257,7 +283,7 @@ fn contains_forbidden_grouped_crate_import(line: &str, module: &str) -> bool {
             if grouped_content
                 .split_top_level(',')
                 .into_iter()
-                .any(|segment| segment_starts_with_module(segment, module))
+                .any(|segment| segment_starts_with_path(segment, grouped_path))
             {
                 return true;
             }
@@ -286,8 +312,8 @@ fn find_grouped_import_end(line: &str) -> Option<usize> {
     None
 }
 
-fn segment_starts_with_module(segment: &str, module: &str) -> bool {
-    segment.strip_prefix(module).is_some_and(|suffix| {
+fn segment_starts_with_path(segment: &str, path: &str) -> bool {
+    segment.strip_prefix(path).is_some_and(|suffix| {
         suffix.is_empty() || matches!(suffix.chars().next(), Some(':' | ',' | '}'))
     })
 }
@@ -322,15 +348,15 @@ impl SplitTopLevel for str {
 #[cfg(test)]
 mod tests {
     use super::{
-        APPLICATION_FORBIDDEN_MODULES, PORTS_FORBIDDEN_MODULES, contains_forbidden_dependency,
+        APPLICATION_FORBIDDEN_PATHS, PORTS_FORBIDDEN_PATHS, contains_forbidden_dependency,
     };
 
     #[test]
     /// `application` 層の grouped import でも禁止依存を検出する。
     fn detects_grouped_imports_for_application_layer() {
         assert!(contains_forbidden_dependency(
-            "use crate::{ ports::Recorder, adapters::CpalRecorder };",
-            &APPLICATION_FORBIDDEN_MODULES,
+            "use crate::{ application::ports::Recorder, adapters::CpalRecorder };",
+            &APPLICATION_FORBIDDEN_PATHS,
         ));
     }
 
@@ -338,8 +364,8 @@ mod tests {
     /// `ports` 層の自己参照は違反として扱わない。
     fn ignores_allowed_ports_self_reference() {
         assert!(!contains_forbidden_dependency(
-            "use crate::ports::Recorder;",
-            &PORTS_FORBIDDEN_MODULES,
+            "use crate::application::ports::Recorder;",
+            &PORTS_FORBIDDEN_PATHS,
         ));
     }
 
@@ -348,7 +374,7 @@ mod tests {
     fn detects_plain_module_import_without_nested_item() {
         assert!(contains_forbidden_dependency(
             "use crate::cli;",
-            &APPLICATION_FORBIDDEN_MODULES,
+            &APPLICATION_FORBIDDEN_PATHS,
         ));
     }
 }

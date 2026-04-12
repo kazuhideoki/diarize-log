@@ -1,4 +1,4 @@
-use crate::ports::{AudioClipper, AudioClipperError, SpeakerStore, SpeakerStoreError};
+use crate::application::ports::{AudioClipper, AudioClipperError, SpeakerStore, SpeakerStoreError};
 use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;

@@ -1,5 +1,5 @@
+use crate::application::ports::{AudioClipper, AudioClipperError};
 use crate::domain::RecordedAudio;
-use crate::ports::{AudioClipper, AudioClipperError};
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use std::io::Cursor;
 use std::path::Path;
@@ -146,7 +146,7 @@ fn frames_to_millis(frames: u64, sample_rate: u32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::HoundAudioClipper;
-    use crate::ports::{AudioClipper, AudioClipperError};
+    use crate::application::ports::{AudioClipper, AudioClipperError};
     use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
     use std::io::Cursor;
     use std::time::Duration;

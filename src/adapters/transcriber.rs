@@ -1,6 +1,6 @@
+use crate::application::ports::{Transcriber, TranscriberError, TranscriptionRequest};
 use crate::debug_log;
 use crate::domain::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
-use crate::ports::{Transcriber, TranscriberError, TranscriptionRequest};
 use base64::Engine;
 use reqwest::blocking::{Client, multipart};
 use serde::Deserialize;

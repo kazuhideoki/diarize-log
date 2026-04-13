@@ -17,6 +17,9 @@
 - CLI の引数解釈と表示文言は `cli.rs` に置き、ユースケースの実行そのものは `application/` を呼ぶ。
 - コマンド分岐や adapter の組み立てはエントリーポイントで行う。
   - `main.rs` は composition root として扱い、route/dispatch と設定解決に責務を限定する。
+- `build.rs` は通常の業務ロジックではなくビルド実行環境の補助として扱う。
+  - 現在は `ScreenCaptureKit` の Swift runtime をテスト/実行バイナリから解決するための `rpath` 付与だけを責務にする。
+  - 手動実行は不要で、`cargo check` / `cargo build` / `cargo test` 実行時に Cargo から自動実行される前提で扱う。
 
 ## Commands
 

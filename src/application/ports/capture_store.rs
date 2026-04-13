@@ -1,4 +1,4 @@
-use crate::domain::{DiarizedTranscript, RecordedAudio};
+use crate::domain::{DiarizedTranscript, MergedTranscriptSegment, RecordedAudio};
 use std::fmt;
 
 /// 文字起こし結果の保存先を抽象化します。
@@ -14,6 +14,11 @@ pub trait CaptureStore {
         capture_index: u64,
         capture_start_ms: u64,
         transcript: &DiarizedTranscript,
+    ) -> Result<(), CaptureStoreError>;
+
+    fn persist_merged_segments(
+        &mut self,
+        segments: &[MergedTranscriptSegment],
     ) -> Result<(), CaptureStoreError>;
 }
 

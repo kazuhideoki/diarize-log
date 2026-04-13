@@ -34,12 +34,48 @@ fn main() -> ExitCode {
     };
 
     match action {
+<<<<<<< HEAD
         CliAction::Run {
             speaker_samples,
             audio_source,
         } => match audio_source {
             AudioSource::Microphone => run_capture_command(
                 &runtime_config,
+=======
+        CliAction::Run { speaker_samples } => {
+            let config = CaptureConfig::new(
+                runtime_config.recording_duration,
+                runtime_config.capture_duration,
+                runtime_config.capture_overlap,
+            );
+            let config = CaptureConfig {
+                merge_policy: runtime_config.transcript_merge_policy.clone(),
+                ..config
+            };
+            let mut recorder = CpalRecorder::new(runtime_config.debug_enabled);
+            let mut transcriber = match OpenAiTranscriber::new(
+                runtime_config.openai_api_key,
+                runtime_config.debug_enabled,
+            ) {
+                Ok(transcriber) => transcriber,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let mut stderr = io::stderr();
+            let mut stdout = io::stdout();
+            let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root)
+            {
+                Ok(store) => store,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let speaker_samples = match load_known_speaker_samples(
+                &FileSystemSpeakerStore::new(&runtime_config.storage_root),
+>>>>>>> main
                 &speaker_samples,
                 CpalRecorder::new(runtime_config.debug_enabled),
             ),

@@ -1,6 +1,7 @@
 use crate::application::ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder, RecorderError, RecordingSession,
-    ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+    CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
+    RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
+    TranscriptionRequest,
 };
 use crate::domain::{
     CaptureMerger, CapturePolicy, CapturedTranscript, DiarizedTranscript, KnownSpeakerSample,
@@ -78,6 +79,17 @@ where
     S: CaptureStore,
     L: Write,
 {
+    capture_store
+        .persist_session_metadata(&CaptureSessionMetadata {
+            recording_duration_ms: duration_to_millis(config.capture_policy.recording_duration),
+            capture_duration_ms: duration_to_millis(config.capture_policy.capture_duration),
+            capture_overlap_ms: duration_to_millis(config.capture_policy.capture_overlap),
+            transcription_model: config.transcription_model.to_string(),
+            response_format: config.response_format.as_api_value().to_string(),
+            chunking_strategy: config.chunking_strategy.as_api_value().to_string(),
+            merge_policy: config.merge_policy.clone(),
+        })
+        .map_err(CaptureError::Store)?;
     info_log(stderr, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
     let capture_ranges = config.capture_policy.capture_ranges();
@@ -138,10 +150,14 @@ where
             )
             .map_err(CaptureError::Store)?;
         let merge_batch = capture_merger.push_capture(CapturedTranscript::from_relative(
+            capture_range.capture_index,
             duration_to_millis(capture_range.start_offset),
             duration_to_millis(capture_range.end_offset()),
             &transcript,
         ));
+        capture_store
+            .persist_merge_audit_entries(&merge_batch.audit_entries)
+            .map_err(CaptureError::Store)?;
         capture_store
             .persist_merged_segments(&merge_batch.finalized_segments)
             .map_err(CaptureError::Store)?;
@@ -209,7 +225,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{MergedTranscriptSegment, RecordedAudio, TranscriptSegment};
+    use crate::application::ports::CaptureSessionMetadata;
+    use crate::domain::{
+        MergeAuditEntry, MergeAuditOutcome, MergeWindowSnapshot, MergedTranscriptSegment,
+        RecordedAudio, TranscriptSegment,
+    };
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -316,12 +336,24 @@ mod tests {
     }
 
     struct FakeCaptureStore {
+        observed_session_metadata: RefCell<Vec<CaptureSessionMetadata>>,
         observed_audios: RefCell<Vec<(u64, RecordedAudio)>>,
         observed_transcripts: RefCell<Vec<(u64, u64, DiarizedTranscript)>>,
+        observed_merge_audit_entries: RefCell<Vec<MergeAuditEntry>>,
         observed_merged_segments: RefCell<Vec<MergedTranscriptSegment>>,
     }
 
     impl CaptureStore for FakeCaptureStore {
+        fn persist_session_metadata(
+            &mut self,
+            metadata: &CaptureSessionMetadata,
+        ) -> Result<(), CaptureStoreError> {
+            self.observed_session_metadata
+                .borrow_mut()
+                .push(metadata.clone());
+            Ok(())
+        }
+
         fn persist_audio(
             &mut self,
             capture_index: u64,
@@ -355,6 +387,28 @@ mod tests {
                 .borrow_mut()
                 .extend_from_slice(segments);
             Ok(())
+        }
+
+        fn persist_merge_audit_entries(
+            &mut self,
+            entries: &[MergeAuditEntry],
+        ) -> Result<(), CaptureStoreError> {
+            self.observed_merge_audit_entries
+                .borrow_mut()
+                .extend_from_slice(entries);
+            Ok(())
+        }
+    }
+
+    impl FakeCaptureStore {
+        fn new() -> Self {
+            Self {
+                observed_session_metadata: RefCell::new(Vec::new()),
+                observed_audios: RefCell::new(Vec::new()),
+                observed_transcripts: RefCell::new(Vec::new()),
+                observed_merge_audit_entries: RefCell::new(Vec::new()),
+                observed_merged_segments: RefCell::new(Vec::new()),
+            }
         }
     }
 
@@ -431,11 +485,7 @@ mod tests {
                 transcript.clone(),
             ]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(
@@ -517,11 +567,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
         let speaker_sample = sample_known_speaker();
 
@@ -578,11 +624,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         let returned = run_capture(
@@ -635,11 +677,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(
@@ -703,11 +741,7 @@ mod tests {
                 },
             ]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(
@@ -762,11 +796,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::new(),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         let error = run_capture(
@@ -806,11 +836,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(
@@ -851,6 +877,97 @@ mod tests {
     }
 
     #[test]
+    /// capture 開始前に session metadata を保存し、各 merge 判定の監査ログも保存する。
+    fn persists_session_metadata_and_merge_audit_entries() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(18),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            responses: VecDeque::from(vec![
+                DiarizedTranscript {
+                    text: "ABCDEFGHIJKLMNOP".to_string(),
+                    segments: vec![TranscriptSegment {
+                        speaker: "spk_0".to_string(),
+                        start_ms: 10_000,
+                        end_ms: 18_000,
+                        text: "ABCDEFGHIJKLMNOP".to_string(),
+                    }],
+                },
+                DiarizedTranscript {
+                    text: "EFGHIJKLMNOPQRST".to_string(),
+                    segments: vec![TranscriptSegment {
+                        speaker: "spk_0".to_string(),
+                        start_ms: 0,
+                        end_ms: 8_000,
+                        text: "EFGHIJKLMNOPQRST".to_string(),
+                    }],
+                },
+            ]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        run_capture(
+            &config,
+            &[],
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            *capture_store.observed_session_metadata.borrow(),
+            vec![CaptureSessionMetadata {
+                recording_duration_ms: 40_000,
+                capture_duration_ms: 30_000,
+                capture_overlap_ms: 18_000,
+                transcription_model: TRANSCRIPTION_MODEL.to_string(),
+                response_format: "diarized_json".to_string(),
+                chunking_strategy: "auto".to_string(),
+                merge_policy: TranscriptMergePolicy::recommended(),
+            }]
+        );
+        assert_eq!(
+            *capture_store.observed_merge_audit_entries.borrow(),
+            vec![MergeAuditEntry {
+                capture_index: 2,
+                previous_window: MergeWindowSnapshot {
+                    start_ms: 12_000,
+                    end_ms: 18_000,
+                    text: "EFGHIJKLMNOP".to_string(),
+                    normalized_char_count: 12,
+                },
+                current_window: MergeWindowSnapshot {
+                    start_ms: 12_000,
+                    end_ms: 18_000,
+                    text: "EFGHIJKLMNOP".to_string(),
+                    normalized_char_count: 12,
+                },
+                outcome: MergeAuditOutcome::Accepted {
+                    overlap_chars: 12,
+                    alignment_ratio: 1.0,
+                    trigram_similarity: 1.0,
+                },
+            }]
+        );
+    }
+
+    #[test]
     /// 最終 capture を切り出したら最後の文字起こし前に録音 session を破棄する。
     fn drops_recording_session_before_transcribing_final_capture() {
         let config = CaptureConfig::new(
@@ -872,11 +989,7 @@ mod tests {
             recording_observation: Some(Rc::clone(&observation)),
             responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(
@@ -924,11 +1037,7 @@ mod tests {
                 sample_transcript(),
             ]),
         };
-        let mut capture_store = FakeCaptureStore {
-            observed_audios: RefCell::new(Vec::new()),
-            observed_transcripts: RefCell::new(Vec::new()),
-            observed_merged_segments: RefCell::new(Vec::new()),
-        };
+        let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
 
         run_capture(

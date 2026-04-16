@@ -860,6 +860,15 @@ fn should_replace_accepted_candidate(
         return true;
     };
 
+    // accepted 候補では、少し長い fuzzy overlap よりも exact overlap を優先します。
+    // 長さだけで選ぶと固有本文を食い込ませた候補が勝ちやすく、境界で削ってはいけない文字まで
+    // 落とすためです。exact 同士、または fuzzy 同士の比較にだけ従来の長さ優先を使います。
+    let current_is_exact = is_exact_overlap_candidate(current_candidate);
+    let challenger_is_exact = is_exact_overlap_candidate(challenger);
+    if challenger_is_exact != current_is_exact {
+        return challenger_is_exact;
+    }
+
     if challenger.overlap_chars > current_candidate.overlap_chars {
         return true;
     }
@@ -880,6 +889,10 @@ fn should_replace_accepted_candidate(
     }
 
     challenger.current_prefix_trim_chars < current_candidate.current_prefix_trim_chars
+}
+
+fn is_exact_overlap_candidate(candidate: OverlapCandidate) -> bool {
+    candidate.alignment_ratio == 1.0 && candidate.trigram_similarity == 1.0
 }
 
 fn overlap_deficit(candidate: OverlapCandidate, policy: &TranscriptMergePolicy) -> f64 {
@@ -1197,7 +1210,8 @@ fn push_or_merge_adjacent_segment(
 mod tests {
     use super::{
         CaptureMerger, CapturedTranscript, MergeAuditOutcome, MergeOverlapTextSource,
-        MergeSkipReason, MergedTranscriptSegment, TranscriptMergePolicy,
+        MergeSkipReason, MergedTranscriptSegment, OverlapCandidate, TranscriptMergePolicy,
+        should_replace_accepted_candidate,
     };
 
     fn joined_text(segments: &[MergedTranscriptSegment]) -> String {
@@ -1639,5 +1653,31 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    /// accepted 候補では少し長い fuzzy overlap より短い exact overlap を優先する。
+    fn prefers_exact_overlap_candidate_over_longer_fuzzy_candidate() {
+        let longer_fuzzy = OverlapCandidate {
+            overlap_chars: 15,
+            alignment_ratio: 0.93,
+            trigram_similarity: 0.85,
+            current_prefix_trim_chars: 0,
+        };
+        let shorter_exact = OverlapCandidate {
+            overlap_chars: 14,
+            alignment_ratio: 1.0,
+            trigram_similarity: 1.0,
+            current_prefix_trim_chars: 1,
+        };
+
+        assert!(should_replace_accepted_candidate(
+            Some(longer_fuzzy),
+            shorter_exact
+        ));
+        assert!(!should_replace_accepted_candidate(
+            Some(shorter_exact),
+            longer_fuzzy
+        ));
     }
 }

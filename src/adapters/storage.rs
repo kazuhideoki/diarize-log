@@ -488,7 +488,7 @@ mod tests {
             }])
             .unwrap();
 
-        let session_dir = std::fs::read_dir(temp_dir.path())
+        let session_dir = std::fs::read_dir(temp_dir.path().join("runs"))
             .unwrap()
             .next()
             .unwrap()

@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 
 /// capture 間の重複判定に使う閾値です。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TranscriptMergePolicy {
     /// 重複確定に必要な正規化後の最小一致文字数です。
     ///
@@ -45,6 +45,7 @@ pub struct MergedTranscriptSegment {
 /// merge 対象の capture です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedTranscript {
+    pub capture_index: u64,
     pub capture_start_ms: u64,
     pub capture_end_ms: u64,
     pub segments: Vec<MergedTranscriptSegment>,
@@ -53,6 +54,7 @@ pub struct CapturedTranscript {
 impl CapturedTranscript {
     /// capture と文字起こしから merge 用の絶対時刻 segment 列を作ります。
     pub fn from_relative(
+        capture_index: u64,
         capture_start_ms: u64,
         capture_end_ms: u64,
         transcript: &DiarizedTranscript,
@@ -70,6 +72,7 @@ impl CapturedTranscript {
         segments.sort_by_key(|segment| (segment.start_ms, segment.end_ms));
 
         Self {
+            capture_index,
             capture_start_ms,
             capture_end_ms,
             segments,
@@ -77,10 +80,69 @@ impl CapturedTranscript {
     }
 }
 
+/// merge 判定に使った overlap 窓の要約です。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MergeWindowSnapshot {
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
+    pub normalized_char_count: usize,
+}
+
+/// capture 間 merge の監査ログです。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MergeAuditEntry {
+    pub capture_index: u64,
+    pub previous_window: MergeWindowSnapshot,
+    pub current_window: MergeWindowSnapshot,
+    pub outcome: MergeAuditOutcome,
+}
+
+/// overlap 判定の結果です。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "result", rename_all = "snake_case")]
+pub enum MergeAuditOutcome {
+    Accepted {
+        overlap_chars: usize,
+        alignment_ratio: f64,
+        trigram_similarity: f64,
+    },
+    Rejected {
+        overlap_chars: usize,
+        alignment_ratio: f64,
+        trigram_similarity: f64,
+        reason: MergeRejectReason,
+    },
+    Skipped {
+        reason: MergeSkipReason,
+        previous_normalized_chars: usize,
+        current_normalized_chars: usize,
+        required_min_overlap_chars: usize,
+    },
+}
+
+/// overlap が不採用だった理由です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MergeRejectReason {
+    AlignmentRatioBelowThreshold,
+    TrigramSimilarityBelowThreshold,
+    AlignmentAndTrigramSimilarityBelowThreshold,
+}
+
+/// overlap 判定自体をスキップした理由です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MergeSkipReason {
+    NoOverlapWindow,
+    InsufficientNormalizedChars,
+}
+
 /// 1 capture 追加時に確定した merged segment 群です。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MergeBatch {
     pub finalized_segments: Vec<MergedTranscriptSegment>,
+    pub audit_entries: Vec<MergeAuditEntry>,
 }
 
 /// capture を順次投入して merged segment を確定させます。
@@ -105,6 +167,7 @@ impl CaptureMerger {
             self.pending_segments = capture.segments;
             return MergeBatch {
                 finalized_segments: Vec::new(),
+                audit_entries: Vec::new(),
             };
         }
 
@@ -116,13 +179,20 @@ impl CaptureMerger {
         let finalized_segments = self.pending_segments[..finalized_count].to_vec();
         let mut overlap_tail = self.pending_segments[finalized_count..].to_vec();
 
-        if let Some(trim_from) = find_overlap_trim_index(&overlap_tail, &capture, &self.policy) {
-            overlap_tail = trim_segments_from_char(&overlap_tail, trim_from);
+        let mut audit_entries = Vec::new();
+        if let Some(evaluation) = evaluate_overlap(&overlap_tail, &capture, &self.policy) {
+            if let Some(trim_from) = evaluation.trim_from {
+                overlap_tail = trim_segments_from_char(&overlap_tail, trim_from);
+            }
+            audit_entries.push(evaluation.audit_entry);
         }
 
         self.pending_segments = merge_sorted_segments(overlap_tail, capture.segments);
 
-        MergeBatch { finalized_segments }
+        MergeBatch {
+            finalized_segments,
+            audit_entries,
+        }
     }
 
     /// 保留中の segment を最後に確定させます。
@@ -137,6 +207,19 @@ struct TrimFromChar {
     char_offset: usize,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct OverlapEvaluation {
+    trim_from: Option<TrimFromChar>,
+    audit_entry: MergeAuditEntry,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct OverlapCandidate {
+    overlap_chars: usize,
+    alignment_ratio: f64,
+    trigram_similarity: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct NormalizedCharPosition {
     segment_index: usize,
@@ -147,13 +230,27 @@ struct NormalizedCharPosition {
 struct NormalizedWindow {
     chars: Vec<char>,
     positions: Vec<NormalizedCharPosition>,
+    text: String,
+    start_ms: u64,
+    end_ms: u64,
 }
 
-fn find_overlap_trim_index(
+impl NormalizedWindow {
+    fn snapshot(&self) -> MergeWindowSnapshot {
+        MergeWindowSnapshot {
+            start_ms: self.start_ms,
+            end_ms: self.end_ms,
+            text: self.text.clone(),
+            normalized_char_count: self.chars.len(),
+        }
+    }
+}
+
+fn evaluate_overlap(
     previous_tail: &[MergedTranscriptSegment],
     current_capture: &CapturedTranscript,
     policy: &TranscriptMergePolicy,
-) -> Option<TrimFromChar> {
+) -> Option<OverlapEvaluation> {
     if previous_tail.is_empty() {
         return None;
     }
@@ -171,7 +268,30 @@ fn find_overlap_trim_index(
         .cloned()
         .collect::<Vec<_>>();
     if current_head.is_empty() {
-        return None;
+        return Some(OverlapEvaluation {
+            trim_from: None,
+            audit_entry: MergeAuditEntry {
+                capture_index: current_capture.capture_index,
+                previous_window: MergeWindowSnapshot {
+                    start_ms: current_capture.capture_start_ms,
+                    end_ms: current_capture.capture_start_ms,
+                    text: String::new(),
+                    normalized_char_count: 0,
+                },
+                current_window: MergeWindowSnapshot {
+                    start_ms: current_capture.capture_start_ms,
+                    end_ms: current_capture.capture_start_ms,
+                    text: String::new(),
+                    normalized_char_count: 0,
+                },
+                outcome: MergeAuditOutcome::Skipped {
+                    reason: MergeSkipReason::NoOverlapWindow,
+                    previous_normalized_chars: 0,
+                    current_normalized_chars: 0,
+                    required_min_overlap_chars: policy.min_overlap_chars,
+                },
+            },
+        });
     }
 
     let overlap_window_start = current_capture.capture_start_ms;
@@ -182,16 +302,60 @@ fn find_overlap_trim_index(
     if previous_window.chars.len() < policy.min_overlap_chars
         || current_window.chars.len() < policy.min_overlap_chars
     {
-        return None;
+        return Some(OverlapEvaluation {
+            trim_from: None,
+            audit_entry: MergeAuditEntry {
+                capture_index: current_capture.capture_index,
+                previous_window: previous_window.snapshot(),
+                current_window: current_window.snapshot(),
+                outcome: MergeAuditOutcome::Skipped {
+                    reason: MergeSkipReason::InsufficientNormalizedChars,
+                    previous_normalized_chars: previous_window.chars.len(),
+                    current_normalized_chars: current_window.chars.len(),
+                    required_min_overlap_chars: policy.min_overlap_chars,
+                },
+            },
+        });
     }
 
-    let overlap_len = find_best_overlap_length(&previous_window, &current_window, policy)?;
-    let trim_position = previous_window.positions[previous_window.chars.len() - overlap_len];
-
-    Some(TrimFromChar {
-        segment_index: trim_position.segment_index,
-        char_offset: trim_position.char_offset,
-    })
+    Some(
+        match find_best_overlap_candidate(&previous_window, &current_window, policy) {
+            Ok(candidate) => {
+                let trim_position = previous_window.positions
+                    [previous_window.chars.len() - candidate.overlap_chars];
+                OverlapEvaluation {
+                    trim_from: Some(TrimFromChar {
+                        segment_index: trim_position.segment_index,
+                        char_offset: trim_position.char_offset,
+                    }),
+                    audit_entry: MergeAuditEntry {
+                        capture_index: current_capture.capture_index,
+                        previous_window: previous_window.snapshot(),
+                        current_window: current_window.snapshot(),
+                        outcome: MergeAuditOutcome::Accepted {
+                            overlap_chars: candidate.overlap_chars,
+                            alignment_ratio: candidate.alignment_ratio,
+                            trigram_similarity: candidate.trigram_similarity,
+                        },
+                    },
+                }
+            }
+            Err((candidate, reason)) => OverlapEvaluation {
+                trim_from: None,
+                audit_entry: MergeAuditEntry {
+                    capture_index: current_capture.capture_index,
+                    previous_window: previous_window.snapshot(),
+                    current_window: current_window.snapshot(),
+                    outcome: MergeAuditOutcome::Rejected {
+                        overlap_chars: candidate.overlap_chars,
+                        alignment_ratio: candidate.alignment_ratio,
+                        trigram_similarity: candidate.trigram_similarity,
+                        reason,
+                    },
+                },
+            },
+        },
+    )
 }
 
 fn build_normalized_window(
@@ -201,6 +365,7 @@ fn build_normalized_window(
 ) -> NormalizedWindow {
     let mut chars = Vec::new();
     let mut positions = Vec::new();
+    let mut text = String::new();
 
     for (segment_index, segment) in segments.iter().enumerate() {
         let Some((start_char_offset, end_char_offset)) =
@@ -216,6 +381,7 @@ fn build_normalized_window(
             .skip(start_char_offset)
             .take(end_char_offset - start_char_offset)
         {
+            text.push(character);
             if let Some(normalized) = normalize_character(character) {
                 chars.push(normalized);
                 positions.push(NormalizedCharPosition {
@@ -226,7 +392,13 @@ fn build_normalized_window(
         }
     }
 
-    NormalizedWindow { chars, positions }
+    NormalizedWindow {
+        chars,
+        positions,
+        text,
+        start_ms: overlap_start_ms,
+        end_ms: overlap_end_ms,
+    }
 }
 
 /// long turn 全文をそのまま比較すると、共有時間外の固有テキストまで重複扱いして削ることがあります。
@@ -314,30 +486,97 @@ fn is_ignored_punctuation(character: char) -> bool {
         )
 }
 
-fn find_best_overlap_length(
+fn find_best_overlap_candidate(
     previous: &NormalizedWindow,
     current: &NormalizedWindow,
     policy: &TranscriptMergePolicy,
-) -> Option<usize> {
+) -> Result<OverlapCandidate, (OverlapCandidate, MergeRejectReason)> {
     let max_overlap = previous.chars.len().min(current.chars.len());
+    let mut best_rejected = None;
 
     for overlap_len in (policy.min_overlap_chars..=max_overlap).rev() {
         let previous_slice = &previous.chars[previous.chars.len() - overlap_len..];
         let current_slice = &current.chars[..overlap_len];
         let alignment_ratio = alignment_ratio(previous_slice, current_slice);
-        if alignment_ratio < policy.min_alignment_ratio {
-            continue;
-        }
-
         let trigram_similarity = trigram_similarity(previous_slice, current_slice);
-        if trigram_similarity < policy.min_trigram_similarity {
-            continue;
-        }
+        let candidate = OverlapCandidate {
+            overlap_chars: overlap_len,
+            alignment_ratio,
+            trigram_similarity,
+        };
 
-        return Some(overlap_len);
+        match reject_reason(candidate, policy) {
+            None => return Ok(candidate),
+            Some(reason) => {
+                if should_replace_rejected_candidate(best_rejected, candidate, policy) {
+                    best_rejected = Some((candidate, reason));
+                }
+            }
+        }
     }
 
-    None
+    Err(best_rejected.expect("rejected candidate must exist when overlap evaluation runs"))
+}
+
+fn reject_reason(
+    candidate: OverlapCandidate,
+    policy: &TranscriptMergePolicy,
+) -> Option<MergeRejectReason> {
+    let alignment_failed = candidate.alignment_ratio < policy.min_alignment_ratio;
+    let trigram_failed = candidate.trigram_similarity < policy.min_trigram_similarity;
+
+    match (alignment_failed, trigram_failed) {
+        (false, false) => None,
+        (true, false) => Some(MergeRejectReason::AlignmentRatioBelowThreshold),
+        (false, true) => Some(MergeRejectReason::TrigramSimilarityBelowThreshold),
+        (true, true) => Some(MergeRejectReason::AlignmentAndTrigramSimilarityBelowThreshold),
+    }
+}
+
+fn should_replace_rejected_candidate(
+    current: Option<(OverlapCandidate, MergeRejectReason)>,
+    challenger: OverlapCandidate,
+    policy: &TranscriptMergePolicy,
+) -> bool {
+    let Some((current_candidate, _)) = current else {
+        return true;
+    };
+
+    let current_deficit = overlap_deficit(current_candidate, policy);
+    let challenger_deficit = overlap_deficit(challenger, policy);
+    if challenger_deficit < current_deficit {
+        return true;
+    }
+    if challenger_deficit > current_deficit {
+        return false;
+    }
+    if challenger.overlap_chars > current_candidate.overlap_chars {
+        return true;
+    }
+    if challenger.overlap_chars < current_candidate.overlap_chars {
+        return false;
+    }
+    if challenger.alignment_ratio > current_candidate.alignment_ratio {
+        return true;
+    }
+    if challenger.alignment_ratio < current_candidate.alignment_ratio {
+        return false;
+    }
+
+    challenger.trigram_similarity > current_candidate.trigram_similarity
+}
+
+fn overlap_deficit(candidate: OverlapCandidate, policy: &TranscriptMergePolicy) -> f64 {
+    metric_deficit(candidate.alignment_ratio, policy.min_alignment_ratio)
+        + metric_deficit(candidate.trigram_similarity, policy.min_trigram_similarity)
+}
+
+fn metric_deficit(actual: f64, required: f64) -> f64 {
+    if actual >= required {
+        0.0
+    } else {
+        required - actual
+    }
 }
 
 fn alignment_ratio(left: &[char], right: &[char]) -> f64 {
@@ -503,7 +742,8 @@ fn merge_sorted_segments(
 #[cfg(test)]
 mod tests {
     use super::{
-        CaptureMerger, CapturedTranscript, MergedTranscriptSegment, TranscriptMergePolicy,
+        CaptureMerger, CapturedTranscript, MergeAuditOutcome, MergeSkipReason,
+        MergedTranscriptSegment, TranscriptMergePolicy,
     };
 
     #[test]
@@ -511,6 +751,7 @@ mod tests {
     fn merges_overlapping_duplicate_tail_and_head() {
         let mut merger = CaptureMerger::new(TranscriptMergePolicy::recommended());
         let first = CapturedTranscript {
+            capture_index: 1,
             capture_start_ms: 0,
             capture_end_ms: 18_000,
             segments: vec![MergedTranscriptSegment {
@@ -521,6 +762,7 @@ mod tests {
             }],
         };
         let second = CapturedTranscript {
+            capture_index: 2,
             capture_start_ms: 12_000,
             capture_end_ms: 27_000,
             segments: vec![MergedTranscriptSegment {
@@ -532,7 +774,27 @@ mod tests {
         };
 
         assert!(merger.push_capture(first).finalized_segments.is_empty());
-        assert!(merger.push_capture(second).finalized_segments.is_empty());
+        let second_batch = merger.push_capture(second);
+
+        assert!(second_batch.finalized_segments.is_empty());
+        assert_eq!(second_batch.audit_entries.len(), 1);
+        assert_eq!(second_batch.audit_entries[0].capture_index, 2);
+        assert_eq!(
+            second_batch.audit_entries[0].previous_window.text,
+            "EFGHIJKLMNOP"
+        );
+        assert_eq!(
+            second_batch.audit_entries[0].current_window.text,
+            "EFGHIJKLMNOP"
+        );
+        assert_eq!(
+            second_batch.audit_entries[0].outcome,
+            MergeAuditOutcome::Accepted {
+                overlap_chars: 12,
+                alignment_ratio: 1.0,
+                trigram_similarity: 1.0,
+            }
+        );
         assert_eq!(
             merger.finish(),
             vec![
@@ -557,6 +819,7 @@ mod tests {
     fn keeps_short_acknowledgements_separate() {
         let mut merger = CaptureMerger::new(TranscriptMergePolicy::recommended());
         let first = CapturedTranscript {
+            capture_index: 1,
             capture_start_ms: 0,
             capture_end_ms: 15_000,
             segments: vec![MergedTranscriptSegment {
@@ -567,6 +830,7 @@ mod tests {
             }],
         };
         let second = CapturedTranscript {
+            capture_index: 2,
             capture_start_ms: 12_000,
             capture_end_ms: 27_000,
             segments: vec![MergedTranscriptSegment {
@@ -578,7 +842,19 @@ mod tests {
         };
 
         assert!(merger.push_capture(first).finalized_segments.is_empty());
-        assert!(merger.push_capture(second).finalized_segments.is_empty());
+        let second_batch = merger.push_capture(second);
+
+        assert!(second_batch.finalized_segments.is_empty());
+        assert_eq!(second_batch.audit_entries.len(), 1);
+        assert_eq!(
+            second_batch.audit_entries[0].outcome,
+            MergeAuditOutcome::Skipped {
+                reason: MergeSkipReason::InsufficientNormalizedChars,
+                previous_normalized_chars: 2,
+                current_normalized_chars: 2,
+                required_min_overlap_chars: 10,
+            }
+        );
         assert_eq!(
             merger.finish(),
             vec![
@@ -603,6 +879,7 @@ mod tests {
     fn keeps_unique_prefix_when_previous_segment_straddles_overlap_start() {
         let mut merger = CaptureMerger::new(TranscriptMergePolicy::recommended());
         let first = CapturedTranscript {
+            capture_index: 1,
             capture_start_ms: 0,
             capture_end_ms: 15_000,
             segments: vec![MergedTranscriptSegment {
@@ -613,6 +890,7 @@ mod tests {
             }],
         };
         let second = CapturedTranscript {
+            capture_index: 2,
             capture_start_ms: 12_000,
             capture_end_ms: 27_000,
             segments: vec![MergedTranscriptSegment {

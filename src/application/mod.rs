@@ -2,9 +2,9 @@ pub mod ports;
 mod usecase;
 
 pub use ports::{
-    AudioClipper, AudioClipperError, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
-    RecorderError, RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
-    TranscriberError, TranscriptionRequest,
+    AudioClipper, AudioClipperError, CaptureSessionMetadata, CaptureStore, CaptureStoreError,
+    ChunkingStrategy, Recorder, RecorderError, RecordingSession, ResponseFormat, SpeakerStore,
+    SpeakerStoreError, Transcriber, TranscriberError, TranscriptionRequest,
 };
 pub use usecase::{
     CaptureConfig, CaptureError, DebugOutputError, SpeakerCommand, SpeakerCommandResult,

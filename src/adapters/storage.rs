@@ -1,6 +1,8 @@
-use crate::application::ports::{CaptureStore, CaptureStoreError, SpeakerStore, SpeakerStoreError};
+use crate::application::ports::{
+    CaptureSessionMetadata, CaptureStore, CaptureStoreError, SpeakerStore, SpeakerStoreError,
+};
 use crate::domain::{
-    DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
+    DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergedTranscriptSegment, RecordedAudio,
 };
 use serde::Serialize;
 use std::fs::{File, OpenOptions, create_dir_all, remove_file};
@@ -15,7 +17,9 @@ const RUNS_DIR_NAME: &str = "runs";
 struct SessionPaths {
     audios_dir: PathBuf,
     captures_dir: PathBuf,
+    metadata_path: PathBuf,
     merged_path: PathBuf,
+    merge_audit_path: PathBuf,
 }
 
 impl SessionPaths {
@@ -25,7 +29,9 @@ impl SessionPaths {
         Self {
             audios_dir: session_dir.join("audios"),
             captures_dir: session_dir.join("captures"),
+            metadata_path: session_dir.join("metadata.json"),
             merged_path: session_dir.join("merged.jsonl"),
+            merge_audit_path: session_dir.join("merge-audit.jsonl"),
         }
     }
 
@@ -69,6 +75,8 @@ impl FileSystemCaptureStore {
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
         File::create(&paths.merged_path)
             .map_err(|error| CaptureStoreError::OpenMerged(error.to_string()))?;
+        File::create(&paths.merge_audit_path)
+            .map_err(|error| CaptureStoreError::OpenMergeAudit(error.to_string()))?;
 
         Ok(Self { paths })
     }
@@ -97,6 +105,23 @@ impl FileSystemSpeakerStore {
 }
 
 impl CaptureStore for FileSystemCaptureStore {
+    fn persist_session_metadata(
+        &mut self,
+        metadata: &CaptureSessionMetadata,
+    ) -> Result<(), CaptureStoreError> {
+        self.ensure_session_dirs()?;
+
+        let mut metadata_file = File::create(&self.paths.metadata_path)
+            .map_err(|error| CaptureStoreError::WriteMetadata(error.to_string()))?;
+        serde_json::to_writer_pretty(&mut metadata_file, metadata)
+            .map_err(|error| CaptureStoreError::SerializeMetadata(error.to_string()))?;
+        metadata_file
+            .write_all(b"\n")
+            .map_err(|error| CaptureStoreError::WriteMetadata(error.to_string()))?;
+
+        Ok(())
+    }
+
     fn persist_audio(
         &mut self,
         capture_index: u64,
@@ -155,6 +180,28 @@ impl CaptureStore for FileSystemCaptureStore {
             merged_file
                 .write_all(b"\n")
                 .map_err(|error| CaptureStoreError::WriteMerged(error.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    fn persist_merge_audit_entries(
+        &mut self,
+        entries: &[MergeAuditEntry],
+    ) -> Result<(), CaptureStoreError> {
+        self.ensure_session_dirs()?;
+
+        let mut merge_audit_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.paths.merge_audit_path)
+            .map_err(|error| CaptureStoreError::OpenMergeAudit(error.to_string()))?;
+        for entry in entries {
+            serde_json::to_writer(&mut merge_audit_file, entry)
+                .map_err(|error| CaptureStoreError::SerializeMergeAudit(error.to_string()))?;
+            merge_audit_file
+                .write_all(b"\n")
+                .map_err(|error| CaptureStoreError::WriteMergeAudit(error.to_string()))?;
         }
 
         Ok(())
@@ -279,9 +326,12 @@ fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
 #[cfg(test)]
 mod tests {
     use super::{FileSystemCaptureStore, FileSystemSpeakerStore};
-    use crate::application::ports::{CaptureStore, SpeakerStore, SpeakerStoreError};
+    use crate::application::ports::{
+        CaptureSessionMetadata, CaptureStore, SpeakerStore, SpeakerStoreError,
+    };
     use crate::domain::{
-        DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
+        DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome,
+        MergeWindowSnapshot, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
         TranscriptSegment,
     };
 
@@ -394,6 +444,81 @@ mod tests {
             concat!(
                 "{\"speaker\":\"spk_0\",\"start_ms\":1000,\"end_ms\":2300,\"text\":\"こんにちは\"}\n",
                 "{\"speaker\":\"spk_1\",\"start_ms\":2500,\"end_ms\":4000,\"text\":\"よろしくお願いします\"}\n"
+            )
+        );
+    }
+
+    #[test]
+    /// session metadata は `metadata.json` に保存し、merge の判断過程は `merge-audit.jsonl` へ追記する。
+    fn persists_metadata_json_and_merge_audit_jsonl() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
+
+        store
+            .persist_session_metadata(&CaptureSessionMetadata {
+                recording_duration_ms: 40_000,
+                capture_duration_ms: 30_000,
+                capture_overlap_ms: 18_000,
+                transcription_model: "gpt-4o-transcribe-diarize".to_string(),
+                response_format: "diarized_json".to_string(),
+                chunking_strategy: "auto".to_string(),
+                merge_policy: TranscriptMergePolicy::recommended(),
+            })
+            .unwrap();
+        store
+            .persist_merge_audit_entries(&[MergeAuditEntry {
+                capture_index: 2,
+                previous_window: MergeWindowSnapshot {
+                    start_ms: 12_000,
+                    end_ms: 18_000,
+                    text: "EFGHIJKLMNOP".to_string(),
+                    normalized_char_count: 12,
+                },
+                current_window: MergeWindowSnapshot {
+                    start_ms: 12_000,
+                    end_ms: 18_000,
+                    text: "EFGHIJKLMNOP".to_string(),
+                    normalized_char_count: 12,
+                },
+                outcome: MergeAuditOutcome::Accepted {
+                    overlap_chars: 12,
+                    alignment_ratio: 1.0,
+                    trigram_similarity: 1.0,
+                },
+            }])
+            .unwrap();
+
+        let session_dir = std::fs::read_dir(temp_dir.path())
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+
+        assert_eq!(
+            std::fs::read_to_string(session_dir.join("metadata.json")).unwrap(),
+            concat!(
+                "{\n",
+                "  \"recording_duration_ms\": 40000,\n",
+                "  \"capture_duration_ms\": 30000,\n",
+                "  \"capture_overlap_ms\": 18000,\n",
+                "  \"transcription_model\": \"gpt-4o-transcribe-diarize\",\n",
+                "  \"response_format\": \"diarized_json\",\n",
+                "  \"chunking_strategy\": \"auto\",\n",
+                "  \"merge_policy\": {\n",
+                "    \"min_overlap_chars\": 10,\n",
+                "    \"min_alignment_ratio\": 0.8,\n",
+                "    \"min_trigram_similarity\": 0.55\n",
+                "  }\n",
+                "}\n"
+            )
+        );
+        assert_eq!(
+            std::fs::read_to_string(session_dir.join("merge-audit.jsonl")).unwrap(),
+            concat!(
+                "{\"capture_index\":2,\"previous_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
+                "\"current_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
+                "\"outcome\":{\"result\":\"accepted\",\"overlap_chars\":12,\"alignment_ratio\":1.0,\"trigram_similarity\":1.0}}\n"
             )
         );
     }

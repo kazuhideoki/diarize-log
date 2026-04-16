@@ -416,8 +416,12 @@ fn evaluate_overlap(
     Some(
         match find_best_overlap_candidate(&previous_window, &current_window, policy) {
             Ok(candidate) => {
-                let overlap_text_source =
-                    choose_overlap_text_source(&previous_window, &current_window, candidate);
+                let overlap_text_source = choose_overlap_text_source(
+                    &previous_window,
+                    &current_window,
+                    candidate,
+                    current_head.len(),
+                );
                 OverlapEvaluation {
                     splice_plan: Some(build_overlap_splice_plan(
                         OverlapSpliceContext {
@@ -520,7 +524,15 @@ fn choose_overlap_text_source(
     previous_window: &NormalizedWindow,
     current_window: &NormalizedWindow,
     candidate: OverlapCandidate,
+    current_head_segment_count: usize,
 ) -> MergeOverlapTextSource {
+    // overlap 本文が複数 current segment に跨る場合は、current 側の speaker/time 境界を
+    // そのまま残す必要があります。previous 側の raw text を跨って差し込むと 1 本化が必要になり、
+    // diarization の意味を壊すため、このケースでは current 本文を優先します。
+    if current_head_segment_count > 1 {
+        return MergeOverlapTextSource::CurrentWindow;
+    }
+
     if candidate.alignment_ratio < 1.0 {
         return MergeOverlapTextSource::CurrentWindow;
     }
@@ -566,6 +578,11 @@ fn build_overlap_splice_plan(
         segment_index: previous_position.segment_index,
         char_offset: previous_position.char_offset,
     };
+    let current_position = context.current_window.positions[current_overlap_start];
+    let current_trim_from = TrimFromChar {
+        segment_index: current_position.segment_index,
+        char_offset: current_position.char_offset,
+    };
     let boundary_start_ms = char_boundary_ms(
         &context.previous_tail[previous_trim_from.segment_index],
         previous_trim_from.char_offset,
@@ -580,6 +597,14 @@ fn build_overlap_splice_plan(
     let current_overlap_text = context
         .current_window
         .raw_text_from_normalized_range(current_overlap_start, candidate.overlap_chars);
+
+    if context.current_head.len() > 1 {
+        return OverlapSplicePlan {
+            previous_segments: keep_segments_before_char(context.previous_tail, previous_trim_from),
+            current_segments: keep_segments_after_char(context.current_segments, current_trim_from),
+        };
+    }
+
     let current_suffix_text = context
         .current_window
         .raw_text_after_normalized_range(current_overlap_start, candidate.overlap_chars);
@@ -971,6 +996,21 @@ fn keep_segments_before_char(
     trimmed
 }
 
+fn keep_segments_after_char(
+    segments: &[MergedTranscriptSegment],
+    keep_from: TrimFromChar,
+) -> Vec<MergedTranscriptSegment> {
+    let mut kept = Vec::new();
+    if let Some(segment) =
+        trim_segment_suffix_from_char(&segments[keep_from.segment_index], keep_from.char_offset)
+    {
+        kept.push(segment);
+    }
+    kept.extend_from_slice(&segments[keep_from.segment_index + 1..]);
+
+    kept
+}
+
 fn keep_segments_after_ms(
     segments: &[MergedTranscriptSegment],
     keep_from_ms: u64,
@@ -1021,6 +1061,37 @@ fn trim_segment_prefix(
         speaker: segment.speaker.clone(),
         start_ms: segment.start_ms,
         end_ms: trimmed_end_ms.min(segment.end_ms),
+        text: kept_text,
+    })
+}
+
+fn trim_segment_suffix_from_char(
+    segment: &MergedTranscriptSegment,
+    keep_char_offset: usize,
+) -> Option<MergedTranscriptSegment> {
+    if keep_char_offset == 0 {
+        return Some(segment.clone());
+    }
+
+    let characters = segment.text.chars().collect::<Vec<_>>();
+    if keep_char_offset >= characters.len() {
+        return None;
+    }
+
+    let kept_text = characters[keep_char_offset..].iter().collect::<String>();
+    if kept_text.is_empty() {
+        return None;
+    }
+
+    let mut trimmed_start_ms = char_boundary_ms(segment, keep_char_offset);
+    if trimmed_start_ms >= segment.end_ms {
+        trimmed_start_ms = segment.end_ms.saturating_sub(1).max(segment.start_ms);
+    }
+
+    Some(MergedTranscriptSegment {
+        speaker: segment.speaker.clone(),
+        start_ms: trimmed_start_ms.max(segment.start_ms),
+        end_ms: segment.end_ms,
         text: kept_text,
     })
 }
@@ -1482,6 +1553,91 @@ mod tests {
         assert_eq!(
             joined_text(&merger.finish()),
             "外記事情報安全守護神田明神お守りはごIT情報安全守護寒だ"
+        );
+    }
+
+    #[test]
+    /// overlap 内に複数 current segment がある場合でも speaker 境界を潰さずに残す。
+    fn keeps_current_segment_boundaries_for_multi_segment_overlap() {
+        let mut merger = CaptureMerger::new(TranscriptMergePolicy::recommended());
+        let first = CapturedTranscript {
+            capture_index: 1,
+            capture_start_ms: 0,
+            capture_end_ms: 6_000,
+            segments: vec![MergedTranscriptSegment {
+                speaker: "spk_0".to_string(),
+                start_ms: 0,
+                end_ms: 6_000,
+                text: "qrstuvwxyzabcdABCDEFGHJKLMNO".to_string(),
+            }],
+        };
+        let second = CapturedTranscript {
+            capture_index: 2,
+            capture_start_ms: 3_000,
+            capture_end_ms: 9_000,
+            segments: vec![
+                MergedTranscriptSegment {
+                    speaker: "spk_0".to_string(),
+                    start_ms: 3_000,
+                    end_ms: 5_000,
+                    text: "XABCDEFGH".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_1".to_string(),
+                    start_ms: 5_000,
+                    end_ms: 6_000,
+                    text: "JKLMNO".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_1".to_string(),
+                    start_ms: 6_000,
+                    end_ms: 7_500,
+                    text: "PQR".to_string(),
+                },
+            ],
+        };
+
+        assert!(merger.push_capture(first).finalized_segments.is_empty());
+        let second_batch = merger.push_capture(second);
+
+        assert_eq!(
+            second_batch.audit_entries[0].outcome,
+            MergeAuditOutcome::Accepted {
+                overlap_chars: 14,
+                alignment_ratio: 1.0,
+                trigram_similarity: 1.0,
+                current_prefix_trim_chars: 1,
+                overlap_text_source: MergeOverlapTextSource::CurrentWindow,
+            }
+        );
+        assert_eq!(
+            merger.finish(),
+            vec![
+                MergedTranscriptSegment {
+                    speaker: "spk_0".to_string(),
+                    start_ms: 0,
+                    end_ms: 3_000,
+                    text: "qrstuvwxyzabcd".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_0".to_string(),
+                    start_ms: 3_222,
+                    end_ms: 5_000,
+                    text: "ABCDEFGH".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_1".to_string(),
+                    start_ms: 5_000,
+                    end_ms: 6_000,
+                    text: "JKLMNO".to_string(),
+                },
+                MergedTranscriptSegment {
+                    speaker: "spk_1".to_string(),
+                    start_ms: 6_000,
+                    end_ms: 7_500,
+                    text: "PQR".to_string(),
+                },
+            ]
         );
     }
 }

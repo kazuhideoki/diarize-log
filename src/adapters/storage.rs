@@ -484,6 +484,8 @@ mod tests {
                     overlap_chars: 12,
                     alignment_ratio: 1.0,
                     trigram_similarity: 1.0,
+                    current_prefix_trim_chars: 0,
+                    overlap_text_source: crate::domain::MergeOverlapTextSource::CurrentWindow,
                 },
             }])
             .unwrap();
@@ -518,7 +520,7 @@ mod tests {
             concat!(
                 "{\"capture_index\":2,\"previous_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
                 "\"current_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
-                "\"outcome\":{\"result\":\"accepted\",\"overlap_chars\":12,\"alignment_ratio\":1.0,\"trigram_similarity\":1.0}}\n"
+                "\"outcome\":{\"result\":\"accepted\",\"overlap_chars\":12,\"alignment_ratio\":1.0,\"trigram_similarity\":1.0,\"current_prefix_trim_chars\":0,\"overlap_text_source\":\"current_window\"}}\n"
             )
         );
     }

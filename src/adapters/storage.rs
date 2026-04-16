@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
+const RUNS_DIR_NAME: &str = "runs";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SessionPaths {
     audios_dir: PathBuf,
@@ -18,7 +20,7 @@ struct SessionPaths {
 
 impl SessionPaths {
     fn new(storage_root: &Path, session_dir_name: &str) -> Self {
-        let session_dir = storage_root.join(session_dir_name);
+        let session_dir = storage_root.join(RUNS_DIR_NAME).join(session_dir_name);
 
         Self {
             audios_dir: session_dir.join("audios"),
@@ -284,7 +286,7 @@ mod tests {
     };
 
     #[test]
-    /// セッション配下に audios と captures ディレクトリおよび空の merged.jsonl を作成して開始時刻付き transcript を書き出す。
+    /// runs 配下のセッションに audios と captures ディレクトリおよび空の merged.jsonl を作成して開始時刻付き transcript を書き出す。
     fn persists_audio_wav_and_capture_json_and_keeps_merged_jsonl_empty_before_merge() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
@@ -294,7 +296,8 @@ mod tests {
             .persist_transcript(1, 1_420, &sample_transcript())
             .unwrap();
 
-        let mut session_dirs = std::fs::read_dir(temp_dir.path())
+        let runs_dir = temp_dir.path().join("runs");
+        let mut session_dirs = std::fs::read_dir(&runs_dir)
             .unwrap()
             .map(|entry| entry.unwrap().path())
             .collect::<Vec<_>>();
@@ -335,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    /// wav と transcript のファイル名は 6 桁ゼロ埋めの連番にする。
+    /// wav と transcript のファイル名は runs 配下のセッション内で 6 桁ゼロ埋めの連番にする。
     fn names_capture_files_with_zero_padded_sequence() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut store = FileSystemCaptureStore::new(temp_dir.path()).unwrap();
@@ -345,7 +348,7 @@ mod tests {
             .persist_transcript(12, 12_000, &sample_transcript())
             .unwrap();
 
-        let session_dir = std::fs::read_dir(temp_dir.path())
+        let session_dir = std::fs::read_dir(temp_dir.path().join("runs"))
             .unwrap()
             .next()
             .unwrap()
@@ -379,7 +382,7 @@ mod tests {
             ])
             .unwrap();
 
-        let session_dir = std::fs::read_dir(temp_dir.path())
+        let session_dir = std::fs::read_dir(temp_dir.path().join("runs"))
             .unwrap()
             .next()
             .unwrap()

@@ -7,7 +7,7 @@ pub use ports::{
     SpeakerStoreError, Transcriber, TranscriberError, TranscriptionRequest,
 };
 pub use usecase::{
-    CaptureConfig, CaptureError, DebugOutputError, SpeakerCommand, SpeakerCommandResult,
-    SpeakerUseCaseError, TRANSCRIPTION_MODEL, run_capture, run_speaker_command,
-    write_debug_transcript,
+    CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,
+    SpeakerCommand, SpeakerCommandResult, SpeakerUseCaseError, TRANSCRIPTION_MODEL, run_capture,
+    run_speaker_command, write_debug_transcript,
 };

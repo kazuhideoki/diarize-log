@@ -144,14 +144,21 @@ where
         &mut capture_store,
         &mut stderr,
     ) {
-        Ok(transcripts) => {
-            if let Err(error) =
-                write_debug_transcript(runtime_config.debug_enabled, &mut stdout, &transcripts)
-            {
+        Ok(result) => {
+            if let Err(error) = write_debug_transcript(
+                runtime_config.debug_enabled,
+                &mut stdout,
+                &result.transcripts,
+            ) {
                 eprintln!("{error}");
                 return ExitCode::FAILURE;
             }
-            ExitCode::SUCCESS
+
+            if result.completed_without_failures() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
         }
         Err(error) => {
             eprintln!("{error}");

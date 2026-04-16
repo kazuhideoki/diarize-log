@@ -43,6 +43,28 @@ impl CaptureConfig {
     }
 }
 
+/// capture run の成功・部分失敗をまとめた結果です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureRunResult {
+    pub transcripts: Vec<DiarizedTranscript>,
+    pub transcription_failures: Vec<CaptureTranscriptionFailure>,
+}
+
+impl CaptureRunResult {
+    /// すべての capture が文字起こし成功で完了したかを返します。
+    pub fn completed_without_failures(&self) -> bool {
+        self.transcription_failures.is_empty()
+    }
+}
+
+/// 継続実行した capture のうち文字起こしに失敗した 1 件の記録です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureTranscriptionFailure {
+    pub capture_index: u64,
+    pub capture_start_ms: u64,
+    pub message: String,
+}
+
 #[derive(Debug)]
 pub enum CaptureError {
     Record(RecorderError),
@@ -72,7 +94,7 @@ pub fn run_capture<R, T, S, L>(
     transcriber: &mut T,
     capture_store: &mut S,
     stderr: &mut L,
-) -> Result<Vec<DiarizedTranscript>, CaptureError>
+) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
     T: Transcriber,
@@ -96,6 +118,7 @@ where
     let capture_count = capture_ranges.len();
     let mut capture_merger = CaptureMerger::new(config.merge_policy.clone());
     let mut transcripts = Vec::with_capacity(capture_ranges.len());
+    let mut transcription_failures = Vec::new();
 
     for (capture_position, capture_range) in capture_ranges.into_iter().enumerate() {
         let is_last_capture = capture_position + 1 == capture_count;
@@ -125,15 +148,36 @@ where
             ),
         )
         .map_err(CaptureError::Write)?;
-        let transcript = transcriber
-            .transcribe(TranscriptionRequest {
-                audio: &audio,
-                speaker_samples,
-                model: config.transcription_model,
-                response_format: config.response_format,
-                chunking_strategy: config.chunking_strategy,
-            })
-            .map_err(CaptureError::Transcribe)?;
+        let capture_start_ms = duration_to_millis(capture_range.start_offset);
+        let capture_end_ms = duration_to_millis(capture_range.end_offset());
+        let transcript = match transcriber.transcribe(TranscriptionRequest {
+            audio: &audio,
+            speaker_samples,
+            model: config.transcription_model,
+            response_format: config.response_format,
+            chunking_strategy: config.chunking_strategy,
+        }) {
+            Ok(transcript) => transcript,
+            Err(error) => {
+                if !is_recoverable_transcription_error(&error) {
+                    return Err(CaptureError::Transcribe(error));
+                }
+                info_log(
+                    stderr,
+                    &format!(
+                        "transcription failed for capture {}, continuing: {error}",
+                        capture_range.capture_index
+                    ),
+                )
+                .map_err(CaptureError::Write)?;
+                transcription_failures.push(CaptureTranscriptionFailure {
+                    capture_index: capture_range.capture_index,
+                    capture_start_ms,
+                    message: error.to_string(),
+                });
+                continue;
+            }
+        };
         info_log(
             stderr,
             &format!(
@@ -143,16 +187,12 @@ where
         )
         .map_err(CaptureError::Write)?;
         capture_store
-            .persist_transcript(
-                capture_range.capture_index,
-                duration_to_millis(capture_range.start_offset),
-                &transcript,
-            )
+            .persist_transcript(capture_range.capture_index, capture_start_ms, &transcript)
             .map_err(CaptureError::Store)?;
         let merge_batch = capture_merger.push_capture(CapturedTranscript::from_relative(
             capture_range.capture_index,
-            duration_to_millis(capture_range.start_offset),
-            duration_to_millis(capture_range.end_offset()),
+            capture_start_ms,
+            capture_end_ms,
             &transcript,
         ));
         capture_store
@@ -167,7 +207,27 @@ where
         .persist_merged_segments(&capture_merger.finish())
         .map_err(CaptureError::Store)?;
 
-    Ok(transcripts)
+    if !transcription_failures.is_empty() {
+        info_log(
+            stderr,
+            &format!(
+                "capture run completed with partial transcription failures: succeeded={} failed={} total={}",
+                transcripts.len(),
+                transcription_failures.len(),
+                transcripts.len() + transcription_failures.len()
+            ),
+        )
+        .map_err(CaptureError::Write)?;
+    }
+
+    Ok(CaptureRunResult {
+        transcripts,
+        transcription_failures,
+    })
+}
+
+fn is_recoverable_transcription_error(error: &TranscriberError) -> bool {
+    matches!(error, TranscriberError::SendRequest(_))
 }
 
 fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
@@ -304,14 +364,14 @@ mod tests {
         observed_requests: RefCell<Vec<CapturedRequest>>,
         observed_drop_counts: RefCell<Vec<u64>>,
         recording_observation: Option<Rc<RefCell<RecordingObservation>>>,
-        responses: VecDeque<DiarizedTranscript>,
+        outcomes: VecDeque<Result<DiarizedTranscript, crate::application::ports::TranscriberError>>,
     }
 
     impl Transcriber for FakeTranscriber {
         fn transcribe(
             &mut self,
             request: TranscriptionRequest<'_>,
-        ) -> Result<DiarizedTranscript, TranscriberError> {
+        ) -> Result<DiarizedTranscript, crate::application::ports::TranscriberError> {
             let dropped_count = self
                 .recording_observation
                 .as_ref()
@@ -326,12 +386,16 @@ mod tests {
                 response_format: request.response_format,
                 chunking_strategy: request.chunking_strategy,
             });
-            self.responses
-                .pop_front()
-                .ok_or_else(|| TranscriberError::ParseResponseBody {
-                    source: "missing fake transcript".to_string(),
-                    body: String::new(),
-                })
+            match self.outcomes.pop_front() {
+                Some(Ok(transcript)) => Ok(transcript),
+                Some(Err(error)) => Err(error),
+                None => Err(
+                    crate::application::ports::TranscriberError::ParseResponseBody {
+                        source: "missing fake transcript".to_string(),
+                        body: String::new(),
+                    },
+                ),
+            }
         }
     }
 
@@ -479,10 +543,10 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![
-                transcript.clone(),
-                transcript.clone(),
-                transcript.clone(),
+            outcomes: VecDeque::from(vec![
+                Ok(transcript.clone()),
+                Ok(transcript.clone()),
+                Ok(transcript.clone()),
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
@@ -565,7 +629,7 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
+            outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -622,7 +686,7 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
+            outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -637,7 +701,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(returned, vec![transcript1, transcript2]);
+        assert_eq!(
+            returned,
+            CaptureRunResult {
+                transcripts: vec![transcript1, transcript2],
+                transcription_failures: Vec::new(),
+            }
+        );
     }
 
     #[test]
@@ -675,7 +745,7 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![transcript1.clone(), transcript2.clone()]),
+            outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -720,8 +790,8 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![
-                DiarizedTranscript {
+            outcomes: VecDeque::from(vec![
+                Ok(DiarizedTranscript {
                     text: "ABCDEFGHIJKLMNOP".to_string(),
                     segments: vec![TranscriptSegment {
                         speaker: "spk_0".to_string(),
@@ -729,8 +799,8 @@ mod tests {
                         end_ms: 18_000,
                         text: "ABCDEFGHIJKLMNOP".to_string(),
                     }],
-                },
-                DiarizedTranscript {
+                }),
+                Ok(DiarizedTranscript {
                     text: "EFGHIJKLMNOPQRST".to_string(),
                     segments: vec![TranscriptSegment {
                         speaker: "spk_0".to_string(),
@@ -738,7 +808,7 @@ mod tests {
                         end_ms: 8_000,
                         text: "EFGHIJKLMNOPQRST".to_string(),
                     }],
-                },
+                }),
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
@@ -774,27 +844,111 @@ mod tests {
     }
 
     #[test]
-    /// transcript が失敗しても切り出し済みの wav は先に保存する。
-    fn persists_audio_before_transcription_succeeds() {
+    /// send request 失敗は capture 単位で記録して後続 capture の処理を続ける。
+    fn continues_after_recoverable_transcription_failure_and_records_it_in_result() {
         let config = CaptureConfig::new(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
         );
-        let audio = sample_audio();
+        let audio1 = sample_audio();
+        let audio2 = RecordedAudio {
+            wav_bytes: vec![0x05, 0x06],
+            content_type: "audio/wav",
+        };
+        let success_transcript = sample_transcript();
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
             session: Some(FakeRecordingSession {
                 observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![audio.clone(), sample_audio()]),
+                audios: VecDeque::from(vec![audio1.clone(), audio2.clone()]),
             }),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::new(),
+            outcomes: VecDeque::from(vec![
+                Err(crate::application::ports::TranscriberError::SendRequest(
+                    "simulated timeout".to_string(),
+                )),
+                Ok(success_transcript.clone()),
+            ]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        let result = run_capture(
+            &config,
+            &[],
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            *capture_store.observed_audios.borrow(),
+            vec![(1, audio1), (2, audio2)]
+        );
+        assert_eq!(
+            *capture_store.observed_transcripts.borrow(),
+            vec![(2, 20_000, success_transcript.clone())]
+        );
+        assert_eq!(
+            result,
+            CaptureRunResult {
+                transcripts: vec![success_transcript],
+                transcription_failures: vec![CaptureTranscriptionFailure {
+                    capture_index: 1,
+                    capture_start_ms: 0,
+                    message: "failed to send transcription request: simulated timeout".to_string(),
+                }],
+            }
+        );
+        assert_eq!(
+            String::from_utf8(stderr).unwrap(),
+            concat!(
+                "recording started\n",
+                "transcription request sent for capture 1\n",
+                "transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
+                "recording finished\n",
+                "transcription request sent for capture 2\n",
+                "transcription response received for capture 2\n",
+                "capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
+            )
+        );
+    }
+
+    #[test]
+    /// 非回復な transcription 失敗は run 全体の失敗として即時に返す。
+    fn stops_on_nonrecoverable_transcription_failure() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        let audio1 = sample_audio();
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![audio1.clone(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![Err(
+                crate::application::ports::TranscriberError::ParseResponseBody {
+                    source: "invalid json".to_string(),
+                    body: "{".to_string(),
+                },
+            )]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -809,9 +963,18 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(matches!(error, CaptureError::Transcribe(_)));
-        assert_eq!(*capture_store.observed_audios.borrow(), vec![(1, audio)]);
+        assert!(matches!(
+            error,
+            CaptureError::Transcribe(
+                crate::application::ports::TranscriberError::ParseResponseBody { .. }
+            )
+        ));
+        assert_eq!(*capture_store.observed_audios.borrow(), vec![(1, audio1)]);
         assert!(capture_store.observed_transcripts.borrow().is_empty());
+        assert_eq!(
+            String::from_utf8(stderr).unwrap(),
+            "recording started\ntranscription request sent for capture 1\n"
+        );
     }
 
     #[test]
@@ -834,7 +997,7 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
+            outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -896,8 +1059,8 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![
-                DiarizedTranscript {
+            outcomes: VecDeque::from(vec![
+                Ok(DiarizedTranscript {
                     text: "ABCDEFGHIJKLMNOP".to_string(),
                     segments: vec![TranscriptSegment {
                         speaker: "spk_0".to_string(),
@@ -905,8 +1068,8 @@ mod tests {
                         end_ms: 18_000,
                         text: "ABCDEFGHIJKLMNOP".to_string(),
                     }],
-                },
-                DiarizedTranscript {
+                }),
+                Ok(DiarizedTranscript {
                     text: "EFGHIJKLMNOPQRST".to_string(),
                     segments: vec![TranscriptSegment {
                         speaker: "spk_0".to_string(),
@@ -914,7 +1077,7 @@ mod tests {
                         end_ms: 8_000,
                         text: "EFGHIJKLMNOPQRST".to_string(),
                     }],
-                },
+                }),
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
@@ -987,7 +1150,7 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![sample_transcript(), sample_transcript()]),
+            outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let mut stderr = Vec::new();
@@ -1030,11 +1193,11 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            responses: VecDeque::from(vec![
-                sample_transcript(),
-                sample_transcript(),
-                sample_transcript(),
-                sample_transcript(),
+            outcomes: VecDeque::from(vec![
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();

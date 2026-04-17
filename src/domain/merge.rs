@@ -1,4 +1,4 @@
-use crate::domain::DiarizedTranscript;
+use crate::domain::{DiarizedTranscript, TranscriptSource};
 use serde::Serialize;
 use std::collections::HashSet;
 
@@ -47,6 +47,29 @@ pub struct MergedTranscriptSegment {
     pub start_ms: u64,
     pub end_ms: u64,
     pub text: String,
+}
+
+/// source 情報つきの最終統合 segment です。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourcedTranscriptSegment {
+    pub source: TranscriptSource,
+    pub speaker: String,
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
+}
+
+impl SourcedTranscriptSegment {
+    /// source と merge 済み segment から最終統合 segment を作ります。
+    pub fn from_merged(source: TranscriptSource, segment: &MergedTranscriptSegment) -> Self {
+        Self {
+            source,
+            speaker: segment.speaker.clone(),
+            start_ms: segment.start_ms,
+            end_ms: segment.end_ms,
+            text: segment.text.clone(),
+        }
+    }
 }
 
 /// merge 対象の capture です。

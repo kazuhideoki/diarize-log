@@ -3,6 +3,6 @@ mod speaker;
 
 pub use capture::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,
-    TRANSCRIPTION_MODEL, run_capture, write_debug_transcript,
+    SpeakerLabel, TRANSCRIPTION_MODEL, merge_source_segments, run_capture, write_debug_transcript,
 };
 pub use speaker::{SpeakerCommand, SpeakerCommandResult, SpeakerUseCaseError, run_speaker_command};

@@ -8,6 +8,6 @@ pub use ports::{
 };
 pub use usecase::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,
-    SpeakerCommand, SpeakerCommandResult, SpeakerUseCaseError, TRANSCRIPTION_MODEL, run_capture,
-    run_speaker_command, write_debug_transcript,
+    SpeakerCommand, SpeakerCommandResult, SpeakerLabel, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
+    merge_source_segments, run_capture, run_speaker_command, write_debug_transcript,
 };

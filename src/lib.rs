@@ -15,8 +15,8 @@ pub use application::{
 pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{
     CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
-    KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeRejectReason,
-    MergeSkipReason, MergeWindowSnapshot, MergedTranscriptSegment, RecordedAudio,
+    KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeOverlapRangeSnapshot,
+    MergeRejectReason, MergeSkipReason, MergedTranscriptSegment, RecordedAudio,
     TranscriptMergePolicy, TranscriptSegment,
 };
 

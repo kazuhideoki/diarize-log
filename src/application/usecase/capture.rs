@@ -287,7 +287,7 @@ mod tests {
     use super::*;
     use crate::application::ports::CaptureSessionMetadata;
     use crate::domain::{
-        MergeAuditEntry, MergeAuditOutcome, MergeWindowSnapshot, MergedTranscriptSegment,
+        MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot, MergedTranscriptSegment,
         RecordedAudio, TranscriptSegment,
     };
     use std::cell::RefCell;
@@ -1109,13 +1109,13 @@ mod tests {
             *capture_store.observed_merge_audit_entries.borrow(),
             vec![MergeAuditEntry {
                 capture_index: 2,
-                previous_window: MergeWindowSnapshot {
+                previous_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 12_000,
                     end_ms: 18_000,
                     text: "EFGHIJKLMNOP".to_string(),
                     normalized_char_count: 12,
                 },
-                current_window: MergeWindowSnapshot {
+                current_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 12_000,
                     end_ms: 18_000,
                     text: "EFGHIJKLMNOP".to_string(),
@@ -1126,7 +1126,7 @@ mod tests {
                     alignment_ratio: 1.0,
                     trigram_similarity: 1.0,
                     current_prefix_trim_chars: 0,
-                    overlap_text_source: crate::domain::MergeOverlapTextSource::CurrentWindow,
+                    overlap_text_source: crate::domain::MergeOverlapTextSource::CurrentOverlapRange,
                 },
             }]
         );

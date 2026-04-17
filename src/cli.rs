@@ -60,11 +60,11 @@ impl fmt::Display for CliArgumentError {
                     "too many speaker samples: {count} provided, maximum is {max}"
                 )
             }
-            Self::MissingApplicationBundleId => {
-                f.write_str("--application-bundle-id is required for --audio-source application")
-            }
+            Self::MissingApplicationBundleId => f.write_str(
+                "--application-bundle-id is required for --audio-source application or mixed",
+            ),
             Self::UnexpectedApplicationBundleId => f.write_str(
-                "--application-bundle-id can only be used with --audio-source application",
+                "--application-bundle-id can only be used with --audio-source application or mixed",
             ),
             Self::MissingMicrophoneSpeaker => {
                 f.write_str("--microphone-speaker is required for --audio-source mixed")

@@ -4,14 +4,14 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    AudioSource, CaptureConfig, CliAction, KnownSpeakerSample, Recorder, SpeakerCommandResult,
-    SpeakerLabel, SpeakerStore, TranscriptSource, merge_source_segments, parse_cli_args,
-    run_capture, run_speaker_command, write_debug_transcript,
+    AudioSource, CaptureConfig, ChunkingStrategy, CliAction, KnownSpeakerSample,
+    MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
+    SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource, parse_cli_args,
+    run_capture, run_mixed_capture, run_speaker_command, write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;
 use std::process::ExitCode;
-use std::thread;
 
 fn main() -> ExitCode {
     let action = match parse_cli_args(std::env::args_os()) {
@@ -212,74 +212,6 @@ fn run_mixed_capture_command(
     let application_session_dir = session_dir.clone();
     let application_bundle_id = bundle_id;
     let app_speaker_samples = known_speakers.clone();
-
-    let microphone_handle = thread::spawn(move || {
-        let mut recorder = CpalRecorder::new(microphone_config.debug_enabled);
-        let mut capture_store = FileSystemCaptureStore::new_for_source(
-            &microphone_session_dir,
-            TranscriptSource::Microphone,
-        )
-        .map_err(|error| error.to_string())?;
-        run_capture_pipeline(
-            &microphone_config,
-            &[],
-            &SpeakerLabel::Fixed(microphone_speaker),
-            &mut recorder,
-            &mut capture_store,
-        )
-    });
-    let application_handle = thread::spawn(move || {
-        let mut recorder = ScreenCaptureKitApplicationRecorder::new(
-            application_bundle_id,
-            application_config.debug_enabled,
-        );
-        let mut capture_store = FileSystemCaptureStore::new_for_source(
-            &application_session_dir,
-            TranscriptSource::Application,
-        )
-        .map_err(|error| error.to_string())?;
-        run_capture_pipeline(
-            &application_config,
-            &app_speaker_samples,
-            &SpeakerLabel::KeepOriginal,
-            &mut recorder,
-            &mut capture_store,
-        )
-    });
-
-    let microphone_result = match microphone_handle.join() {
-        Ok(Ok(result)) => result,
-        Ok(Err(error)) => {
-            eprintln!("{error}");
-            return ExitCode::FAILURE;
-        }
-        Err(_) => {
-            eprintln!("microphone capture thread panicked");
-            return ExitCode::FAILURE;
-        }
-    };
-    let application_result = match application_handle.join() {
-        Ok(Ok(result)) => result,
-        Ok(Err(error)) => {
-            eprintln!("{error}");
-            return ExitCode::FAILURE;
-        }
-        Err(_) => {
-            eprintln!("application capture thread panicked");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let final_segments = merge_source_segments(&[
-        (
-            TranscriptSource::Microphone,
-            microphone_result.merged_segments.clone(),
-        ),
-        (
-            TranscriptSource::Application,
-            application_result.merged_segments.clone(),
-        ),
-    ]);
     let mut final_store = match FileSystemMergedTranscriptStore::new(&session_dir) {
         Ok(store) => store,
         Err(error) => {
@@ -287,29 +219,129 @@ fn run_mixed_capture_command(
             return ExitCode::FAILURE;
         }
     };
-    if let Err(error) = final_store.persist_segments(&final_segments) {
-        eprintln!("{error}");
-        return ExitCode::FAILURE;
-    }
+    let metadata =
+        build_mixed_capture_metadata(runtime_config, &application_bundle_id, &microphone_speaker);
+    let mixed_result = run_mixed_capture(
+        &mut final_store,
+        metadata,
+        move || {
+            let mut recorder = CpalRecorder::new(microphone_config.debug_enabled);
+            let mut capture_store = FileSystemCaptureStore::new_for_source(
+                &microphone_session_dir,
+                TranscriptSource::Microphone,
+            )
+            .map_err(|error| error.to_string())?;
+            run_capture_pipeline(
+                &microphone_config,
+                &[],
+                &SpeakerLabel::Fixed(microphone_speaker),
+                &mut recorder,
+                &mut capture_store,
+            )
+        },
+        move || {
+            let mut recorder = ScreenCaptureKitApplicationRecorder::new(
+                application_bundle_id,
+                application_config.debug_enabled,
+            );
+            let mut capture_store = FileSystemCaptureStore::new_for_source(
+                &application_session_dir,
+                TranscriptSource::Application,
+            )
+            .map_err(|error| error.to_string())?;
+            run_capture_pipeline(
+                &application_config,
+                &app_speaker_samples,
+                &SpeakerLabel::KeepOriginal,
+                &mut recorder,
+                &mut capture_store,
+            )
+        },
+    );
 
     let mut stdout = io::stdout();
-    let mut debug_transcripts = microphone_result.transcripts.clone();
-    debug_transcripts.extend(application_result.transcripts.clone());
-    if let Err(error) = write_debug_transcript(
-        runtime_config.debug_enabled,
-        &mut stdout,
-        &debug_transcripts,
-    ) {
-        eprintln!("{error}");
-        return ExitCode::FAILURE;
-    }
+    match mixed_result {
+        Ok(result) => {
+            if let Err(error) = write_debug_transcript(
+                runtime_config.debug_enabled,
+                &mut stdout,
+                &result.debug_transcripts,
+            ) {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
 
-    if microphone_result.completed_without_failures()
-        && application_result.completed_without_failures()
-    {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
+            if result.completed_without_failures() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn build_mixed_capture_metadata(
+    runtime_config: &Config,
+    application_bundle_id: &str,
+    microphone_speaker: &str,
+) -> MixedCaptureSessionMetadata {
+    let capture_config = CaptureConfig::new(
+        runtime_config.recording_duration,
+        runtime_config.capture_duration,
+        runtime_config.capture_overlap,
+    );
+    let capture_config = CaptureConfig {
+        merge_policy: runtime_config.transcript_merge_policy.clone(),
+        ..capture_config
+    };
+
+    MixedCaptureSessionMetadata {
+        mode: "mixed".to_string(),
+        application_bundle_id: application_bundle_id.to_string(),
+        microphone_speaker: microphone_speaker.to_string(),
+        source_settings: vec![
+            MixedCaptureSourceSettings {
+                source: TranscriptSource::Microphone,
+                recording_duration_ms: duration_to_millis(
+                    capture_config.capture_policy.recording_duration,
+                ),
+                capture_duration_ms: duration_to_millis(
+                    capture_config.capture_policy.capture_duration,
+                ),
+                capture_overlap_ms: duration_to_millis(
+                    capture_config.capture_policy.capture_overlap,
+                ),
+                transcription_model: capture_config.transcription_model.to_string(),
+                response_format: response_format_value(capture_config.response_format).to_string(),
+                chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
+                    .to_string(),
+                merge_policy: capture_config.merge_policy.clone(),
+                fixed_speaker: Some(microphone_speaker.to_string()),
+            },
+            MixedCaptureSourceSettings {
+                source: TranscriptSource::Application,
+                recording_duration_ms: duration_to_millis(
+                    capture_config.capture_policy.recording_duration,
+                ),
+                capture_duration_ms: duration_to_millis(
+                    capture_config.capture_policy.capture_duration,
+                ),
+                capture_overlap_ms: duration_to_millis(
+                    capture_config.capture_policy.capture_overlap,
+                ),
+                transcription_model: capture_config.transcription_model.to_string(),
+                response_format: response_format_value(capture_config.response_format).to_string(),
+                chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
+                    .to_string(),
+                merge_policy: capture_config.merge_policy,
+                fixed_speaker: None,
+            },
+        ],
+        source_outcomes: Vec::new(),
     }
 }
 
@@ -350,4 +382,20 @@ where
         &mut stderr,
     )
     .map_err(|error| error.to_string())
+}
+
+fn duration_to_millis(duration: std::time::Duration) -> u64 {
+    u64::try_from(duration.as_millis()).expect("duration in millis must fit into u64")
+}
+
+fn response_format_value(format: ResponseFormat) -> &'static str {
+    match format {
+        ResponseFormat::DiarizedJson => "diarized_json",
+    }
+}
+
+fn chunking_strategy_value(strategy: ChunkingStrategy) -> &'static str {
+    match strategy {
+        ChunkingStrategy::Auto => "auto",
+    }
 }

@@ -1,5 +1,6 @@
 use crate::application::ports::{
-    CaptureSessionMetadata, CaptureStore, CaptureStoreError, SpeakerStore, SpeakerStoreError,
+    CaptureSessionMetadata, CaptureStore, CaptureStoreError, MixedCaptureSessionMetadata,
+    MixedCaptureStore, SpeakerStore, SpeakerStoreError,
 };
 use crate::domain::{
     DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergedTranscriptSegment,
@@ -68,6 +69,7 @@ pub struct FileSystemCaptureStore {
 /// filesystem へ最終統合 transcript を保存します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileSystemMergedTranscriptStore {
+    metadata_path: PathBuf,
     merged_path: PathBuf,
 }
 
@@ -132,14 +134,18 @@ impl FileSystemMergedTranscriptStore {
     pub fn new(session_dir: &Path) -> Result<Self, CaptureStoreError> {
         create_dir_all(session_dir)
             .map_err(|error| CaptureStoreError::CreateSession(error.to_string()))?;
+        let metadata_path = session_dir.join("metadata.json");
         let merged_path = session_dir.join("merged.jsonl");
         File::create(&merged_path)
             .map_err(|error| CaptureStoreError::OpenMerged(error.to_string()))?;
 
-        Ok(Self { merged_path })
+        Ok(Self {
+            metadata_path,
+            merged_path,
+        })
     }
 
-    pub fn persist_segments(
+    fn persist_segments(
         &mut self,
         segments: &[SourcedTranscriptSegment],
     ) -> Result<(), CaptureStoreError> {
@@ -157,6 +163,36 @@ impl FileSystemMergedTranscriptStore {
         }
 
         Ok(())
+    }
+
+    fn persist_metadata(
+        &mut self,
+        metadata: &MixedCaptureSessionMetadata,
+    ) -> Result<(), CaptureStoreError> {
+        let mut metadata_file = File::create(&self.metadata_path)
+            .map_err(|error| CaptureStoreError::WriteMetadata(error.to_string()))?;
+        serde_json::to_writer_pretty(&mut metadata_file, metadata)
+            .map_err(|error| CaptureStoreError::SerializeMetadata(error.to_string()))?;
+        metadata_file
+            .write_all(b"\n")
+            .map_err(|error| CaptureStoreError::WriteMetadata(error.to_string()))?;
+        Ok(())
+    }
+}
+
+impl MixedCaptureStore for FileSystemMergedTranscriptStore {
+    fn persist_mixed_session_metadata(
+        &mut self,
+        metadata: &MixedCaptureSessionMetadata,
+    ) -> Result<(), CaptureStoreError> {
+        self.persist_metadata(metadata)
+    }
+
+    fn persist_final_segments(
+        &mut self,
+        segments: &[SourcedTranscriptSegment],
+    ) -> Result<(), CaptureStoreError> {
+        self.persist_segments(segments)
     }
 }
 
@@ -396,7 +432,9 @@ fn validate_speaker_name(speaker_name: &str) -> Result<(), SpeakerStoreError> {
 mod tests {
     use super::{FileSystemCaptureStore, FileSystemMergedTranscriptStore, FileSystemSpeakerStore};
     use crate::application::ports::{
-        CaptureSessionMetadata, CaptureStore, SpeakerStore, SpeakerStoreError,
+        CaptureSessionMetadata, CaptureStore, MixedCaptureSessionMetadata,
+        MixedCaptureSourceOutcome, MixedCaptureSourceSettings, MixedCaptureSourceStatus,
+        MixedCaptureStore, SpeakerStore, SpeakerStoreError,
     };
     use crate::domain::{
         DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome,
@@ -518,7 +556,7 @@ mod tests {
     }
 
     #[test]
-    /// mixed 実行向けの source store は source 別ディレクトリ配下へ保存する。
+    /// mixed 実行向けの source store は source 配下に metadata / merged / audit を含む必須ファイル群を保存する。
     fn stores_source_files_under_source_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
         let session_dir = temp_dir.path().join("runs").join("session-001");
@@ -531,6 +569,48 @@ mod tests {
         store.persist_audio(1, &sample_audio()).unwrap();
         store
             .persist_transcript(1, 100, &sample_transcript())
+            .unwrap();
+        store
+            .persist_session_metadata(&CaptureSessionMetadata {
+                recording_duration_ms: 10_000,
+                capture_duration_ms: 5_000,
+                capture_overlap_ms: 500,
+                transcription_model: "model".to_string(),
+                response_format: "diarized_json".to_string(),
+                chunking_strategy: "auto".to_string(),
+                merge_policy: TranscriptMergePolicy::recommended(),
+            })
+            .unwrap();
+        store
+            .persist_merged_segments(&[MergedTranscriptSegment {
+                speaker: "me".to_string(),
+                start_ms: 100,
+                end_ms: 300,
+                text: "hello".to_string(),
+            }])
+            .unwrap();
+        store
+            .persist_merge_audit_entries(&[MergeAuditEntry {
+                capture_index: 1,
+                previous_window: MergeWindowSnapshot {
+                    start_ms: 100,
+                    end_ms: 200,
+                    text: "a".to_string(),
+                    normalized_char_count: 1,
+                },
+                current_window: MergeWindowSnapshot {
+                    start_ms: 200,
+                    end_ms: 300,
+                    text: "a".to_string(),
+                    normalized_char_count: 1,
+                },
+                outcome: MergeAuditOutcome::Skipped {
+                    reason: crate::domain::MergeSkipReason::NoOverlapWindow,
+                    previous_normalized_chars: 1,
+                    current_normalized_chars: 1,
+                    required_min_overlap_chars: 10,
+                },
+            }])
             .unwrap();
 
         assert!(
@@ -549,17 +629,85 @@ mod tests {
                 .join("capture-000001.json")
                 .exists()
         );
+        assert!(
+            session_dir
+                .join("sources")
+                .join("microphone")
+                .join("metadata.json")
+                .exists()
+        );
+        assert!(
+            session_dir
+                .join("sources")
+                .join("microphone")
+                .join("merged.jsonl")
+                .exists()
+        );
+        assert!(
+            session_dir
+                .join("sources")
+                .join("microphone")
+                .join("merge-audit.jsonl")
+                .exists()
+        );
     }
 
     #[test]
-    /// 最終統合 transcript は session 直下の merged.jsonl に source 付きで保存する。
-    fn persists_final_merged_segments_with_source_field() {
+    /// mixed session root には metadata.json と最終 merged.jsonl を保存する。
+    fn persists_mixed_session_metadata_and_final_merged_segments() {
         let temp_dir = tempfile::tempdir().unwrap();
         let session_dir = temp_dir.path().join("runs").join("session-001");
         let mut store = FileSystemMergedTranscriptStore::new(&session_dir).unwrap();
 
         store
-            .persist_segments(&[
+            .persist_mixed_session_metadata(&MixedCaptureSessionMetadata {
+                mode: "mixed".to_string(),
+                application_bundle_id: "us.zoom.xos".to_string(),
+                microphone_speaker: "me".to_string(),
+                source_settings: vec![
+                    MixedCaptureSourceSettings {
+                        source: TranscriptSource::Microphone,
+                        recording_duration_ms: 40_000,
+                        capture_duration_ms: 30_000,
+                        capture_overlap_ms: 18_000,
+                        transcription_model: "gpt-4o-transcribe-diarize".to_string(),
+                        response_format: "diarized_json".to_string(),
+                        chunking_strategy: "auto".to_string(),
+                        merge_policy: TranscriptMergePolicy::recommended(),
+                        fixed_speaker: Some("me".to_string()),
+                    },
+                    MixedCaptureSourceSettings {
+                        source: TranscriptSource::Application,
+                        recording_duration_ms: 40_000,
+                        capture_duration_ms: 30_000,
+                        capture_overlap_ms: 18_000,
+                        transcription_model: "gpt-4o-transcribe-diarize".to_string(),
+                        response_format: "diarized_json".to_string(),
+                        chunking_strategy: "auto".to_string(),
+                        merge_policy: TranscriptMergePolicy::recommended(),
+                        fixed_speaker: None,
+                    },
+                ],
+                source_outcomes: vec![
+                    MixedCaptureSourceOutcome {
+                        source: TranscriptSource::Microphone,
+                        started_at_unix_ms: 1_000,
+                        status: MixedCaptureSourceStatus::Succeeded,
+                        transcription_failure_count: 0,
+                        error_message: None,
+                    },
+                    MixedCaptureSourceOutcome {
+                        source: TranscriptSource::Application,
+                        started_at_unix_ms: 1_050,
+                        status: MixedCaptureSourceStatus::Failed,
+                        transcription_failure_count: 0,
+                        error_message: Some("capture failed".to_string()),
+                    },
+                ],
+            })
+            .unwrap();
+        store
+            .persist_final_segments(&[
                 SourcedTranscriptSegment {
                     source: TranscriptSource::Microphone,
                     speaker: "me".to_string(),
@@ -583,6 +731,11 @@ mod tests {
                 "{\"source\":\"microphone\",\"speaker\":\"me\",\"start_ms\":1000,\"end_ms\":2300,\"text\":\"こんにちは\"}\n",
                 "{\"source\":\"application\",\"speaker\":\"spk_1\",\"start_ms\":2500,\"end_ms\":4000,\"text\":\"よろしくお願いします\"}\n"
             )
+        );
+        assert!(
+            std::fs::read_to_string(session_dir.join("metadata.json"))
+                .unwrap()
+                .contains("\"mode\": \"mixed\"")
         );
     }
 

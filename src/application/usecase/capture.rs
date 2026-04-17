@@ -5,12 +5,11 @@ use crate::application::ports::{
 };
 use crate::domain::{
     CaptureMerger, CapturePolicy, CapturedTranscript, DiarizedTranscript, KnownSpeakerSample,
-    MergedTranscriptSegment, SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment,
-    TranscriptSource,
+    MergedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment,
 };
 use std::fmt;
 use std::io::Write;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 
@@ -54,6 +53,7 @@ impl CaptureConfig {
 /// capture run の成功・部分失敗をまとめた結果です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureRunResult {
+    pub started_at_unix_ms: u64,
     pub transcripts: Vec<DiarizedTranscript>,
     pub merged_segments: Vec<MergedTranscriptSegment>,
     pub transcription_failures: Vec<CaptureTranscriptionFailure>,
@@ -111,6 +111,36 @@ where
     S: CaptureStore,
     L: Write,
 {
+    run_capture_with_clock(
+        config,
+        speaker_samples,
+        speaker_label,
+        recorder,
+        transcriber,
+        capture_store,
+        stderr,
+        current_unix_ms,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_capture_with_clock<R, T, S, L, C>(
+    config: &CaptureConfig,
+    speaker_samples: &[KnownSpeakerSample],
+    speaker_label: &SpeakerLabel,
+    recorder: &mut R,
+    transcriber: &mut T,
+    capture_store: &mut S,
+    stderr: &mut L,
+    current_unix_ms: C,
+) -> Result<CaptureRunResult, CaptureError>
+where
+    R: Recorder,
+    T: Transcriber,
+    S: CaptureStore,
+    L: Write,
+    C: Fn() -> u64,
+{
     capture_store
         .persist_session_metadata(&CaptureSessionMetadata {
             recording_duration_ms: duration_to_millis(config.capture_policy.recording_duration),
@@ -124,6 +154,7 @@ where
         .map_err(CaptureError::Store)?;
     info_log(stderr, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
+    let started_at_unix_ms = current_unix_ms();
     let capture_ranges = config.capture_policy.capture_ranges();
     let capture_count = capture_ranges.len();
     let mut capture_merger = CaptureMerger::new(config.merge_policy.clone());
@@ -236,34 +267,11 @@ where
     }
 
     Ok(CaptureRunResult {
+        started_at_unix_ms,
         transcripts,
         merged_segments,
         transcription_failures,
     })
-}
-
-/// source ごとに merge 済みの segment 群を絶対時刻ベースで最終統合します。
-pub fn merge_source_segments(
-    source_segments: &[(TranscriptSource, Vec<MergedTranscriptSegment>)],
-) -> Vec<SourcedTranscriptSegment> {
-    let mut merged = source_segments
-        .iter()
-        .flat_map(|(source, segments)| {
-            segments
-                .iter()
-                .map(|segment| SourcedTranscriptSegment::from_merged(*source, segment))
-        })
-        .collect::<Vec<_>>();
-    merged.sort_by_key(|segment| {
-        (
-            segment.start_ms,
-            segment.end_ms,
-            segment.source.sort_order(),
-            segment.speaker.clone(),
-            segment.text.clone(),
-        )
-    });
-    merged
 }
 
 fn is_recoverable_transcription_error(error: &TranscriberError) -> bool {
@@ -301,6 +309,16 @@ where
 
 fn duration_to_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).expect("capture duration in millis must fit into u64")
+}
+
+fn current_unix_ms() -> u64 {
+    u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time must be after Unix epoch")
+            .as_millis(),
+    )
+    .expect("unix timestamp in milliseconds must fit into u64")
 }
 
 #[derive(Debug)]
@@ -576,6 +594,46 @@ mod tests {
     }
 
     #[test]
+    /// run 結果には recorder.start_recording の直後に取得した録音開始 Unix 時刻を含める。
+    fn returns_recording_started_unix_time_in_result() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(10),
+            Duration::from_secs(10),
+            Duration::ZERO,
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation,
+                audios: VecDeque::from(vec![sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: None,
+            outcomes: VecDeque::from(vec![Ok(sample_transcript())]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        let result = run_capture_with_clock(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+            || 1_234_567,
+        )
+        .unwrap();
+
+        assert_eq!(result.started_at_unix_ms, 1_234_567);
+    }
+
+    #[test]
     /// 継続録音を一度だけ開始し、capture ごとに待機と切り出しを行う。
     fn records_incremental_captures_with_overlap_and_requests_transcription() {
         let config = CaptureConfig::new(
@@ -769,6 +827,7 @@ mod tests {
         assert_eq!(
             returned,
             CaptureRunResult {
+                started_at_unix_ms: returned.started_at_unix_ms,
                 transcripts: vec![transcript1, transcript2],
                 merged_segments: vec![
                     MergedTranscriptSegment {
@@ -988,6 +1047,7 @@ mod tests {
         assert_eq!(
             result,
             CaptureRunResult {
+                started_at_unix_ms: result.started_at_unix_ms,
                 transcripts: vec![success_transcript],
                 merged_segments: vec![
                     MergedTranscriptSegment {

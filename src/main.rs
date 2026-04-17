@@ -353,6 +353,7 @@ fn build_mixed_capture_metadata(
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
+        runtime_config.transcription_language.clone(),
     );
     let capture_config = CaptureConfig {
         merge_policy: runtime_config.transcript_merge_policy.clone(),
@@ -421,6 +422,7 @@ where
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
+        runtime_config.transcription_language.clone(),
     );
     let config = CaptureConfig {
         merge_policy: runtime_config.transcript_merge_policy.clone(),

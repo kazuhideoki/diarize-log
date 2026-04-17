@@ -282,40 +282,9 @@ where
             audio,
             config,
             speaker_samples,
-<<<<<<< HEAD
             speaker_label,
             transcriber,
             capture_store,
-=======
-            model: config.transcription_model,
-            language: config.transcription_language.as_str(),
-            response_format: config.response_format,
-            chunking_strategy: config.chunking_strategy,
-        }) {
-            Ok(transcript) => transcript,
-            Err(error) => {
-                if !is_recoverable_transcription_error(&error) {
-                    return Err(CaptureError::Transcribe(error));
-                }
-                info_log(
-                    stderr,
-                    &format!(
-                        "transcription failed for capture {}, continuing: {error}",
-                        capture_range.capture_index
-                    ),
-                )
-                .map_err(CaptureError::Write)?;
-                transcription_failures.push(CaptureTranscriptionFailure {
-                    capture_index: capture_range.capture_index,
-                    capture_start_ms,
-                    message: error.to_string(),
-                });
-                continue;
-            }
-        };
-        let transcript = apply_speaker_label(transcript, speaker_label);
-        info_log(
->>>>>>> main
             stderr,
             &mut capture_merger,
             &mut transcripts,
@@ -420,6 +389,7 @@ where
         audio: &audio,
         speaker_samples,
         model: config.transcription_model,
+        language: config.transcription_language.as_str(),
         response_format: config.response_format,
         chunking_strategy: config.chunking_strategy,
     }) {
@@ -850,7 +820,7 @@ mod tests {
     #[test]
     /// run 結果には recorder.start_recording の直後に取得した録音開始 Unix 時刻を含める。
     fn returns_recording_started_unix_time_in_result() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(10),
             Duration::from_secs(10),
             Duration::ZERO,
@@ -1045,10 +1015,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1062,6 +1032,7 @@ mod tests {
         run_capture(
             &config,
             &[],
+            &SpeakerLabel::KeepOriginal,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1389,7 +1360,7 @@ mod tests {
     #[test]
     /// 待機中に中断要求が来たら、録音済みぶんだけ切り出して session を閉じてから文字起こしする。
     fn finalizes_recorded_audio_when_interrupted_while_waiting_for_next_capture() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(360),
             Duration::from_secs(180),
             Duration::from_secs(15),
@@ -1822,7 +1793,7 @@ mod tests {
     #[test]
     /// マイク用に固定話者名を指定した場合は転写済み segment の speaker を上書きする。
     fn replaces_segment_speaker_names_when_fixed_speaker_is_configured() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(180),
             Duration::from_secs(180),
             Duration::ZERO,

@@ -576,6 +576,7 @@ mod tests {
                 capture_duration_ms: 5_000,
                 capture_overlap_ms: 500,
                 transcription_model: "model".to_string(),
+                transcription_language: "ja".to_string(),
                 response_format: "diarized_json".to_string(),
                 chunking_strategy: "auto".to_string(),
                 merge_policy: TranscriptMergePolicy::recommended(),

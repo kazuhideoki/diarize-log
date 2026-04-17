@@ -3,6 +3,7 @@ pub mod application;
 pub mod cli;
 pub mod config;
 pub mod domain;
+pub mod logger;
 
 pub use application::{
     AudioClipper, AudioClipperError, CaptureConfig, CaptureError, CaptureRunResult,
@@ -24,9 +25,4 @@ pub use domain::{
     MergeRejectReason, MergeSkipReason, MergedTranscriptSegment, RecordedAudio,
     SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
 };
-
-pub(crate) fn debug_log(debug_enabled: bool, message: &str) {
-    if debug_enabled {
-        eprintln!("[debug] {message}");
-    }
-}
+pub use logger::{LogSource, Logger};

@@ -1,8 +1,8 @@
 use crate::application::ports::{
     InterruptMonitor, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
 };
-use crate::debug_log;
 use crate::domain::RecordedAudio;
+use crate::logger::Logger;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 use screencapturekit::cm::CMSampleBuffer;
@@ -22,30 +22,27 @@ const TARGET_SAMPLE_RATE: u32 = 24_000;
 const WAIT_INTERVAL_MILLIS: u64 = 10;
 
 /// `cpal` を使ってデフォルトマイクから継続録音します。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct CpalRecorder {
-    debug_enabled: bool,
+    logger: Logger,
 }
 
 impl CpalRecorder {
-    pub fn new(debug_enabled: bool) -> Self {
-        Self { debug_enabled }
+    pub fn new(logger: Logger) -> Self {
+        Self { logger }
     }
 }
 
 /// `ScreenCaptureKit` を使って特定アプリケーション由来の音声を継続録音します。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ScreenCaptureKitApplicationRecorder {
     bundle_id: String,
-    debug_enabled: bool,
+    logger: Logger,
 }
 
 impl ScreenCaptureKitApplicationRecorder {
-    pub fn new(bundle_id: String, debug_enabled: bool) -> Self {
-        Self {
-            bundle_id,
-            debug_enabled,
-        }
+    pub fn new(bundle_id: String, logger: Logger) -> Self {
+        Self { bundle_id, logger }
     }
 }
 
@@ -57,13 +54,10 @@ impl Recorder for CpalRecorder {
         let device = host
             .default_input_device()
             .ok_or(RecorderError::NoInputDevice)?;
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "input device selected: {}",
-                device.name().unwrap_or_else(|_| "<unknown>".to_string())
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "input device selected: {}",
+            device.name().unwrap_or_else(|_| "<unknown>".to_string())
+        ));
         let supported_config = device
             .default_input_config()
             .map_err(|error| RecorderError::ReadInputConfig(error.to_string()))?;
@@ -71,12 +65,9 @@ impl Recorder for CpalRecorder {
         let stream_config: cpal::StreamConfig = supported_config.into();
         let channels = stream_config.channels;
         let sample_rate = stream_config.sample_rate.0;
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "recording starts: sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}"
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "recording starts: sample_format={sample_format:?} channels={channels} sample_rate={sample_rate}"
+        ));
 
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
         let (error_sender, error_receiver) = mpsc::channel();
@@ -113,7 +104,7 @@ impl Recorder for CpalRecorder {
             error_receiver,
             channels,
             sample_rate,
-            debug_enabled: self.debug_enabled,
+            logger: self.logger.clone(),
         })
     }
 }
@@ -126,14 +117,11 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
             .map_err(|error| RecorderError::ReadShareableContent(error.to_string()))?;
         let application = find_application(&content, &self.bundle_id)?;
         let display = find_application_display(&content, &self.bundle_id)?;
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "screen capture target selected: bundle_id={} display_id={}",
-                application.bundle_identifier(),
-                display.display_id()
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "screen capture target selected: bundle_id={} display_id={}",
+            application.bundle_identifier(),
+            display.display_id()
+        ));
 
         let filter = SCContentFilter::create()
             .with_display(&display)
@@ -152,7 +140,7 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
         let mut stream = SCStream::new_with_delegate(&filter, &configuration, delegate);
         let audio_sample_buffer = Arc::clone(&sample_buffer);
         let audio_error_sender = error_sender.clone();
-        let debug_enabled = self.debug_enabled;
+        let logger = self.logger.clone();
 
         let handler_registered = stream.add_output_handler(
             move |sample: CMSampleBuffer, _of_type: SCStreamOutputType| {
@@ -180,19 +168,16 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
         stream
             .start_capture()
             .map_err(|error| RecorderError::StartCapture(error.to_string()))?;
-        debug_log(
-            debug_enabled,
-            &format!(
-                "screen capture recording starts: bundle_id={} target_sample_rate={} target_channels={}",
-                self.bundle_id, TARGET_SAMPLE_RATE, TARGET_CHANNELS
-            ),
-        );
+        let _ = logger.debug(&format!(
+            "screen capture recording starts: bundle_id={} target_sample_rate={} target_channels={}",
+            self.bundle_id, TARGET_SAMPLE_RATE, TARGET_CHANNELS
+        ));
 
         Ok(ScreenCaptureKitRecordingSession {
             stream,
             sample_buffer,
             error_receiver,
-            debug_enabled,
+            logger,
         })
     }
 }
@@ -204,7 +189,7 @@ pub struct CpalRecordingSession {
     error_receiver: mpsc::Receiver<RecorderError>,
     channels: u16,
     sample_rate: u32,
-    debug_enabled: bool,
+    logger: Logger,
 }
 
 /// `ScreenCaptureKit` の継続録音中セッションです。
@@ -212,7 +197,7 @@ pub struct ScreenCaptureKitRecordingSession {
     stream: SCStream,
     sample_buffer: Arc<Mutex<Vec<i16>>>,
     error_receiver: mpsc::Receiver<RecorderError>,
-    debug_enabled: bool,
+    logger: Logger,
 }
 
 impl RecordingSession for CpalRecordingSession {
@@ -278,27 +263,21 @@ impl RecordingSession for CpalRecordingSession {
                 .map_err(|_| RecorderError::SampleBufferPoisoned)?;
             guard[start_sample..end_sample].to_vec()
         };
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "captured pcm samples: capture_start_ms={} capture_duration_ms={} count={}",
-                duration_to_millis(start_offset),
-                duration_to_millis(duration),
-                captured_samples.len()
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "captured pcm samples: capture_start_ms={} capture_duration_ms={} count={}",
+            duration_to_millis(start_offset),
+            duration_to_millis(duration),
+            captured_samples.len()
+        ));
 
         let normalized_samples =
             normalize_pcm_format(captured_samples, self.channels, self.sample_rate);
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "normalized pcm samples: count={} channels={} sample_rate={}",
-                normalized_samples.len(),
-                TARGET_CHANNELS,
-                TARGET_SAMPLE_RATE
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "normalized pcm samples: count={} channels={} sample_rate={}",
+            normalized_samples.len(),
+            TARGET_CHANNELS,
+            TARGET_SAMPLE_RATE
+        ));
 
         encode_wav(normalized_samples, TARGET_CHANNELS, TARGET_SAMPLE_RATE)
     }
@@ -362,15 +341,12 @@ impl RecordingSession for ScreenCaptureKitRecordingSession {
                 .map_err(|_| RecorderError::SampleBufferPoisoned)?;
             guard[start_sample..end_sample].to_vec()
         };
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "captured application audio samples: capture_start_ms={} capture_duration_ms={} count={}",
-                duration_to_millis(start_offset),
-                duration_to_millis(duration),
-                captured_samples.len()
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "captured application audio samples: capture_start_ms={} capture_duration_ms={} count={}",
+            duration_to_millis(start_offset),
+            duration_to_millis(duration),
+            captured_samples.len()
+        ));
 
         encode_wav(captured_samples, TARGET_CHANNELS, TARGET_SAMPLE_RATE)
     }
@@ -417,10 +393,9 @@ impl ScreenCaptureKitRecordingSession {
 impl Drop for ScreenCaptureKitRecordingSession {
     fn drop(&mut self) {
         if let Err(error) = self.stream.stop_capture() {
-            debug_log(
-                self.debug_enabled,
-                &format!("screen capture stop failed during drop: {error}"),
-            );
+            let _ = self
+                .logger
+                .debug(&format!("screen capture stop failed during drop: {error}"));
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::application::ports::{Transcriber, TranscriberError, TranscriptionRequest};
-use crate::debug_log;
 use crate::domain::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
+use crate::logger::Logger;
 use base64::Engine;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, multipart};
@@ -12,21 +12,20 @@ const TRANSCRIPTIONS_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcrip
 const TRANSCRIPTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// OpenAI の話者分離文字起こし API を呼び出します。
-#[derive(Debug)]
 pub struct OpenAiTranscriber {
     client: Client,
     api_key: String,
-    debug_enabled: bool,
+    logger: Logger,
 }
 
 impl OpenAiTranscriber {
-    pub fn new(api_key: String, debug_enabled: bool) -> Result<Self, TranscriberError> {
-        let client = build_http_client(TRANSCRIPTION_REQUEST_TIMEOUT, debug_enabled)?;
+    pub fn new(api_key: String, logger: Logger) -> Result<Self, TranscriberError> {
+        let client = build_http_client(TRANSCRIPTION_REQUEST_TIMEOUT, &logger)?;
 
         Ok(Self {
             client,
             api_key,
-            debug_enabled,
+            logger,
         })
     }
 }
@@ -36,18 +35,15 @@ impl Transcriber for OpenAiTranscriber {
         &mut self,
         request: TranscriptionRequest<'_>,
     ) -> Result<DiarizedTranscript, TranscriberError> {
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} language={} response_format={} chunking_strategy={} audio_bytes={} timeout_ms={} client_reuse=enabled",
-                request.model,
-                language_debug_label(request.language),
-                request.response_format.as_api_value(),
-                request.chunking_strategy.as_api_value(),
-                request.audio.wav_bytes.len(),
-                TRANSCRIPTION_REQUEST_TIMEOUT.as_millis()
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} language={} response_format={} chunking_strategy={} audio_bytes={} timeout_ms={} client_reuse=enabled",
+            request.model,
+            language_debug_label(request.language),
+            request.response_format.as_api_value(),
+            request.chunking_strategy.as_api_value(),
+            request.audio.wav_bytes.len(),
+            TRANSCRIPTION_REQUEST_TIMEOUT.as_millis()
+        ));
         let audio_part = multipart::Part::bytes(request.audio.wav_bytes.clone())
             .file_name("capture.wav")
             .mime_str(request.audio.content_type)
@@ -77,24 +73,23 @@ impl Transcriber for OpenAiTranscriber {
         let request_started_at = Instant::now();
         let response = self.api_request().multipart(form).send().map_err(|error| {
             let details = RequestErrorDetails::from_reqwest_error(&error);
-            debug_log(
-                self.debug_enabled,
-                &transport_error_debug_message(&details, request_started_at.elapsed()),
-            );
+            let _ = self.logger.debug(&transport_error_debug_message(
+                &details,
+                request_started_at.elapsed(),
+            ));
             TranscriberError::SendRequest(details.summary())
         })?;
         let status = response.status();
-        debug_log(
-            self.debug_enabled,
-            &response_status_debug_message(status, request_started_at.elapsed()),
-        );
+        let _ = self.logger.debug(&response_status_debug_message(
+            status,
+            request_started_at.elapsed(),
+        ));
         let body = response
             .text()
             .map_err(|error| TranscriberError::ReadResponseBody(error.to_string()))?;
-        debug_log(
-            self.debug_enabled,
-            &format!("transcription response body bytes={}", body.len()),
-        );
+        let _ = self
+            .logger
+            .debug(&format!("transcription response body bytes={}", body.len()));
 
         if !status.is_success() {
             return Err(TranscriberError::ApiError {
@@ -108,14 +103,11 @@ impl Transcriber for OpenAiTranscriber {
                 source: source.to_string(),
                 body,
             })?;
-        debug_log(
-            self.debug_enabled,
-            &format!(
-                "transcription parsed: text_chars={} segments={}",
-                api_response.text.chars().count(),
-                api_response.segments.len()
-            ),
-        );
+        let _ = self.logger.debug(&format!(
+            "transcription parsed: text_chars={} segments={}",
+            api_response.text.chars().count(),
+            api_response.segments.len()
+        ));
 
         Ok(api_response.into_domain())
     }
@@ -183,13 +175,12 @@ fn language_debug_label(language: Option<&str>) -> &str {
     language.unwrap_or("<auto>")
 }
 
-fn build_http_client(timeout: Duration, debug_enabled: bool) -> Result<Client, TranscriberError> {
+fn build_http_client(timeout: Duration, logger: &Logger) -> Result<Client, TranscriberError> {
     Client::builder().timeout(timeout).build().map_err(|error| {
         let source_chain = format_error_chain(&error);
-        debug_log(
-            debug_enabled,
-            &format!("failed to build transcription http client: source_chain={source_chain}"),
-        );
+        let _ = logger.debug(&format!(
+            "failed to build transcription http client: source_chain={source_chain}"
+        ));
         TranscriberError::BuildHttpClient(source_chain)
     })
 }
@@ -342,7 +333,8 @@ mod tests {
     /// blocking HTTP client は指定した timeout を送信全体へ適用する。
     fn applies_requested_timeout_to_blocking_http_client() {
         let server = TestHttpServer::spawn(Duration::from_millis(150));
-        let client = super::build_http_client(Duration::from_millis(50), false)
+        let logger = crate::logger::Logger::new(Vec::new(), false);
+        let client = super::build_http_client(Duration::from_millis(50), &logger)
             .expect("client should build");
 
         let error = client

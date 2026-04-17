@@ -8,6 +8,7 @@ use crate::domain::{
     KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
     TranscriptSegment,
 };
+use crate::logger::Logger;
 use std::fmt;
 use std::io::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -92,7 +93,7 @@ impl fmt::Display for CaptureError {
             Self::Record(error) => write!(f, "recording failed: {error}"),
             Self::Transcribe(error) => write!(f, "transcription failed: {error}"),
             Self::Store(error) => write!(f, "capture persistence failed: {error}"),
-            Self::Write(error) => write!(f, "stderr write failed: {error}"),
+            Self::Write(error) => write!(f, "logger write failed: {error}"),
         }
     }
 }
@@ -114,73 +115,72 @@ struct PendingCaptureAudio {
 }
 
 /// 連続録音と文字起こしを実行します。
-pub fn run_capture<R, T, S, L>(
+#[allow(clippy::too_many_arguments)]
+pub fn run_capture<R, T, S>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    logger: &Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
-    stderr: &mut L,
 ) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
     T: Transcriber,
     S: CaptureStore,
-    L: Write,
 {
     run_capture_with_interrupt_monitor(
         config,
         speaker_samples,
         speaker_label,
+        logger,
         recorder,
         transcriber,
         capture_store,
-        stderr,
         &NoopInterruptMonitor,
     )
 }
 
 /// 連続録音と文字起こしを実行し、中断要求が来たら録音済みぶんだけを処理して終了します。
 #[allow(clippy::too_many_arguments)]
-pub fn run_capture_with_interrupt_monitor<R, T, S, L>(
+pub fn run_capture_with_interrupt_monitor<R, T, S>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    logger: &Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
-    stderr: &mut L,
     interrupt_monitor: &dyn InterruptMonitor,
 ) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
     T: Transcriber,
     S: CaptureStore,
-    L: Write,
 {
     run_capture_with_clock(
         config,
         speaker_samples,
         speaker_label,
+        logger,
         recorder,
         transcriber,
         capture_store,
-        stderr,
         interrupt_monitor,
         current_unix_ms,
     )
 }
 
 #[allow(clippy::too_many_arguments)]
-fn run_capture_with_clock<R, T, S, L, C>(
+fn run_capture_with_clock<R, T, S, C>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    logger: &Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
-    stderr: &mut L,
     interrupt_monitor: &dyn InterruptMonitor,
     current_unix_ms: C,
 ) -> Result<CaptureRunResult, CaptureError>
@@ -188,7 +188,6 @@ where
     R: Recorder,
     T: Transcriber,
     S: CaptureStore,
-    L: Write,
     C: Fn() -> u64,
 {
     capture_store
@@ -203,7 +202,9 @@ where
             merge_policy: config.merge_policy.clone(),
         })
         .map_err(CaptureError::Store)?;
-    info_log(stderr, "recording started").map_err(CaptureError::Write)?;
+    logger
+        .info("recording started")
+        .map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
     let started_at_unix_ms = current_unix_ms();
     let capture_ranges = config.capture_policy.capture_ranges();
@@ -222,7 +223,8 @@ where
             .map_err(CaptureError::Record)?;
 
         if wait_outcome == RecordingWaitOutcome::Interrupted {
-            info_log(stderr, "interrupt received, finalizing recorded audio")
+            logger
+                .info("interrupt received, finalizing recorded audio")
                 .map_err(CaptureError::Write)?;
             let available_duration = session
                 .as_mut()
@@ -247,7 +249,9 @@ where
                 pending_ranges,
             )?;
             drop(session.take());
-            info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
+            logger
+                .info("recording finished")
+                .map_err(CaptureError::Write)?;
             for pending in pending_audios {
                 process_capture_audio(
                     pending.range,
@@ -255,9 +259,9 @@ where
                     config,
                     speaker_samples,
                     speaker_label,
+                    logger,
                     transcriber,
                     capture_store,
-                    stderr,
                     &mut capture_merger,
                     &mut transcripts,
                     &mut merged_segments,
@@ -275,7 +279,9 @@ where
         )?;
         if is_last_capture {
             drop(session.take());
-            info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
+            logger
+                .info("recording finished")
+                .map_err(CaptureError::Write)?;
         }
         process_capture_audio(
             capture_range,
@@ -283,9 +289,9 @@ where
             config,
             speaker_samples,
             speaker_label,
+            logger,
             transcriber,
             capture_store,
-            stderr,
             &mut capture_merger,
             &mut transcripts,
             &mut merged_segments,
@@ -299,15 +305,13 @@ where
     merged_segments.extend(tail_segments);
 
     if !transcription_failures.is_empty() {
-        info_log(
-            stderr,
-            &format!(
+        logger
+            .info(&format!(
                 "capture run completed with partial transcription failures: succeeded={} failed={} total={}",
                 transcripts.len(),
                 transcription_failures.len(),
                 transcripts.len() + transcription_failures.len()
-            ),
-        )
+            ))
         .map_err(CaptureError::Write)?;
     }
 
@@ -356,15 +360,15 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn process_capture_audio<T, S, L>(
+fn process_capture_audio<T, S>(
     capture_range: CaptureRange,
     audio: RecordedAudio,
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    logger: &Logger,
     transcriber: &mut T,
     capture_store: &mut S,
-    stderr: &mut L,
     capture_merger: &mut CaptureMerger,
     transcripts: &mut Vec<DiarizedTranscript>,
     merged_segments: &mut Vec<MergedTranscriptSegment>,
@@ -373,16 +377,13 @@ fn process_capture_audio<T, S, L>(
 where
     T: Transcriber,
     S: CaptureStore,
-    L: Write,
 {
-    info_log(
-        stderr,
-        &format!(
+    logger
+        .info(&format!(
             "transcription request sent for capture {}",
             capture_range.capture_index
-        ),
-    )
-    .map_err(CaptureError::Write)?;
+        ))
+        .map_err(CaptureError::Write)?;
     let capture_start_ms = duration_to_millis(capture_range.start_offset);
     let capture_end_ms = duration_to_millis(capture_range.end_offset());
     let transcript = match transcriber.transcribe(TranscriptionRequest {
@@ -398,14 +399,12 @@ where
             if !is_recoverable_transcription_error(&error) {
                 return Err(CaptureError::Transcribe(error));
             }
-            info_log(
-                stderr,
-                &format!(
+            logger
+                .info(&format!(
                     "transcription failed for capture {}, continuing: {error}",
                     capture_range.capture_index
-                ),
-            )
-            .map_err(CaptureError::Write)?;
+                ))
+                .map_err(CaptureError::Write)?;
             transcription_failures.push(CaptureTranscriptionFailure {
                 capture_index: capture_range.capture_index,
                 capture_start_ms,
@@ -415,14 +414,12 @@ where
         }
     };
     let transcript = apply_speaker_label(transcript, speaker_label);
-    info_log(
-        stderr,
-        &format!(
+    logger
+        .info(&format!(
             "transcription response received for capture {}",
             capture_range.capture_index
-        ),
-    )
-    .map_err(CaptureError::Write)?;
+        ))
+        .map_err(CaptureError::Write)?;
     capture_store
         .persist_transcript(capture_range.capture_index, capture_start_ms, &transcript)
         .map_err(CaptureError::Store)?;
@@ -468,14 +465,6 @@ fn apply_speaker_label(
         },
     }
 }
-
-fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
-where
-    W: Write,
-{
-    writeln!(output, "{message}")
-}
-
 fn duration_to_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).expect("capture duration in millis must fit into u64")
 }
@@ -534,6 +523,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::LogSource;
     use crate::application::ports::{CaptureSessionMetadata, RecordingWaitOutcome};
     use crate::domain::{
         MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot, MergedTranscriptSegment,
@@ -541,7 +531,9 @@ mod tests {
     };
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::io::{self, Write};
     use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     const TEST_TRANSCRIPTION_LANGUAGE: &str = "ja";
 
@@ -767,6 +759,41 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Default)]
+    struct SharedBuffer {
+        bytes: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl SharedBuffer {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        fn contents(&self) -> String {
+            String::from_utf8(self.bytes.lock().unwrap().clone()).unwrap()
+        }
+    }
+
+    impl Write for SharedBuffer {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.bytes.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn test_capture_logger() -> (Logger, SharedBuffer) {
+        let buffer = SharedBuffer::new();
+        let logger = Logger::new(buffer.clone(), true)
+            .with_source(LogSource::Microphone)
+            .with_component("capture");
+
+        (logger, buffer)
+    }
+
     fn sample_audio() -> RecordedAudio {
         RecordedAudio {
             wav_bytes: vec![0x52, 0x49, 0x46, 0x46],
@@ -837,16 +864,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         let result = run_capture_with_clock(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
             &NoopInterruptMonitor,
             || 1_234_567,
         )
@@ -892,16 +919,16 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
         assert_eq!(observation.borrow().start_call_count, 1);
@@ -978,17 +1005,17 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
         let speaker_sample = sample_known_speaker();
 
         run_capture(
             &config,
             std::slice::from_ref(&speaker_sample),
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1027,16 +1054,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1075,16 +1102,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1132,16 +1159,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         let returned = run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1213,16 +1240,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1278,16 +1305,16 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1344,16 +1371,16 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, stderr) = test_capture_logger();
 
         let result = run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1392,15 +1419,15 @@ mod tests {
             }
         );
         assert_eq!(
-            String::from_utf8(stderr).unwrap(),
+            stderr.contents(),
             concat!(
-                "recording started\n",
-                "transcription request sent for capture 1\n",
-                "transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
-                "recording finished\n",
-                "transcription request sent for capture 2\n",
-                "transcription response received for capture 2\n",
-                "capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
+                "[info] [microphone] [capture] recording started\n",
+                "[info] [microphone] [capture] transcription request sent for capture 1\n",
+                "[info] [microphone] [capture] transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
+                "[info] [microphone] [capture] recording finished\n",
+                "[info] [microphone] [capture] transcription request sent for capture 2\n",
+                "[info] [microphone] [capture] transcription response received for capture 2\n",
+                "[info] [microphone] [capture] capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
             )
         );
     }
@@ -1448,16 +1475,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, stderr) = test_capture_logger();
 
         let result = run_capture_with_interrupt_monitor(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
             &NoopInterruptMonitor,
         )
         .unwrap();
@@ -1514,15 +1541,15 @@ mod tests {
             }
         );
         assert_eq!(
-            String::from_utf8(stderr).unwrap(),
+            stderr.contents(),
             concat!(
-                "recording started\n",
-                "transcription request sent for capture 1\n",
-                "transcription response received for capture 1\n",
-                "interrupt received, finalizing recorded audio\n",
-                "recording finished\n",
-                "transcription request sent for capture 2\n",
-                "transcription response received for capture 2\n"
+                "[info] [microphone] [capture] recording started\n",
+                "[info] [microphone] [capture] transcription request sent for capture 1\n",
+                "[info] [microphone] [capture] transcription response received for capture 1\n",
+                "[info] [microphone] [capture] interrupt received, finalizing recorded audio\n",
+                "[info] [microphone] [capture] recording finished\n",
+                "[info] [microphone] [capture] transcription request sent for capture 2\n",
+                "[info] [microphone] [capture] transcription response received for capture 2\n"
             )
         );
     }
@@ -1556,16 +1583,16 @@ mod tests {
             )]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, stderr) = test_capture_logger();
 
         let error = run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap_err();
 
@@ -1578,8 +1605,8 @@ mod tests {
         assert_eq!(*capture_store.observed_audios.borrow(), vec![(1, audio1)]);
         assert!(capture_store.observed_transcripts.borrow().is_empty());
         assert_eq!(
-            String::from_utf8(stderr).unwrap(),
-            "recording started\ntranscription request sent for capture 1\n"
+            stderr.contents(),
+            "[info] [microphone] [capture] recording started\n[info] [microphone] [capture] transcription request sent for capture 1\n"
         );
     }
 
@@ -1606,26 +1633,38 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
-        let printed_logs = String::from_utf8(stderr).unwrap();
-        assert!(printed_logs.contains("recording started\n"));
-        assert!(printed_logs.contains("transcription request sent for capture 1\n"));
-        assert!(printed_logs.contains("transcription response received for capture 1\n"));
-        assert!(printed_logs.contains("recording finished\n"));
-        assert!(printed_logs.contains("transcription request sent for capture 2\n"));
-        assert!(printed_logs.contains("transcription response received for capture 2\n"));
+        let printed_logs = stderr.contents();
+        assert!(printed_logs.contains("[info] [microphone] [capture] recording started\n"));
+        assert!(
+            printed_logs.contains(
+                "[info] [microphone] [capture] transcription request sent for capture 1\n"
+            )
+        );
+        assert!(printed_logs.contains(
+            "[info] [microphone] [capture] transcription response received for capture 1\n"
+        ));
+        assert!(printed_logs.contains("[info] [microphone] [capture] recording finished\n"));
+        assert!(
+            printed_logs.contains(
+                "[info] [microphone] [capture] transcription request sent for capture 2\n"
+            )
+        );
+        assert!(printed_logs.contains(
+            "[info] [microphone] [capture] transcription response received for capture 2\n"
+        ));
     }
 
     #[test]
@@ -1696,16 +1735,16 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1772,16 +1811,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1821,16 +1860,16 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         run_capture(
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 
@@ -1866,16 +1905,16 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let mut stderr = Vec::new();
+        let (logger, _stderr) = test_capture_logger();
 
         let result = run_capture(
             &config,
             &[],
             &SpeakerLabel::Fixed("me".to_string()),
+            &logger,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
-            &mut stderr,
         )
         .unwrap();
 

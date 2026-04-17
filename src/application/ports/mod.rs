@@ -1,5 +1,6 @@
 mod audio_clipper;
 mod capture_store;
+mod interruption;
 mod recorder;
 mod speaker_store;
 mod transcriber;
@@ -10,6 +11,7 @@ pub use capture_store::{
     MixedCaptureSourceOutcome, MixedCaptureSourceSettings, MixedCaptureSourceStatus,
     MixedCaptureStore,
 };
+pub use interruption::{InterruptMonitor, RecordingWaitOutcome};
 pub use recorder::{Recorder, RecorderError, RecordingSession};
 pub use speaker_store::{SpeakerStore, SpeakerStoreError};
 pub use transcriber::{

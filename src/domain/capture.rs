@@ -40,7 +40,7 @@ impl CapturePolicy {
 }
 
 /// 連続録音から 1 回の capture で扱う区間です。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CaptureRange {
     pub capture_index: u64,
     pub start_offset: Duration,

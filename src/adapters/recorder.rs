@@ -1,4 +1,6 @@
-use crate::application::ports::{Recorder, RecorderError, RecordingSession};
+use crate::application::ports::{
+    InterruptMonitor, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
+};
 use crate::debug_log;
 use crate::domain::RecordedAudio;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -214,7 +216,11 @@ pub struct ScreenCaptureKitRecordingSession {
 }
 
 impl RecordingSession for CpalRecordingSession {
-    fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError> {
+    fn wait_until(
+        &mut self,
+        duration: Duration,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<RecordingWaitOutcome, RecorderError> {
         let required_frames = duration_to_frame_count(duration, self.sample_rate);
 
         loop {
@@ -222,11 +228,22 @@ impl RecordingSession for CpalRecordingSession {
             let available_frames = self.available_frame_count()?;
 
             if available_frames >= required_frames {
-                return Ok(());
+                return Ok(RecordingWaitOutcome::ReachedTarget);
+            }
+            if interrupt_monitor.is_interrupt_requested() {
+                return Ok(RecordingWaitOutcome::Interrupted);
             }
 
             thread::sleep(Duration::from_millis(WAIT_INTERVAL_MILLIS));
         }
+    }
+
+    fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
+        self.poll_callback_error()?;
+        Ok(frame_count_to_duration(
+            self.available_frame_count()?,
+            self.sample_rate,
+        ))
     }
 
     fn capture_wav(
@@ -288,7 +305,11 @@ impl RecordingSession for CpalRecordingSession {
 }
 
 impl RecordingSession for ScreenCaptureKitRecordingSession {
-    fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError> {
+    fn wait_until(
+        &mut self,
+        duration: Duration,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<RecordingWaitOutcome, RecorderError> {
         let required_frames = duration_to_frame_count(duration, TARGET_SAMPLE_RATE);
 
         loop {
@@ -296,11 +317,22 @@ impl RecordingSession for ScreenCaptureKitRecordingSession {
             let available_frames = self.available_frame_count()?;
 
             if available_frames >= required_frames {
-                return Ok(());
+                return Ok(RecordingWaitOutcome::ReachedTarget);
+            }
+            if interrupt_monitor.is_interrupt_requested() {
+                return Ok(RecordingWaitOutcome::Interrupted);
             }
 
             thread::sleep(Duration::from_millis(WAIT_INTERVAL_MILLIS));
         }
+    }
+
+    fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
+        self.poll_callback_error()?;
+        Ok(frame_count_to_duration(
+            self.available_frame_count()?,
+            TARGET_SAMPLE_RATE,
+        ))
     }
 
     fn capture_wav(
@@ -840,6 +872,11 @@ fn duration_to_millis(duration: Duration) -> u64 {
 
 fn frames_to_millis(frame_count: u64, sample_rate: u32) -> u64 {
     frame_count.saturating_mul(1_000) / u64::from(sample_rate)
+}
+
+fn frame_count_to_duration(frame_count: u64, sample_rate: u32) -> Duration {
+    let nanos = (u128::from(frame_count) * 1_000_000_000_u128) / u128::from(sample_rate);
+    Duration::from_nanos(u64::try_from(nanos).expect("duration in nanos must fit u64"))
 }
 
 #[cfg(test)]

@@ -1,3 +1,4 @@
+use crate::application::ports::{InterruptMonitor, RecordingWaitOutcome};
 use crate::domain::RecordedAudio;
 use std::fmt;
 use std::time::Duration;
@@ -11,7 +12,15 @@ pub trait Recorder {
 
 /// 録音中セッションから capture 単位で音声を切り出します。
 pub trait RecordingSession {
-    fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError>;
+    /// 指定位置まで録音が到達するまで待機し、中断要求が来たら途中で戻ります。
+    fn wait_until(
+        &mut self,
+        duration: Duration,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<RecordingWaitOutcome, RecorderError>;
+
+    /// 現時点でバッファ済みの録音長を返します。
+    fn recorded_duration(&mut self) -> Result<Duration, RecorderError>;
 
     fn capture_wav(
         &mut self,

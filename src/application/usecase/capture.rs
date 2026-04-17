@@ -1,11 +1,12 @@
 use crate::application::ports::{
-    CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
-    RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
-    TranscriptionRequest,
+    CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor,
+    Recorder, RecorderError, RecordingSession, RecordingWaitOutcome, ResponseFormat, Transcriber,
+    TranscriberError, TranscriptionRequest,
 };
 use crate::domain::{
-    CaptureMerger, CapturePolicy, CapturedTranscript, DiarizedTranscript, KnownSpeakerSample,
-    MergedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment,
+    CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
+    KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
+    TranscriptSegment,
 };
 use std::fmt;
 use std::io::Write;
@@ -95,6 +96,20 @@ impl fmt::Display for CaptureError {
 
 impl std::error::Error for CaptureError {}
 
+struct NoopInterruptMonitor;
+
+impl InterruptMonitor for NoopInterruptMonitor {
+    fn is_interrupt_requested(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingCaptureAudio {
+    range: CaptureRange,
+    audio: RecordedAudio,
+}
+
 /// 連続録音と文字起こしを実行します。
 pub fn run_capture<R, T, S, L>(
     config: &CaptureConfig,
@@ -111,6 +126,36 @@ where
     S: CaptureStore,
     L: Write,
 {
+    run_capture_with_interrupt_monitor(
+        config,
+        speaker_samples,
+        speaker_label,
+        recorder,
+        transcriber,
+        capture_store,
+        stderr,
+        &NoopInterruptMonitor,
+    )
+}
+
+/// 連続録音と文字起こしを実行し、中断要求が来たら録音済みぶんだけを処理して終了します。
+#[allow(clippy::too_many_arguments)]
+pub fn run_capture_with_interrupt_monitor<R, T, S, L>(
+    config: &CaptureConfig,
+    speaker_samples: &[KnownSpeakerSample],
+    speaker_label: &SpeakerLabel,
+    recorder: &mut R,
+    transcriber: &mut T,
+    capture_store: &mut S,
+    stderr: &mut L,
+    interrupt_monitor: &dyn InterruptMonitor,
+) -> Result<CaptureRunResult, CaptureError>
+where
+    R: Recorder,
+    T: Transcriber,
+    S: CaptureStore,
+    L: Write,
+{
     run_capture_with_clock(
         config,
         speaker_samples,
@@ -119,6 +164,7 @@ where
         transcriber,
         capture_store,
         stderr,
+        interrupt_monitor,
         current_unix_ms,
     )
 }
@@ -132,6 +178,7 @@ fn run_capture_with_clock<R, T, S, L, C>(
     transcriber: &mut T,
     capture_store: &mut S,
     stderr: &mut L,
+    interrupt_monitor: &dyn InterruptMonitor,
     current_unix_ms: C,
 ) -> Result<CaptureRunResult, CaptureError>
 where
@@ -164,88 +211,82 @@ where
 
     for (capture_position, capture_range) in capture_ranges.into_iter().enumerate() {
         let is_last_capture = capture_position + 1 == capture_count;
-        session
+        let wait_outcome = session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
-            .wait_until(capture_range.end_offset())
+            .wait_until(capture_range.end_offset(), interrupt_monitor)
             .map_err(CaptureError::Record)?;
 
-        let audio = session
-            .as_mut()
-            .expect("recording session must exist until the final capture is copied")
-            .capture_wav(capture_range.start_offset, capture_range.duration)
-            .map_err(CaptureError::Record)?;
-        capture_store
-            .persist_audio(capture_range.capture_index, &audio)
-            .map_err(CaptureError::Store)?;
+        if wait_outcome == RecordingWaitOutcome::Interrupted {
+            info_log(stderr, "interrupt received, finalizing recorded audio")
+                .map_err(CaptureError::Write)?;
+            let available_duration = session
+                .as_mut()
+                .expect("recording session must exist until interrupted captures are copied")
+                .recorded_duration()
+                .map_err(CaptureError::Record)?;
+            let interrupted_policy = CapturePolicy {
+                recording_duration: available_duration,
+                capture_duration: config.capture_policy.capture_duration,
+                capture_overlap: config.capture_policy.capture_overlap,
+            };
+            let pending_ranges = interrupted_policy
+                .capture_ranges()
+                .into_iter()
+                .skip(capture_position)
+                .collect::<Vec<_>>();
+            let pending_audios = capture_pending_audios(
+                session
+                    .as_mut()
+                    .expect("recording session must exist until interrupted captures are copied"),
+                capture_store,
+                pending_ranges,
+            )?;
+            drop(session.take());
+            info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
+            for pending in pending_audios {
+                process_capture_audio(
+                    pending.range,
+                    pending.audio,
+                    config,
+                    speaker_samples,
+                    speaker_label,
+                    transcriber,
+                    capture_store,
+                    stderr,
+                    &mut capture_merger,
+                    &mut transcripts,
+                    &mut merged_segments,
+                    &mut transcription_failures,
+                )?;
+            }
+            break;
+        }
+        let audio = capture_audio(
+            session
+                .as_mut()
+                .expect("recording session must exist until the final capture is copied"),
+            capture_store,
+            capture_range,
+        )?;
         if is_last_capture {
             drop(session.take());
             info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
         }
-        info_log(
-            stderr,
-            &format!(
-                "transcription request sent for capture {}",
-                capture_range.capture_index
-            ),
-        )
-        .map_err(CaptureError::Write)?;
-        let capture_start_ms = duration_to_millis(capture_range.start_offset);
-        let capture_end_ms = duration_to_millis(capture_range.end_offset());
-        let transcript = match transcriber.transcribe(TranscriptionRequest {
-            audio: &audio,
+        process_capture_audio(
+            capture_range,
+            audio,
+            config,
             speaker_samples,
-            model: config.transcription_model,
-            response_format: config.response_format,
-            chunking_strategy: config.chunking_strategy,
-        }) {
-            Ok(transcript) => transcript,
-            Err(error) => {
-                if !is_recoverable_transcription_error(&error) {
-                    return Err(CaptureError::Transcribe(error));
-                }
-                info_log(
-                    stderr,
-                    &format!(
-                        "transcription failed for capture {}, continuing: {error}",
-                        capture_range.capture_index
-                    ),
-                )
-                .map_err(CaptureError::Write)?;
-                transcription_failures.push(CaptureTranscriptionFailure {
-                    capture_index: capture_range.capture_index,
-                    capture_start_ms,
-                    message: error.to_string(),
-                });
-                continue;
-            }
-        };
-        let transcript = apply_speaker_label(transcript, speaker_label);
-        info_log(
+            speaker_label,
+            transcriber,
+            capture_store,
             stderr,
-            &format!(
-                "transcription response received for capture {}",
-                capture_range.capture_index
-            ),
-        )
-        .map_err(CaptureError::Write)?;
-        capture_store
-            .persist_transcript(capture_range.capture_index, capture_start_ms, &transcript)
-            .map_err(CaptureError::Store)?;
-        let merge_batch = capture_merger.push_capture(CapturedTranscript::from_relative(
-            capture_range.capture_index,
-            capture_start_ms,
-            capture_end_ms,
-            &transcript,
-        ));
-        capture_store
-            .persist_merge_audit_entries(&merge_batch.audit_entries)
-            .map_err(CaptureError::Store)?;
-        capture_store
-            .persist_merged_segments(&merge_batch.finalized_segments)
-            .map_err(CaptureError::Store)?;
-        merged_segments.extend(merge_batch.finalized_segments);
-        transcripts.push(transcript);
+            &mut capture_merger,
+            &mut transcripts,
+            &mut merged_segments,
+            &mut transcription_failures,
+        )?;
     }
     let tail_segments = capture_merger.finish();
     capture_store
@@ -272,6 +313,129 @@ where
         merged_segments,
         transcription_failures,
     })
+}
+
+fn capture_pending_audios<SN, ST>(
+    session: &mut SN,
+    capture_store: &mut ST,
+    pending_ranges: Vec<CaptureRange>,
+) -> Result<Vec<PendingCaptureAudio>, CaptureError>
+where
+    SN: RecordingSession,
+    ST: CaptureStore,
+{
+    pending_ranges
+        .into_iter()
+        .map(|range| {
+            let audio = capture_audio(session, capture_store, range)?;
+            Ok(PendingCaptureAudio { range, audio })
+        })
+        .collect()
+}
+
+fn capture_audio<SN, ST>(
+    session: &mut SN,
+    capture_store: &mut ST,
+    range: CaptureRange,
+) -> Result<RecordedAudio, CaptureError>
+where
+    SN: RecordingSession,
+    ST: CaptureStore,
+{
+    let audio = session
+        .capture_wav(range.start_offset, range.duration)
+        .map_err(CaptureError::Record)?;
+    capture_store
+        .persist_audio(range.capture_index, &audio)
+        .map_err(CaptureError::Store)?;
+    Ok(audio)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_capture_audio<T, S, L>(
+    capture_range: CaptureRange,
+    audio: RecordedAudio,
+    config: &CaptureConfig,
+    speaker_samples: &[KnownSpeakerSample],
+    speaker_label: &SpeakerLabel,
+    transcriber: &mut T,
+    capture_store: &mut S,
+    stderr: &mut L,
+    capture_merger: &mut CaptureMerger,
+    transcripts: &mut Vec<DiarizedTranscript>,
+    merged_segments: &mut Vec<MergedTranscriptSegment>,
+    transcription_failures: &mut Vec<CaptureTranscriptionFailure>,
+) -> Result<(), CaptureError>
+where
+    T: Transcriber,
+    S: CaptureStore,
+    L: Write,
+{
+    info_log(
+        stderr,
+        &format!(
+            "transcription request sent for capture {}",
+            capture_range.capture_index
+        ),
+    )
+    .map_err(CaptureError::Write)?;
+    let capture_start_ms = duration_to_millis(capture_range.start_offset);
+    let capture_end_ms = duration_to_millis(capture_range.end_offset());
+    let transcript = match transcriber.transcribe(TranscriptionRequest {
+        audio: &audio,
+        speaker_samples,
+        model: config.transcription_model,
+        response_format: config.response_format,
+        chunking_strategy: config.chunking_strategy,
+    }) {
+        Ok(transcript) => transcript,
+        Err(error) => {
+            if !is_recoverable_transcription_error(&error) {
+                return Err(CaptureError::Transcribe(error));
+            }
+            info_log(
+                stderr,
+                &format!(
+                    "transcription failed for capture {}, continuing: {error}",
+                    capture_range.capture_index
+                ),
+            )
+            .map_err(CaptureError::Write)?;
+            transcription_failures.push(CaptureTranscriptionFailure {
+                capture_index: capture_range.capture_index,
+                capture_start_ms,
+                message: error.to_string(),
+            });
+            return Ok(());
+        }
+    };
+    let transcript = apply_speaker_label(transcript, speaker_label);
+    info_log(
+        stderr,
+        &format!(
+            "transcription response received for capture {}",
+            capture_range.capture_index
+        ),
+    )
+    .map_err(CaptureError::Write)?;
+    capture_store
+        .persist_transcript(capture_range.capture_index, capture_start_ms, &transcript)
+        .map_err(CaptureError::Store)?;
+    let merge_batch = capture_merger.push_capture(CapturedTranscript::from_relative(
+        capture_range.capture_index,
+        capture_start_ms,
+        capture_end_ms,
+        &transcript,
+    ));
+    capture_store
+        .persist_merge_audit_entries(&merge_batch.audit_entries)
+        .map_err(CaptureError::Store)?;
+    capture_store
+        .persist_merged_segments(&merge_batch.finalized_segments)
+        .map_err(CaptureError::Store)?;
+    merged_segments.extend(merge_batch.finalized_segments);
+    transcripts.push(transcript);
+    Ok(())
 }
 
 fn is_recoverable_transcription_error(error: &TranscriberError) -> bool {
@@ -365,7 +529,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::ports::CaptureSessionMetadata;
+    use crate::application::ports::{CaptureSessionMetadata, RecordingWaitOutcome};
     use crate::domain::{
         MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot, MergedTranscriptSegment,
         RecordedAudio, TranscriptSegment,
@@ -395,6 +559,33 @@ mod tests {
     struct FakeRecordingSession {
         observation: Rc<RefCell<RecordingObservation>>,
         audios: VecDeque<RecordedAudio>,
+        wait_outcomes: VecDeque<RecordingWaitOutcome>,
+        recorded_duration: Duration,
+    }
+
+    impl FakeRecordingSession {
+        fn new(observation: Rc<RefCell<RecordingObservation>>, audios: Vec<RecordedAudio>) -> Self {
+            Self {
+                observation,
+                audios: VecDeque::from(audios),
+                wait_outcomes: VecDeque::new(),
+                recorded_duration: Duration::ZERO,
+            }
+        }
+
+        fn with_wait_outcomes(
+            observation: Rc<RefCell<RecordingObservation>>,
+            audios: Vec<RecordedAudio>,
+            wait_outcomes: Vec<RecordingWaitOutcome>,
+            recorded_duration: Duration,
+        ) -> Self {
+            Self {
+                observation,
+                audios: VecDeque::from(audios),
+                wait_outcomes: VecDeque::from(wait_outcomes),
+                recorded_duration,
+            }
+        }
     }
 
     impl Drop for FakeRecordingSession {
@@ -404,9 +595,20 @@ mod tests {
     }
 
     impl RecordingSession for FakeRecordingSession {
-        fn wait_until(&mut self, duration: Duration) -> Result<(), RecorderError> {
+        fn wait_until(
+            &mut self,
+            duration: Duration,
+            _interrupt_monitor: &dyn InterruptMonitor,
+        ) -> Result<RecordingWaitOutcome, RecorderError> {
             self.observation.borrow_mut().waited_until.push(duration);
-            Ok(())
+            Ok(self
+                .wait_outcomes
+                .pop_front()
+                .unwrap_or(RecordingWaitOutcome::ReachedTarget))
+        }
+
+        fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
+            Ok(self.recorded_duration)
         }
 
         fn capture_wav(
@@ -604,10 +806,7 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation,
-                audios: VecDeque::from(vec![sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(observation, vec![sample_audio()])),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -626,6 +825,7 @@ mod tests {
             &mut transcriber,
             &mut capture_store,
             &mut stderr,
+            &NoopInterruptMonitor,
             || 1_234_567,
         )
         .unwrap();
@@ -654,10 +854,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![audio1.clone(), audio2.clone(), audio3.clone()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![audio1.clone(), audio2.clone(), audio3.clone()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -741,10 +941,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -799,10 +999,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -880,10 +1080,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![audio1.clone(), audio2.clone()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![audio1.clone(), audio2.clone()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -926,10 +1126,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1006,10 +1206,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![audio1.clone(), audio2.clone()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![audio1.clone(), audio2.clone()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1085,6 +1285,128 @@ mod tests {
     }
 
     #[test]
+    /// 待機中に中断要求が来たら、録音済みぶんだけ切り出して session を閉じてから文字起こしする。
+    fn finalizes_recorded_audio_when_interrupted_while_waiting_for_next_capture() {
+        let config = CaptureConfig::new(
+            Duration::from_secs(360),
+            Duration::from_secs(180),
+            Duration::from_secs(15),
+        );
+        let audio1 = sample_audio();
+        let audio2 = RecordedAudio {
+            wav_bytes: vec![0x09, 0x0a],
+            content_type: "audio/wav",
+        };
+        let transcript1 = sample_transcript();
+        let transcript2 = DiarizedTranscript {
+            text: "途中終了".to_string(),
+            segments: vec![TranscriptSegment {
+                speaker: "spk_0".to_string(),
+                start_ms: 0,
+                end_ms: 700,
+                text: "途中終了".to_string(),
+            }],
+        };
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession::with_wait_outcomes(
+                Rc::clone(&observation),
+                vec![audio1.clone(), audio2.clone()],
+                vec![
+                    RecordingWaitOutcome::ReachedTarget,
+                    RecordingWaitOutcome::Interrupted,
+                ],
+                Duration::from_secs(200),
+            )),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        let result = run_capture_with_interrupt_monitor(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+            &NoopInterruptMonitor,
+        )
+        .unwrap();
+
+        assert_eq!(
+            observation.borrow().waited_until,
+            vec![Duration::from_secs(180), Duration::from_secs(345)]
+        );
+        assert_eq!(
+            observation.borrow().captured_windows,
+            vec![
+                (Duration::from_secs(0), Duration::from_secs(180)),
+                (Duration::from_secs(165), Duration::from_secs(35)),
+            ]
+        );
+        assert_eq!(
+            *capture_store.observed_audios.borrow(),
+            vec![(1, audio1), (2, audio2)]
+        );
+        assert_eq!(
+            *capture_store.observed_transcripts.borrow(),
+            vec![
+                (1, 0, transcript1.clone()),
+                (2, 165_000, transcript2.clone())
+            ]
+        );
+        assert_eq!(*transcriber.observed_drop_counts.borrow(), vec![0, 1]);
+        assert_eq!(
+            result,
+            CaptureRunResult {
+                started_at_unix_ms: result.started_at_unix_ms,
+                transcripts: vec![transcript1, transcript2],
+                merged_segments: vec![
+                    MergedTranscriptSegment {
+                        speaker: "spk_0".to_string(),
+                        start_ms: 0,
+                        end_ms: 900,
+                        text: "こんにちは".to_string(),
+                    },
+                    MergedTranscriptSegment {
+                        speaker: "spk_1".to_string(),
+                        start_ms: 950,
+                        end_ms: 2_300,
+                        text: "今日はよろしくお願いします".to_string(),
+                    },
+                    MergedTranscriptSegment {
+                        speaker: "spk_0".to_string(),
+                        start_ms: 165_000,
+                        end_ms: 165_700,
+                        text: "途中終了".to_string(),
+                    },
+                ],
+                transcription_failures: Vec::new(),
+            }
+        );
+        assert_eq!(
+            String::from_utf8(stderr).unwrap(),
+            concat!(
+                "recording started\n",
+                "transcription request sent for capture 1\n",
+                "transcription response received for capture 1\n",
+                "interrupt received, finalizing recorded audio\n",
+                "recording finished\n",
+                "transcription request sent for capture 2\n",
+                "transcription response received for capture 2\n"
+            )
+        );
+    }
+
+    #[test]
     /// 非回復な transcription 失敗は run 全体の失敗として即時に返す。
     fn stops_on_nonrecoverable_transcription_failure() {
         let config = CaptureConfig::new(
@@ -1096,10 +1418,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![audio1.clone(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![audio1.clone(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1151,10 +1473,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1214,10 +1536,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1308,10 +1630,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1347,15 +1669,15 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![
                     sample_audio(),
                     sample_audio(),
                     sample_audio(),
                     sample_audio(),
-                ]),
-            }),
+                ],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1405,10 +1727,7 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation,
-                audios: VecDeque::from(vec![sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(observation, vec![sample_audio()])),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),

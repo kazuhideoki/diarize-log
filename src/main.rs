@@ -4,14 +4,50 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    AudioSource, CaptureConfig, ChunkingStrategy, CliAction, KnownSpeakerSample,
+    AudioSource, CaptureConfig, ChunkingStrategy, CliAction, InterruptMonitor, KnownSpeakerSample,
     MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
     SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource, parse_cli_args,
-    run_capture, run_mixed_capture, run_speaker_command, write_debug_transcript,
+    run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
+    write_debug_transcript,
 };
 use std::io::{self};
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+#[derive(Debug, Default)]
+struct SignalInterruptState {
+    phase: AtomicU8,
+}
+
+impl InterruptMonitor for SignalInterruptState {
+    fn is_interrupt_requested(&self) -> bool {
+        self.phase.load(Ordering::SeqCst) != 0
+    }
+}
+
+impl SignalInterruptState {
+    fn install() -> Result<Arc<Self>, ctrlc::Error> {
+        let state = Arc::new(Self::default());
+        let handler_state = Arc::clone(&state);
+        ctrlc::set_handler(move || {
+            if handler_state
+                .phase
+                .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
+                eprintln!(
+                    "interrupt received, stopping after flushing the recorded audio; press Ctrl+C again to abort immediately"
+                );
+            } else {
+                eprintln!("interrupt received again, aborting immediately");
+                std::process::exit(130);
+            }
+        })?;
+        Ok(state)
+    }
+}
 
 fn main() -> ExitCode {
     let action = match parse_cli_args(std::env::args_os()) {
@@ -39,29 +75,45 @@ fn main() -> ExitCode {
         CliAction::Run {
             speaker_samples,
             audio_source,
-        } => match audio_source {
-            AudioSource::Microphone => run_capture_command(
-                &runtime_config,
-                &speaker_samples,
-                SpeakerLabel::KeepOriginal,
-                CpalRecorder::new(runtime_config.debug_enabled),
-            ),
-            AudioSource::Application { bundle_id } => run_capture_command(
-                &runtime_config,
-                &speaker_samples,
-                SpeakerLabel::KeepOriginal,
-                ScreenCaptureKitApplicationRecorder::new(bundle_id, runtime_config.debug_enabled),
-            ),
-            AudioSource::Mixed {
-                bundle_id,
-                microphone_speaker,
-            } => run_mixed_capture_command(
-                &runtime_config,
-                &speaker_samples,
-                bundle_id,
-                microphone_speaker,
-            ),
-        },
+        } => {
+            let interrupt_state = match SignalInterruptState::install() {
+                Ok(state) => state,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            match audio_source {
+                AudioSource::Microphone => run_capture_command(
+                    &runtime_config,
+                    &speaker_samples,
+                    SpeakerLabel::KeepOriginal,
+                    interrupt_state.as_ref(),
+                    CpalRecorder::new(runtime_config.debug_enabled),
+                ),
+                AudioSource::Application { bundle_id } => run_capture_command(
+                    &runtime_config,
+                    &speaker_samples,
+                    SpeakerLabel::KeepOriginal,
+                    interrupt_state.as_ref(),
+                    ScreenCaptureKitApplicationRecorder::new(
+                        bundle_id,
+                        runtime_config.debug_enabled,
+                    ),
+                ),
+                AudioSource::Mixed {
+                    bundle_id,
+                    microphone_speaker,
+                } => run_mixed_capture_command(
+                    &runtime_config,
+                    &speaker_samples,
+                    bundle_id,
+                    microphone_speaker,
+                    interrupt_state,
+                ),
+            }
+        }
         CliAction::Speaker(command) => {
             let clipper = HoundAudioClipper;
             let mut speaker_store = FileSystemSpeakerStore::new(&runtime_config.storage_root);
@@ -106,6 +158,7 @@ fn run_capture_command<R>(
     runtime_config: &Config,
     speaker_sample_names: &[String],
     speaker_label: SpeakerLabel,
+    interrupt_monitor: &dyn InterruptMonitor,
     mut recorder: R,
 ) -> ExitCode
 where
@@ -150,7 +203,7 @@ where
         }
     };
 
-    match run_capture(
+    match run_capture_with_interrupt_monitor(
         &config,
         &speaker_samples,
         &speaker_label,
@@ -158,6 +211,7 @@ where
         &mut transcriber,
         &mut capture_store,
         &mut stderr,
+        interrupt_monitor,
     ) {
         Ok(result) => {
             if let Err(error) = write_debug_transcript(
@@ -187,6 +241,7 @@ fn run_mixed_capture_command(
     speaker_sample_names: &[String],
     bundle_id: String,
     microphone_speaker: String,
+    interrupt_state: Arc<SignalInterruptState>,
 ) -> ExitCode {
     let session_dir = match FileSystemCaptureStore::create_session_dir(&runtime_config.storage_root)
     {
@@ -212,6 +267,8 @@ fn run_mixed_capture_command(
     let application_session_dir = session_dir.clone();
     let application_bundle_id = bundle_id;
     let app_speaker_samples = known_speakers.clone();
+    let microphone_interrupt_state = Arc::clone(&interrupt_state);
+    let application_interrupt_state = Arc::clone(&interrupt_state);
     let mut final_store = match FileSystemMergedTranscriptStore::new(&session_dir) {
         Ok(store) => store,
         Err(error) => {
@@ -235,6 +292,7 @@ fn run_mixed_capture_command(
                 &microphone_config,
                 &[],
                 &SpeakerLabel::Fixed(microphone_speaker),
+                microphone_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
             )
@@ -253,6 +311,7 @@ fn run_mixed_capture_command(
                 &application_config,
                 &app_speaker_samples,
                 &SpeakerLabel::KeepOriginal,
+                application_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
             )
@@ -349,6 +408,7 @@ fn run_capture_pipeline<R, S>(
     runtime_config: &Config,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    interrupt_monitor: &dyn InterruptMonitor,
     recorder: &mut R,
     capture_store: &mut S,
 ) -> Result<diarize_log::CaptureRunResult, String>
@@ -372,7 +432,7 @@ where
     .map_err(|error| error.to_string())?;
     let mut stderr = io::stderr();
 
-    run_capture(
+    run_capture_with_interrupt_monitor(
         &config,
         speaker_samples,
         speaker_label,
@@ -380,6 +440,7 @@ where
         &mut transcriber,
         capture_store,
         &mut stderr,
+        interrupt_monitor,
     )
     .map_err(|error| error.to_string())
 }

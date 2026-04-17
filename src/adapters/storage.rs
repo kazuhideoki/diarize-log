@@ -438,13 +438,8 @@ mod tests {
     };
     use crate::domain::{
         DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome,
-<<<<<<< HEAD
-        MergeWindowSnapshot, MergedTranscriptSegment, RecordedAudio, SourcedTranscriptSegment,
-        TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
-=======
-        MergeOverlapRangeSnapshot, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
-        TranscriptSegment,
->>>>>>> main
+        MergeOverlapRangeSnapshot, MergedTranscriptSegment, RecordedAudio,
+        SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
     };
 
     #[test]
@@ -597,20 +592,20 @@ mod tests {
         store
             .persist_merge_audit_entries(&[MergeAuditEntry {
                 capture_index: 1,
-                previous_window: MergeWindowSnapshot {
+                previous_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 100,
                     end_ms: 200,
                     text: "a".to_string(),
                     normalized_char_count: 1,
                 },
-                current_window: MergeWindowSnapshot {
+                current_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 200,
                     end_ms: 300,
                     text: "a".to_string(),
                     normalized_char_count: 1,
                 },
                 outcome: MergeAuditOutcome::Skipped {
-                    reason: crate::domain::MergeSkipReason::NoOverlapWindow,
+                    reason: crate::domain::MergeSkipReason::NoOverlapRange,
                     previous_normalized_chars: 1,
                     current_normalized_chars: 1,
                     required_min_overlap_chars: 10,

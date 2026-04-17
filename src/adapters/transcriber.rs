@@ -39,8 +39,9 @@ impl Transcriber for OpenAiTranscriber {
         debug_log(
             self.debug_enabled,
             &format!(
-                "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} response_format={} chunking_strategy={} audio_bytes={} timeout_ms={} client_reuse=enabled",
+                "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} language={} response_format={} chunking_strategy={} audio_bytes={} timeout_ms={} client_reuse=enabled",
                 request.model,
+                request.language,
                 request.response_format.as_api_value(),
                 request.chunking_strategy.as_api_value(),
                 request.audio.wav_bytes.len(),
@@ -54,6 +55,7 @@ impl Transcriber for OpenAiTranscriber {
         let mut form = multipart::Form::new()
             .part("file", audio_part)
             .text("model", request.model.to_owned())
+            .text("language", request.language.to_owned())
             .text(
                 "response_format",
                 request.response_format.as_api_value().to_owned(),

@@ -35,6 +35,7 @@ pub struct TranscriptionRequest<'a> {
     pub audio: &'a RecordedAudio,
     pub speaker_samples: &'a [KnownSpeakerSample],
     pub model: &'static str,
+    pub language: &'a str,
     pub response_format: ResponseFormat,
     pub chunking_strategy: ChunkingStrategy,
 }

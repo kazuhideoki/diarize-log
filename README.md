@@ -2,7 +2,7 @@
 
 音声を継続録音して話者分離文字起こしする CLI です。
 OpenAI の gpt-4o-transcribe-diarize 利用が前提となっています。
-既定では transcription language に `ja` を指定し、`DIARIZE_LOG_TRANSCRIPTION_LANGUAGE` 環境変数で `ja` または `en` に上書きできます。
+既定では transcription language に `ja` を指定し、`DIARIZE_LOG_TRANSCRIPTION_LANGUAGE` 環境変数で `ja`、`en`、`auto` に上書きできます。`auto` を指定した場合は API へ `language` を送らず、自動判定に委ねます。
 
 ## Usage
 

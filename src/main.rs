@@ -294,6 +294,7 @@ fn build_mixed_capture_metadata(
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
+        runtime_config.transcription_language.clone(),
     );
     let capture_config = CaptureConfig {
         merge_policy: runtime_config.transcript_merge_policy.clone(),
@@ -317,6 +318,7 @@ fn build_mixed_capture_metadata(
                     capture_config.capture_policy.capture_overlap,
                 ),
                 transcription_model: capture_config.transcription_model.to_string(),
+                transcription_language: capture_config.transcription_language.to_string(),
                 response_format: response_format_value(capture_config.response_format).to_string(),
                 chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
                     .to_string(),
@@ -335,6 +337,7 @@ fn build_mixed_capture_metadata(
                     capture_config.capture_policy.capture_overlap,
                 ),
                 transcription_model: capture_config.transcription_model.to_string(),
+                transcription_language: capture_config.transcription_language.to_string(),
                 response_format: response_format_value(capture_config.response_format).to_string(),
                 chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
                     .to_string(),
@@ -361,6 +364,7 @@ where
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
+        runtime_config.transcription_language.clone(),
     );
     let config = CaptureConfig {
         merge_policy: runtime_config.transcript_merge_policy.clone(),

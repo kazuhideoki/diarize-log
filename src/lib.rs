@@ -12,9 +12,9 @@ pub use application::{
     MixedCaptureSourceStatus, MixedCaptureStore, MixedSourceRun, Recorder, RecorderError,
     RecordingSession, ResponseFormat, SourceMergedSegments, SpeakerCommand, SpeakerCommandResult,
     SpeakerLabel, SpeakerStore, SpeakerStoreError, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
-    Transcriber, TranscriberError, TranscriptionRequest, finalize_mixed_capture,
-    merge_source_segments, run_capture, run_mixed_capture, run_speaker_command,
-    write_debug_transcript,
+    Transcriber, TranscriberError, TranscriptionLanguage, TranscriptionRequest,
+    finalize_mixed_capture, merge_source_segments, run_capture, run_mixed_capture,
+    run_speaker_command, write_debug_transcript,
 };
 pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{

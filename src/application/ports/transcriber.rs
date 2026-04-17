@@ -29,13 +29,39 @@ impl ChunkingStrategy {
     }
 }
 
+/// 文字起こし対象の言語指定です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TranscriptionLanguage {
+    Auto,
+    Fixed(String),
+}
+
+impl TranscriptionLanguage {
+    /// API に送る language 値を返します。自動判定時はフィールド自体を省略します。
+    pub fn as_api_value(&self) -> Option<&str> {
+        match self {
+            Self::Auto => None,
+            Self::Fixed(language) => Some(language.as_str()),
+        }
+    }
+}
+
+impl fmt::Display for TranscriptionLanguage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Auto => f.write_str("auto"),
+            Self::Fixed(language) => f.write_str(language),
+        }
+    }
+}
+
 /// 話者分離文字起こしリクエストです。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranscriptionRequest<'a> {
     pub audio: &'a RecordedAudio,
     pub speaker_samples: &'a [KnownSpeakerSample],
     pub model: &'static str,
-    pub language: &'a str,
+    pub language: Option<&'a str>,
     pub response_format: ResponseFormat,
     pub chunking_strategy: ChunkingStrategy,
 }

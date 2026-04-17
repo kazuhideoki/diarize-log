@@ -13,5 +13,6 @@ pub use capture_store::{
 pub use recorder::{Recorder, RecorderError, RecordingSession};
 pub use speaker_store::{SpeakerStore, SpeakerStoreError};
 pub use transcriber::{
-    ChunkingStrategy, ResponseFormat, Transcriber, TranscriberError, TranscriptionRequest,
+    ChunkingStrategy, ResponseFormat, Transcriber, TranscriberError, TranscriptionLanguage,
+    TranscriptionRequest,
 };

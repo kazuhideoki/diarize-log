@@ -1,7 +1,7 @@
 use crate::application::ports::{
     CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
     RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
-    TranscriptionRequest,
+    TranscriptionLanguage, TranscriptionRequest,
 };
 use crate::domain::{
     CaptureMerger, CapturePolicy, CapturedTranscript, DiarizedTranscript, KnownSpeakerSample,
@@ -20,7 +20,7 @@ pub struct CaptureConfig {
     pub merge_policy: TranscriptMergePolicy,
     pub response_format: ResponseFormat,
     pub transcription_model: &'static str,
-    pub transcription_language: String,
+    pub transcription_language: TranscriptionLanguage,
     pub chunking_strategy: ChunkingStrategy,
 }
 
@@ -36,7 +36,7 @@ impl CaptureConfig {
         recording_duration: Duration,
         capture_duration: Duration,
         capture_overlap: Duration,
-        transcription_language: String,
+        transcription_language: TranscriptionLanguage,
     ) -> Self {
         Self {
             capture_policy: CapturePolicy {
@@ -150,7 +150,7 @@ where
             capture_duration_ms: duration_to_millis(config.capture_policy.capture_duration),
             capture_overlap_ms: duration_to_millis(config.capture_policy.capture_overlap),
             transcription_model: config.transcription_model.to_string(),
-            transcription_language: config.transcription_language.clone(),
+            transcription_language: config.transcription_language.to_string(),
             response_format: config.response_format.as_api_value().to_string(),
             chunking_strategy: config.chunking_strategy.as_api_value().to_string(),
             merge_policy: config.merge_policy.clone(),
@@ -200,7 +200,7 @@ where
             audio: &audio,
             speaker_samples,
             model: config.transcription_model,
-            language: config.transcription_language.as_str(),
+            language: config.transcription_language.as_api_value(),
             response_format: config.response_format,
             chunking_strategy: config.chunking_strategy,
         }) {
@@ -387,7 +387,7 @@ mod tests {
         content_type: &'static str,
         speaker_samples: Vec<KnownSpeakerSample>,
         model: &'static str,
-        language: String,
+        language: Option<String>,
         response_format: ResponseFormat,
         chunking_strategy: ChunkingStrategy,
     }
@@ -471,7 +471,7 @@ mod tests {
                 content_type: request.audio.content_type,
                 speaker_samples: request.speaker_samples.to_vec(),
                 model: request.model,
-                language: request.language.to_string(),
+                language: request.language.map(ToString::to_string),
                 response_format: request.response_format,
                 chunking_strategy: request.chunking_strategy,
             });
@@ -611,7 +611,7 @@ mod tests {
             recording_duration,
             capture_duration,
             capture_overlap,
-            TEST_TRANSCRIPTION_LANGUAGE.to_string(),
+            TranscriptionLanguage::Fixed(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
         )
     }
 
@@ -622,6 +622,7 @@ mod tests {
             Duration::from_secs(10),
             Duration::from_secs(10),
             Duration::ZERO,
+            TranscriptionLanguage::Fixed(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
         );
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
@@ -729,7 +730,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
-                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
+                    language: Some(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -738,7 +739,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
-                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
+                    language: Some(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -747,7 +748,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
-                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
+                    language: Some(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -804,14 +805,14 @@ mod tests {
     }
 
     #[test]
-    /// 設定した transcription language を各 capture の文字起こしリクエストへ渡す。
+    /// 固定 transcription language を各 capture の文字起こしリクエストへ渡す。
     fn passes_transcription_language_to_each_request() {
         let mut config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
         );
-        config.transcription_language = "en".to_string();
+        config.transcription_language = TranscriptionLanguage::Fixed("en".to_string());
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
@@ -832,6 +833,7 @@ mod tests {
         run_capture(
             &config,
             &[],
+            &SpeakerLabel::KeepOriginal,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -846,7 +848,55 @@ mod tests {
                 .iter()
                 .map(|request| request.language.clone())
                 .collect::<Vec<_>>(),
-            vec!["en".to_string(), "en".to_string()]
+            vec![Some("en".to_string()), Some("en".to_string())]
+        );
+    }
+
+    #[test]
+    /// transcription language が auto のときは API リクエストへ language を渡さない。
+    fn omits_transcription_language_from_each_request_in_auto_mode() {
+        let mut config = capture_config(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        config.transcription_language = TranscriptionLanguage::Auto;
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        run_capture(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            transcriber
+                .observed_requests
+                .borrow()
+                .iter()
+                .map(|request| request.language.clone())
+                .collect::<Vec<_>>(),
+            vec![None, None]
         );
     }
 
@@ -1474,6 +1524,7 @@ mod tests {
             Duration::from_secs(180),
             Duration::from_secs(180),
             Duration::ZERO,
+            TranscriptionLanguage::Fixed(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
         );
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {

@@ -6,7 +6,7 @@ pub use ports::{
     ChunkingStrategy, MixedCaptureSessionMetadata, MixedCaptureSourceOutcome,
     MixedCaptureSourceSettings, MixedCaptureSourceStatus, MixedCaptureStore, Recorder,
     RecorderError, RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
-    TranscriberError, TranscriptionRequest,
+    TranscriberError, TranscriptionLanguage, TranscriptionRequest,
 };
 pub use usecase::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,

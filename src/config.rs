@@ -1,3 +1,4 @@
+use crate::application::TranscriptionLanguage;
 use crate::domain::TranscriptMergePolicy;
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
@@ -28,7 +29,7 @@ pub struct Config {
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
     pub speaker_sample_duration: Duration,
-    pub transcription_language: String,
+    pub transcription_language: TranscriptionLanguage,
     pub transcript_merge_policy: TranscriptMergePolicy,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
@@ -91,7 +92,7 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
-    InvalidTranscriptionLanguageValue {
+    InvalidTranscriptionLanguageModeValue {
         name: &'static str,
         value: String,
         source: ConfigSource,
@@ -154,13 +155,13 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "invalid unit interval value for {name} from {source}: {value}"
             ),
-            Self::InvalidTranscriptionLanguageValue {
+            Self::InvalidTranscriptionLanguageModeValue {
                 name,
                 value,
                 source,
             } => write!(
                 f,
-                "invalid transcription language value for {name} from {source}: {value}"
+                "invalid transcription language mode value for {name} from {source}: {value}"
             ),
             Self::InvalidCaptureOverlap {
                 overlap_name,
@@ -462,7 +463,9 @@ impl RawConfig {
                     }
                 }
             }
-            None => Some(DEFAULT_TRANSCRIPTION_LANGUAGE.to_string()),
+            None => Some(TranscriptionLanguage::Fixed(
+                DEFAULT_TRANSCRIPTION_LANGUAGE.to_string(),
+            )),
         };
 
         let storage_root = match self.storage_root {
@@ -672,7 +675,7 @@ fn parse_unit_interval(
 fn parse_transcription_language(
     value: ConfigValue<String>,
     name: &'static str,
-) -> Result<String, ConfigValidationError> {
+) -> Result<TranscriptionLanguage, ConfigValidationError> {
     let trimmed = value.value.trim();
     if trimmed.is_empty() {
         return Err(ConfigValidationError::EmptyValue {
@@ -682,12 +685,15 @@ fn parse_transcription_language(
     }
 
     match trimmed {
-        "ja" | "en" => Ok(trimmed.to_string()),
-        _ => Err(ConfigValidationError::InvalidTranscriptionLanguageValue {
-            name,
-            value: value.value,
-            source: value.source,
-        }),
+        "auto" => Ok(TranscriptionLanguage::Auto),
+        "ja" | "en" => Ok(TranscriptionLanguage::Fixed(trimmed.to_string())),
+        _ => Err(
+            ConfigValidationError::InvalidTranscriptionLanguageModeValue {
+                name,
+                value: value.value,
+                source: value.source,
+            },
+        ),
     }
 }
 
@@ -717,6 +723,7 @@ fn parse_absolute_path(
 #[cfg(test)]
 mod tests {
     use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
+    use crate::application::TranscriptionLanguage;
     use std::path::{Path, PathBuf};
     use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
@@ -805,7 +812,10 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(20));
         assert_eq!(config.capture_overlap, Duration::from_secs(5));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(8));
-        assert_eq!(config.transcription_language, "en");
+        assert_eq!(
+            config.transcription_language,
+            TranscriptionLanguage::Fixed("en".to_string())
+        );
         assert_eq!(config.transcript_merge_policy.min_overlap_chars, 11);
         assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.85);
         assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.6);
@@ -897,7 +907,10 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(12));
         assert_eq!(config.capture_overlap, Duration::from_secs(2));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(6));
-        assert_eq!(config.transcription_language, "ja");
+        assert_eq!(
+            config.transcription_language,
+            TranscriptionLanguage::Fixed("ja".to_string())
+        );
         assert_eq!(config.transcript_merge_policy.min_overlap_chars, 12);
         assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.88);
         assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.66);
@@ -930,7 +943,10 @@ mod tests {
         let config = Config::from_dotenv_path(&dotenv_path).unwrap();
 
         restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
-        assert_eq!(config.transcription_language, "en");
+        assert_eq!(
+            config.transcription_language,
+            TranscriptionLanguage::Fixed("en".to_string())
+        );
     }
 
     #[test]
@@ -1245,7 +1261,7 @@ mod tests {
     }
 
     #[test]
-    /// transcription language は日本語と英語だけを許可する。
+    /// transcription language は日本語と英語と auto だけを許可する。
     fn returns_error_for_unsupported_transcription_language() {
         let _guard = env_lock()
             .lock()
@@ -1272,12 +1288,40 @@ mod tests {
         assert!(matches!(
             result,
             Err(ConfigError::InvalidConfig(errors))
-            if errors == vec![ConfigValidationError::InvalidTranscriptionLanguageValue {
+            if errors == vec![ConfigValidationError::InvalidTranscriptionLanguageModeValue {
                 name: "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
                 value: "fr".to_string(),
                 source: ConfigSource::DotEnv,
             }]
         ));
+    }
+
+    #[test]
+    /// transcription language に auto を指定したら自動判定モードとして解決する。
+    fn resolves_auto_transcription_language_from_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=auto\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert_eq!(config.transcription_language, TranscriptionLanguage::Auto);
     }
 
     #[test]

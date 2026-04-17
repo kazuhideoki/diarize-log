@@ -41,7 +41,7 @@ impl Transcriber for OpenAiTranscriber {
             &format!(
                 "sending transcription request: endpoint={TRANSCRIPTIONS_ENDPOINT} model={} language={} response_format={} chunking_strategy={} audio_bytes={} timeout_ms={} client_reuse=enabled",
                 request.model,
-                request.language,
+                language_debug_label(request.language),
                 request.response_format.as_api_value(),
                 request.chunking_strategy.as_api_value(),
                 request.audio.wav_bytes.len(),
@@ -55,7 +55,6 @@ impl Transcriber for OpenAiTranscriber {
         let mut form = multipart::Form::new()
             .part("file", audio_part)
             .text("model", request.model.to_owned())
-            .text("language", request.language.to_owned())
             .text(
                 "response_format",
                 request.response_format.as_api_value().to_owned(),
@@ -64,6 +63,9 @@ impl Transcriber for OpenAiTranscriber {
                 "chunking_strategy",
                 request.chunking_strategy.as_api_value().to_owned(),
             );
+        if let Some(language) = request.language {
+            form = form.text("language", language.to_owned());
+        }
         for speaker_sample in request.speaker_samples {
             form = form
                 .text("known_speaker_names[]", speaker_sample.speaker_name.clone())
@@ -175,6 +177,10 @@ fn audio_data_url(audio: &RecordedAudio) -> String {
         audio.content_type,
         base64::engine::general_purpose::STANDARD.encode(&audio.wav_bytes)
     )
+}
+
+fn language_debug_label(language: Option<&str>) -> &str {
+    language.unwrap_or("<auto>")
 }
 
 fn build_http_client(timeout: Duration, debug_enabled: bool) -> Result<Client, TranscriberError> {
@@ -398,6 +404,13 @@ mod tests {
             super::transport_error_debug_message(&details, Duration::from_secs(30)),
             "transcription request transport error: elapsed_ms=30000 kind={builder:false connect:false request:true body:false decode:false redirect:false status:false timeout:true} url=https://api.openai.com/v1/audio/transcriptions source_chain=error sending request for url (https://api.openai.com/v1/audio/transcriptions) -> operation timed out"
         );
+    }
+
+    #[test]
+    /// language 未指定時の debug 表示は auto と分かる固定表記にする。
+    fn uses_auto_label_for_omitted_language_in_debug_log() {
+        assert_eq!(super::language_debug_label(None), "<auto>");
+        assert_eq!(super::language_debug_label(Some("ja")), "ja");
     }
 
     #[derive(Debug)]

@@ -1,6 +1,6 @@
 use crate::domain::{
     DiarizedTranscript, MergeAuditEntry, MergedTranscriptSegment, RecordedAudio,
-    TranscriptMergePolicy,
+    SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSource,
 };
 use serde::Serialize;
 use std::fmt;
@@ -16,6 +16,49 @@ pub struct CaptureSessionMetadata {
     pub response_format: String,
     pub chunking_strategy: String,
     pub merge_policy: TranscriptMergePolicy,
+}
+
+/// mixed capture session 全体の保存メタデータです。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MixedCaptureSessionMetadata {
+    pub mode: String,
+    pub application_bundle_id: String,
+    pub microphone_speaker: String,
+    pub source_settings: Vec<MixedCaptureSourceSettings>,
+    pub source_outcomes: Vec<MixedCaptureSourceOutcome>,
+}
+
+/// mixed capture における source 単位の設定要約です。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MixedCaptureSourceSettings {
+    pub source: TranscriptSource,
+    pub recording_duration_ms: u64,
+    pub capture_duration_ms: u64,
+    pub capture_overlap_ms: u64,
+    pub transcription_model: String,
+    pub response_format: String,
+    pub chunking_strategy: String,
+    pub merge_policy: TranscriptMergePolicy,
+    pub fixed_speaker: Option<String>,
+}
+
+/// mixed capture における source 単位の終了状態です。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MixedCaptureSourceOutcome {
+    pub source: TranscriptSource,
+    pub started_at_unix_ms: u64,
+    pub status: MixedCaptureSourceStatus,
+    pub transcription_failure_count: usize,
+    pub error_message: Option<String>,
+}
+
+/// mixed capture の source 完了状態です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MixedCaptureSourceStatus {
+    Succeeded,
+    PartialFailure,
+    Failed,
 }
 
 /// 文字起こし結果の保存先を抽象化します。
@@ -46,6 +89,19 @@ pub trait CaptureStore {
     fn persist_merge_audit_entries(
         &mut self,
         entries: &[MergeAuditEntry],
+    ) -> Result<(), CaptureStoreError>;
+}
+
+/// mixed capture session 全体の保存先を抽象化します。
+pub trait MixedCaptureStore {
+    fn persist_mixed_session_metadata(
+        &mut self,
+        metadata: &MixedCaptureSessionMetadata,
+    ) -> Result<(), CaptureStoreError>;
+
+    fn persist_final_segments(
+        &mut self,
+        segments: &[SourcedTranscriptSegment],
     ) -> Result<(), CaptureStoreError>;
 }
 

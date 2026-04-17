@@ -19,13 +19,20 @@ pub enum CliAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AudioSource {
     Microphone,
-    Application { bundle_id: String },
+    Application {
+        bundle_id: String,
+    },
+    Mixed {
+        bundle_id: String,
+        microphone_speaker: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum AudioSourceKind {
     Microphone,
     Application,
+    Mixed,
 }
 
 /// CLI 引数の解釈失敗です。
@@ -36,6 +43,8 @@ pub enum CliArgumentError {
     TooManySpeakerSamples { count: usize, max: usize },
     MissingApplicationBundleId,
     UnexpectedApplicationBundleId,
+    MissingMicrophoneSpeaker,
+    UnexpectedMicrophoneSpeaker,
 }
 
 impl fmt::Display for CliArgumentError {
@@ -51,12 +60,18 @@ impl fmt::Display for CliArgumentError {
                     "too many speaker samples: {count} provided, maximum is {max}"
                 )
             }
-            Self::MissingApplicationBundleId => {
-                f.write_str("--application-bundle-id is required for --audio-source application")
-            }
-            Self::UnexpectedApplicationBundleId => f.write_str(
-                "--application-bundle-id can only be used with --audio-source application",
+            Self::MissingApplicationBundleId => f.write_str(
+                "--application-bundle-id is required for --audio-source application or mixed",
             ),
+            Self::UnexpectedApplicationBundleId => f.write_str(
+                "--application-bundle-id can only be used with --audio-source application or mixed",
+            ),
+            Self::MissingMicrophoneSpeaker => {
+                f.write_str("--microphone-speaker is required for --audio-source mixed")
+            }
+            Self::UnexpectedMicrophoneSpeaker => {
+                f.write_str("--microphone-speaker can only be used with --audio-source mixed")
+            }
         }
     }
 }
@@ -81,6 +96,10 @@ struct CliArgs {
     /// Specify the target application's bundle ID when capturing application audio.
     #[arg(long = "application-bundle-id")]
     application_bundle_id: Option<String>,
+
+    /// Pin the microphone source to a fixed speaker name in mixed mode.
+    #[arg(long = "microphone-speaker")]
+    microphone_speaker: Option<String>,
 
     #[command(subcommand)]
     command: Option<CliSubcommandArgs>,
@@ -144,16 +163,39 @@ impl CliArgs {
             });
         }
 
-        let audio_source = match (self.audio_source, self.application_bundle_id) {
-            (AudioSourceKind::Microphone, None) => AudioSource::Microphone,
-            (AudioSourceKind::Microphone, Some(_)) => {
+        let audio_source = match (
+            self.audio_source,
+            self.application_bundle_id,
+            self.microphone_speaker,
+        ) {
+            (AudioSourceKind::Microphone, None, None) => AudioSource::Microphone,
+            (AudioSourceKind::Microphone, Some(_), _) => {
                 return Err(CliArgumentError::UnexpectedApplicationBundleId);
             }
-            (AudioSourceKind::Application, Some(bundle_id)) => {
+            (AudioSourceKind::Microphone, None, Some(_)) => {
+                return Err(CliArgumentError::UnexpectedMicrophoneSpeaker);
+            }
+            (AudioSourceKind::Application, Some(bundle_id), None) => {
                 AudioSource::Application { bundle_id }
             }
-            (AudioSourceKind::Application, None) => {
+            (AudioSourceKind::Application, None, None) => {
                 return Err(CliArgumentError::MissingApplicationBundleId);
+            }
+            (AudioSourceKind::Application, Some(_), Some(_))
+            | (AudioSourceKind::Application, None, Some(_)) => {
+                return Err(CliArgumentError::UnexpectedMicrophoneSpeaker);
+            }
+            (AudioSourceKind::Mixed, Some(bundle_id), Some(microphone_speaker)) => {
+                AudioSource::Mixed {
+                    bundle_id,
+                    microphone_speaker,
+                }
+            }
+            (AudioSourceKind::Mixed, None, Some(_)) => {
+                return Err(CliArgumentError::MissingApplicationBundleId);
+            }
+            (AudioSourceKind::Mixed, Some(_), None) | (AudioSourceKind::Mixed, None, None) => {
+                return Err(CliArgumentError::MissingMicrophoneSpeaker);
             }
         };
 
@@ -256,6 +298,32 @@ mod tests {
     }
 
     #[test]
+    /// `-i mixed` ではアプリ bundle ID とマイク話者名をまとめて解釈する。
+    fn parses_mixed_audio_source_with_microphone_speaker() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("-i"),
+            OsString::from("mixed"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("us.zoom.xos"),
+            OsString::from("--microphone-speaker"),
+            OsString::from("me"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Mixed {
+                    bundle_id: "us.zoom.xos".to_string(),
+                    microphone_speaker: "me".to_string(),
+                },
+            }
+        );
+    }
+
+    #[test]
     /// アプリ音声指定では bundle ID が必須。
     fn rejects_application_audio_source_without_bundle_id() {
         let error = parse_cli_args([
@@ -269,6 +337,21 @@ mod tests {
     }
 
     #[test]
+    /// mixed 指定ではマイク話者名が必須。
+    fn rejects_mixed_audio_source_without_microphone_speaker() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--audio-source"),
+            OsString::from("mixed"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("us.zoom.xos"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, CliArgumentError::MissingMicrophoneSpeaker);
+    }
+
+    #[test]
     /// マイク指定で bundle ID を渡すと失敗する。
     fn rejects_application_bundle_id_for_microphone_audio_source() {
         let error = parse_cli_args([
@@ -279,6 +362,19 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error, CliArgumentError::UnexpectedApplicationBundleId);
+    }
+
+    #[test]
+    /// mixed 以外でマイク話者名を渡すと失敗する。
+    fn rejects_microphone_speaker_for_non_mixed_audio_source() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--microphone-speaker"),
+            OsString::from("me"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, CliArgumentError::UnexpectedMicrophoneSpeaker);
     }
 
     #[test]

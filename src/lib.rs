@@ -7,17 +7,21 @@ pub mod domain;
 pub use application::{
     AudioClipper, AudioClipperError, CaptureConfig, CaptureError, CaptureRunResult,
     CaptureSessionMetadata, CaptureStore, CaptureStoreError, CaptureTranscriptionFailure,
-    ChunkingStrategy, DebugOutputError, Recorder, RecorderError, RecordingSession, ResponseFormat,
-    SpeakerCommand, SpeakerCommandResult, SpeakerStore, SpeakerStoreError, SpeakerUseCaseError,
-    TRANSCRIPTION_MODEL, Transcriber, TranscriberError, TranscriptionRequest, run_capture,
-    run_speaker_command, write_debug_transcript,
+    ChunkingStrategy, DebugOutputError, MixedCaptureError, MixedCaptureRunResult,
+    MixedCaptureSessionMetadata, MixedCaptureSourceOutcome, MixedCaptureSourceSettings,
+    MixedCaptureSourceStatus, MixedCaptureStore, MixedSourceRun, Recorder, RecorderError,
+    RecordingSession, ResponseFormat, SourceMergedSegments, SpeakerCommand, SpeakerCommandResult,
+    SpeakerLabel, SpeakerStore, SpeakerStoreError, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
+    Transcriber, TranscriberError, TranscriptionRequest, finalize_mixed_capture,
+    merge_source_segments, run_capture, run_mixed_capture, run_speaker_command,
+    write_debug_transcript,
 };
 pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{
     CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
     KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeOverlapRangeSnapshot,
     MergeRejectReason, MergeSkipReason, MergedTranscriptSegment, RecordedAudio,
-    TranscriptMergePolicy, TranscriptSegment,
+    SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
 };
 
 pub(crate) fn debug_log(debug_enabled: bool, message: &str) {

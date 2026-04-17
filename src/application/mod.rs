@@ -5,13 +5,8 @@ pub use ports::{
     AudioClipper, AudioClipperError, CaptureSessionMetadata, CaptureStore, CaptureStoreError,
     ChunkingStrategy, InterruptMonitor, MixedCaptureSessionMetadata, MixedCaptureSourceOutcome,
     MixedCaptureSourceSettings, MixedCaptureSourceStatus, MixedCaptureStore, Recorder,
-<<<<<<< HEAD
-    RecorderError, RecordingSession, ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber,
-    TranscriberError, TranscriptionLanguage, TranscriptionRequest,
-=======
     RecorderError, RecordingSession, RecordingWaitOutcome, ResponseFormat, SpeakerStore,
-    SpeakerStoreError, Transcriber, TranscriberError, TranscriptionRequest,
->>>>>>> main
+    SpeakerStoreError, Transcriber, TranscriberError, TranscriptionLanguage, TranscriptionRequest,
 };
 pub use usecase::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,

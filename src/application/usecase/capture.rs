@@ -1,13 +1,7 @@
 use crate::application::ports::{
-<<<<<<< HEAD
-    CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, Recorder,
-    RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
-    TranscriptionLanguage, TranscriptionRequest,
-=======
     CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor,
     Recorder, RecorderError, RecordingSession, RecordingWaitOutcome, ResponseFormat, Transcriber,
-    TranscriberError, TranscriptionRequest,
->>>>>>> main
+    TranscriberError, TranscriptionLanguage, TranscriptionRequest,
 };
 use crate::domain::{
     CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
@@ -288,40 +282,9 @@ where
             audio,
             config,
             speaker_samples,
-<<<<<<< HEAD
-            model: config.transcription_model,
-            language: config.transcription_language.as_api_value(),
-            response_format: config.response_format,
-            chunking_strategy: config.chunking_strategy,
-        }) {
-            Ok(transcript) => transcript,
-            Err(error) => {
-                if !is_recoverable_transcription_error(&error) {
-                    return Err(CaptureError::Transcribe(error));
-                }
-                info_log(
-                    stderr,
-                    &format!(
-                        "transcription failed for capture {}, continuing: {error}",
-                        capture_range.capture_index
-                    ),
-                )
-                .map_err(CaptureError::Write)?;
-                transcription_failures.push(CaptureTranscriptionFailure {
-                    capture_index: capture_range.capture_index,
-                    capture_start_ms,
-                    message: error.to_string(),
-                });
-                continue;
-            }
-        };
-        let transcript = apply_speaker_label(transcript, speaker_label);
-        info_log(
-=======
             speaker_label,
             transcriber,
             capture_store,
->>>>>>> main
             stderr,
             &mut capture_merger,
             &mut transcripts,
@@ -426,7 +389,7 @@ where
         audio: &audio,
         speaker_samples,
         model: config.transcription_model,
-        language: config.transcription_language.as_str(),
+        language: config.transcription_language.as_api_value(),
         response_format: config.response_format,
         chunking_strategy: config.chunking_strategy,
     }) {
@@ -861,7 +824,6 @@ mod tests {
             Duration::from_secs(10),
             Duration::from_secs(10),
             Duration::ZERO,
-            TranscriptionLanguage::Fixed(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
         );
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
@@ -1071,7 +1033,6 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
-<<<<<<< HEAD
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1102,10 +1063,10 @@ mod tests {
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {
             observation: Rc::clone(&observation),
-            session: Some(FakeRecordingSession {
-                observation: Rc::clone(&observation),
-                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
-            }),
+            session: Some(FakeRecordingSession::new(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio()],
+            )),
         };
         let mut transcriber = FakeTranscriber {
             observed_requests: RefCell::new(Vec::new()),
@@ -1120,8 +1081,6 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
-=======
->>>>>>> main
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1886,7 +1845,6 @@ mod tests {
             Duration::from_secs(180),
             Duration::from_secs(180),
             Duration::ZERO,
-            TranscriptionLanguage::Fixed(TEST_TRANSCRIPTION_LANGUAGE.to_string()),
         );
         let observation = Rc::new(RefCell::new(RecordingObservation::default()));
         let mut recorder = FakeRecorder {

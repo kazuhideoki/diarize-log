@@ -10,19 +10,12 @@ pub use application::{
     ChunkingStrategy, DebugOutputError, InterruptMonitor, MixedCaptureError, MixedCaptureRunResult,
     MixedCaptureSessionMetadata, MixedCaptureSourceOutcome, MixedCaptureSourceSettings,
     MixedCaptureSourceStatus, MixedCaptureStore, MixedSourceRun, Recorder, RecorderError,
-<<<<<<< HEAD
-    RecordingSession, ResponseFormat, SourceMergedSegments, SpeakerCommand, SpeakerCommandResult,
-    SpeakerLabel, SpeakerStore, SpeakerStoreError, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
-    Transcriber, TranscriberError, TranscriptionLanguage, TranscriptionRequest,
-    finalize_mixed_capture, merge_source_segments, run_capture, run_mixed_capture,
-    run_speaker_command, write_debug_transcript,
-=======
     RecordingSession, RecordingWaitOutcome, ResponseFormat, SourceMergedSegments, SpeakerCommand,
     SpeakerCommandResult, SpeakerLabel, SpeakerStore, SpeakerStoreError, SpeakerUseCaseError,
-    TRANSCRIPTION_MODEL, Transcriber, TranscriberError, TranscriptionRequest,
-    finalize_mixed_capture, merge_source_segments, run_capture, run_capture_with_interrupt_monitor,
-    run_mixed_capture, run_speaker_command, write_debug_transcript,
->>>>>>> main
+    TRANSCRIPTION_MODEL, Transcriber, TranscriberError, TranscriptionLanguage,
+    TranscriptionRequest, finalize_mixed_capture, merge_source_segments, run_capture,
+    run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
+    write_debug_transcript,
 };
 pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{

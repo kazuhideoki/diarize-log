@@ -5,7 +5,7 @@ use diarize_log::adapters::{
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
     AudioSource, CaptureConfig, ChunkingStrategy, CliAction, InterruptMonitor, KnownSpeakerSample,
-    MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
+    LogSource, MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
     SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource, parse_cli_args,
     run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
     write_debug_transcript,
@@ -38,10 +38,14 @@ impl SignalInterruptState {
                 .is_ok()
             {
                 eprintln!(
-                    "interrupt received, stopping after flushing the recorded audio; press Ctrl+C again to abort immediately"
+                    "[{}] interrupt received, stopping after flushing the recorded audio; press Ctrl+C again to abort immediately",
+                    LogSource::System.as_log_prefix()
                 );
             } else {
-                eprintln!("interrupt received again, aborting immediately");
+                eprintln!(
+                    "[{}] interrupt received again, aborting immediately",
+                    LogSource::System.as_log_prefix()
+                );
                 std::process::exit(130);
             }
         })?;
@@ -89,6 +93,7 @@ fn main() -> ExitCode {
                     &runtime_config,
                     &speaker_samples,
                     SpeakerLabel::KeepOriginal,
+                    LogSource::Microphone,
                     interrupt_state.as_ref(),
                     CpalRecorder::new(runtime_config.debug_enabled),
                 ),
@@ -96,6 +101,7 @@ fn main() -> ExitCode {
                     &runtime_config,
                     &speaker_samples,
                     SpeakerLabel::KeepOriginal,
+                    LogSource::Application,
                     interrupt_state.as_ref(),
                     ScreenCaptureKitApplicationRecorder::new(
                         bundle_id,
@@ -158,6 +164,7 @@ fn run_capture_command<R>(
     runtime_config: &Config,
     speaker_sample_names: &[String],
     speaker_label: SpeakerLabel,
+    log_source: LogSource,
     interrupt_monitor: &dyn InterruptMonitor,
     mut recorder: R,
 ) -> ExitCode
@@ -208,6 +215,7 @@ where
         &config,
         &speaker_samples,
         &speaker_label,
+        log_source,
         &mut recorder,
         &mut transcriber,
         &mut capture_store,
@@ -293,6 +301,7 @@ fn run_mixed_capture_command(
                 &microphone_config,
                 &[],
                 &SpeakerLabel::Fixed(microphone_speaker),
+                LogSource::Microphone,
                 microphone_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
@@ -312,6 +321,7 @@ fn run_mixed_capture_command(
                 &application_config,
                 &app_speaker_samples,
                 &SpeakerLabel::KeepOriginal,
+                LogSource::Application,
                 application_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
@@ -412,6 +422,7 @@ fn run_capture_pipeline<R, S>(
     runtime_config: &Config,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    log_source: LogSource,
     interrupt_monitor: &dyn InterruptMonitor,
     recorder: &mut R,
     capture_store: &mut S,
@@ -441,6 +452,7 @@ where
         &config,
         speaker_samples,
         speaker_label,
+        log_source,
         recorder,
         &mut transcriber,
         capture_store,

@@ -14,6 +14,25 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 
+/// 実行時ログを識別する出力元です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogSource {
+    Microphone,
+    Application,
+    System,
+}
+
+impl LogSource {
+    /// 標準エラーのログ先頭に付与する識別子を返します。
+    pub fn as_log_prefix(self) -> &'static str {
+        match self {
+            Self::Microphone => "microphone",
+            Self::Application => "application",
+            Self::System => "system",
+        }
+    }
+}
+
 /// 連続録音から capture を切り出して文字起こしするユースケースの設定です。
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaptureConfig {
@@ -114,10 +133,12 @@ struct PendingCaptureAudio {
 }
 
 /// 連続録音と文字起こしを実行します。
+#[allow(clippy::too_many_arguments)]
 pub fn run_capture<R, T, S, L>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    log_source: LogSource,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -133,6 +154,7 @@ where
         config,
         speaker_samples,
         speaker_label,
+        log_source,
         recorder,
         transcriber,
         capture_store,
@@ -147,6 +169,7 @@ pub fn run_capture_with_interrupt_monitor<R, T, S, L>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    log_source: LogSource,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -163,6 +186,7 @@ where
         config,
         speaker_samples,
         speaker_label,
+        log_source,
         recorder,
         transcriber,
         capture_store,
@@ -177,6 +201,7 @@ fn run_capture_with_clock<R, T, S, L, C>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    log_source: LogSource,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -203,7 +228,7 @@ where
             merge_policy: config.merge_policy.clone(),
         })
         .map_err(CaptureError::Store)?;
-    info_log(stderr, "recording started").map_err(CaptureError::Write)?;
+    info_log(stderr, log_source, "recording started").map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
     let started_at_unix_ms = current_unix_ms();
     let capture_ranges = config.capture_policy.capture_ranges();
@@ -222,8 +247,12 @@ where
             .map_err(CaptureError::Record)?;
 
         if wait_outcome == RecordingWaitOutcome::Interrupted {
-            info_log(stderr, "interrupt received, finalizing recorded audio")
-                .map_err(CaptureError::Write)?;
+            info_log(
+                stderr,
+                log_source,
+                "interrupt received, finalizing recorded audio",
+            )
+            .map_err(CaptureError::Write)?;
             let available_duration = session
                 .as_mut()
                 .expect("recording session must exist until interrupted captures are copied")
@@ -247,7 +276,7 @@ where
                 pending_ranges,
             )?;
             drop(session.take());
-            info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
+            info_log(stderr, log_source, "recording finished").map_err(CaptureError::Write)?;
             for pending in pending_audios {
                 process_capture_audio(
                     pending.range,
@@ -255,6 +284,7 @@ where
                     config,
                     speaker_samples,
                     speaker_label,
+                    log_source,
                     transcriber,
                     capture_store,
                     stderr,
@@ -275,7 +305,7 @@ where
         )?;
         if is_last_capture {
             drop(session.take());
-            info_log(stderr, "recording finished").map_err(CaptureError::Write)?;
+            info_log(stderr, log_source, "recording finished").map_err(CaptureError::Write)?;
         }
         process_capture_audio(
             capture_range,
@@ -283,6 +313,7 @@ where
             config,
             speaker_samples,
             speaker_label,
+            log_source,
             transcriber,
             capture_store,
             stderr,
@@ -301,6 +332,7 @@ where
     if !transcription_failures.is_empty() {
         info_log(
             stderr,
+            log_source,
             &format!(
                 "capture run completed with partial transcription failures: succeeded={} failed={} total={}",
                 transcripts.len(),
@@ -362,6 +394,7 @@ fn process_capture_audio<T, S, L>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
+    log_source: LogSource,
     transcriber: &mut T,
     capture_store: &mut S,
     stderr: &mut L,
@@ -377,6 +410,7 @@ where
 {
     info_log(
         stderr,
+        log_source,
         &format!(
             "transcription request sent for capture {}",
             capture_range.capture_index
@@ -400,6 +434,7 @@ where
             }
             info_log(
                 stderr,
+                log_source,
                 &format!(
                     "transcription failed for capture {}, continuing: {error}",
                     capture_range.capture_index
@@ -417,6 +452,7 @@ where
     let transcript = apply_speaker_label(transcript, speaker_label);
     info_log(
         stderr,
+        log_source,
         &format!(
             "transcription response received for capture {}",
             capture_range.capture_index
@@ -469,11 +505,11 @@ fn apply_speaker_label(
     }
 }
 
-fn info_log<W>(output: &mut W, message: &str) -> Result<(), std::io::Error>
+fn info_log<W>(output: &mut W, log_source: LogSource, message: &str) -> Result<(), std::io::Error>
 where
     W: Write,
 {
-    writeln!(output, "{message}")
+    writeln!(output, "[{}] {message}", log_source.as_log_prefix())
 }
 
 fn duration_to_millis(duration: Duration) -> u64 {
@@ -843,6 +879,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -898,6 +935,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -985,6 +1023,7 @@ mod tests {
             &config,
             std::slice::from_ref(&speaker_sample),
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1033,6 +1072,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1081,6 +1121,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1138,6 +1179,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1219,6 +1261,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1284,6 +1327,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1350,6 +1394,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1394,13 +1439,13 @@ mod tests {
         assert_eq!(
             String::from_utf8(stderr).unwrap(),
             concat!(
-                "recording started\n",
-                "transcription request sent for capture 1\n",
-                "transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
-                "recording finished\n",
-                "transcription request sent for capture 2\n",
-                "transcription response received for capture 2\n",
-                "capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
+                "[microphone] recording started\n",
+                "[microphone] transcription request sent for capture 1\n",
+                "[microphone] transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
+                "[microphone] recording finished\n",
+                "[microphone] transcription request sent for capture 2\n",
+                "[microphone] transcription response received for capture 2\n",
+                "[microphone] capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
             )
         );
     }
@@ -1454,6 +1499,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1516,13 +1562,13 @@ mod tests {
         assert_eq!(
             String::from_utf8(stderr).unwrap(),
             concat!(
-                "recording started\n",
-                "transcription request sent for capture 1\n",
-                "transcription response received for capture 1\n",
-                "interrupt received, finalizing recorded audio\n",
-                "recording finished\n",
-                "transcription request sent for capture 2\n",
-                "transcription response received for capture 2\n"
+                "[microphone] recording started\n",
+                "[microphone] transcription request sent for capture 1\n",
+                "[microphone] transcription response received for capture 1\n",
+                "[microphone] interrupt received, finalizing recorded audio\n",
+                "[microphone] recording finished\n",
+                "[microphone] transcription request sent for capture 2\n",
+                "[microphone] transcription response received for capture 2\n"
             )
         );
     }
@@ -1562,6 +1608,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1579,7 +1626,7 @@ mod tests {
         assert!(capture_store.observed_transcripts.borrow().is_empty());
         assert_eq!(
             String::from_utf8(stderr).unwrap(),
-            "recording started\ntranscription request sent for capture 1\n"
+            "[microphone] recording started\n[microphone] transcription request sent for capture 1\n"
         );
     }
 
@@ -1612,6 +1659,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1620,12 +1668,16 @@ mod tests {
         .unwrap();
 
         let printed_logs = String::from_utf8(stderr).unwrap();
-        assert!(printed_logs.contains("recording started\n"));
-        assert!(printed_logs.contains("transcription request sent for capture 1\n"));
-        assert!(printed_logs.contains("transcription response received for capture 1\n"));
-        assert!(printed_logs.contains("recording finished\n"));
-        assert!(printed_logs.contains("transcription request sent for capture 2\n"));
-        assert!(printed_logs.contains("transcription response received for capture 2\n"));
+        assert!(printed_logs.contains("[microphone] recording started\n"));
+        assert!(printed_logs.contains("[microphone] transcription request sent for capture 1\n"));
+        assert!(
+            printed_logs.contains("[microphone] transcription response received for capture 1\n")
+        );
+        assert!(printed_logs.contains("[microphone] recording finished\n"));
+        assert!(printed_logs.contains("[microphone] transcription request sent for capture 2\n"));
+        assert!(
+            printed_logs.contains("[microphone] transcription response received for capture 2\n")
+        );
     }
 
     #[test]
@@ -1702,6 +1754,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1778,6 +1831,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1827,6 +1881,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::KeepOriginal,
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,
@@ -1872,6 +1927,7 @@ mod tests {
             &config,
             &[],
             &SpeakerLabel::Fixed("me".to_string()),
+            LogSource::Microphone,
             &mut recorder,
             &mut transcriber,
             &mut capture_store,

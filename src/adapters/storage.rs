@@ -438,8 +438,13 @@ mod tests {
     };
     use crate::domain::{
         DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome,
+<<<<<<< HEAD
         MergeWindowSnapshot, MergedTranscriptSegment, RecordedAudio, SourcedTranscriptSegment,
         TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
+=======
+        MergeOverlapRangeSnapshot, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
+        TranscriptSegment,
+>>>>>>> main
     };
 
     #[test]
@@ -759,13 +764,13 @@ mod tests {
         store
             .persist_merge_audit_entries(&[MergeAuditEntry {
                 capture_index: 2,
-                previous_window: MergeWindowSnapshot {
+                previous_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 12_000,
                     end_ms: 18_000,
                     text: "EFGHIJKLMNOP".to_string(),
                     normalized_char_count: 12,
                 },
-                current_window: MergeWindowSnapshot {
+                current_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: 12_000,
                     end_ms: 18_000,
                     text: "EFGHIJKLMNOP".to_string(),
@@ -776,7 +781,7 @@ mod tests {
                     alignment_ratio: 1.0,
                     trigram_similarity: 1.0,
                     current_prefix_trim_chars: 0,
-                    overlap_text_source: crate::domain::MergeOverlapTextSource::CurrentWindow,
+                    overlap_text_source: crate::domain::MergeOverlapTextSource::CurrentOverlapRange,
                 },
             }])
             .unwrap();
@@ -809,9 +814,9 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(session_dir.join("merge-audit.jsonl")).unwrap(),
             concat!(
-                "{\"capture_index\":2,\"previous_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
-                "\"current_window\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
-                "\"outcome\":{\"result\":\"accepted\",\"overlap_chars\":12,\"alignment_ratio\":1.0,\"trigram_similarity\":1.0,\"current_prefix_trim_chars\":0,\"overlap_text_source\":\"current_window\"}}\n"
+                "{\"capture_index\":2,\"previous_overlap_range\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
+                "\"current_overlap_range\":{\"start_ms\":12000,\"end_ms\":18000,\"text\":\"EFGHIJKLMNOP\",\"normalized_char_count\":12},",
+                "\"outcome\":{\"result\":\"accepted\",\"overlap_chars\":12,\"alignment_ratio\":1.0,\"trigram_similarity\":1.0,\"current_prefix_trim_chars\":0,\"overlap_text_source\":\"current_overlap_range\"}}\n"
             )
         );
     }

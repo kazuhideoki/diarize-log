@@ -125,9 +125,9 @@ impl CapturedTranscript {
     }
 }
 
-/// merge 判定に使った overlap 窓の要約です。
+/// merge 判定に使った overlap range の要約です。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct MergeWindowSnapshot {
+pub struct MergeOverlapRangeSnapshot {
     pub start_ms: u64,
     pub end_ms: u64,
     pub text: String,
@@ -138,8 +138,8 @@ pub struct MergeWindowSnapshot {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MergeAuditEntry {
     pub capture_index: u64,
-    pub previous_window: MergeWindowSnapshot,
-    pub current_window: MergeWindowSnapshot,
+    pub previous_overlap_range: MergeOverlapRangeSnapshot,
+    pub current_overlap_range: MergeOverlapRangeSnapshot,
     pub outcome: MergeAuditOutcome,
 }
 
@@ -182,16 +182,16 @@ pub enum MergeRejectReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MergeSkipReason {
-    NoOverlapWindow,
+    NoOverlapRange,
     InsufficientNormalizedChars,
 }
 
-/// accepted 時に overlap 本文をどちらの window から採ったかを表します。
+/// accepted 時に overlap 本文をどちらの overlap range から採ったかを表します。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MergeOverlapTextSource {
-    PreviousWindow,
-    CurrentWindow,
+    PreviousOverlapRange,
+    CurrentOverlapRange,
 }
 
 /// 1 capture 追加時に確定した merged segment 群です。
@@ -289,9 +289,9 @@ struct OverlapSpliceContext<'a> {
     previous_tail: &'a [MergedTranscriptSegment],
     current_segments: &'a [MergedTranscriptSegment],
     current_head: &'a [MergedTranscriptSegment],
-    previous_window: &'a NormalizedWindow,
-    current_window: &'a NormalizedWindow,
-    overlap_window_end: u64,
+    previous_overlap_range: &'a NormalizedOverlapRange,
+    current_overlap_range: &'a NormalizedOverlapRange,
+    overlap_range_end: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -309,7 +309,7 @@ struct NormalizedCharPosition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct NormalizedWindow {
+struct NormalizedOverlapRange {
     chars: Vec<char>,
     positions: Vec<NormalizedCharPosition>,
     text_chars: Vec<char>,
@@ -319,9 +319,9 @@ struct NormalizedWindow {
     end_ms: u64,
 }
 
-impl NormalizedWindow {
-    fn snapshot(&self) -> MergeWindowSnapshot {
-        MergeWindowSnapshot {
+impl NormalizedOverlapRange {
+    fn snapshot(&self) -> MergeOverlapRangeSnapshot {
+        MergeOverlapRangeSnapshot {
             start_ms: self.start_ms,
             end_ms: self.end_ms,
             text: self.text.clone(),
@@ -329,10 +329,7 @@ impl NormalizedWindow {
         }
     }
 
-    fn raw_text_from_normalized_index_to_window_end(
-        &self,
-        start_normalized_index: usize,
-    ) -> String {
+    fn raw_text_from_normalized_index_to_range_end(&self, start_normalized_index: usize) -> String {
         let start_text_index = self.normalized_text_indexes[start_normalized_index];
         self.text_chars[start_text_index..].iter().collect()
     }
@@ -389,7 +386,7 @@ fn evaluate_overlap(
         return None;
     }
 
-    let overlap_window_end = previous_tail
+    let overlap_range_end = previous_tail
         .iter()
         .map(|segment| segment.end_ms)
         .max()
@@ -397,7 +394,7 @@ fn evaluate_overlap(
         .min(capture_end_ms);
     let current_head = current_segments
         .iter()
-        .filter(|segment| segment.start_ms < overlap_window_end)
+        .filter(|segment| segment.start_ms < overlap_range_end)
         .cloned()
         .collect::<Vec<_>>();
     if current_head.is_empty() {
@@ -405,20 +402,20 @@ fn evaluate_overlap(
             splice_plan: None,
             audit_entry: MergeAuditEntry {
                 capture_index,
-                previous_window: MergeWindowSnapshot {
+                previous_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: capture_start_ms,
                     end_ms: capture_start_ms,
                     text: String::new(),
                     normalized_char_count: 0,
                 },
-                current_window: MergeWindowSnapshot {
+                current_overlap_range: MergeOverlapRangeSnapshot {
                     start_ms: capture_start_ms,
                     end_ms: capture_start_ms,
                     text: String::new(),
                     normalized_char_count: 0,
                 },
                 outcome: MergeAuditOutcome::Skipped {
-                    reason: MergeSkipReason::NoOverlapWindow,
+                    reason: MergeSkipReason::NoOverlapRange,
                     previous_normalized_chars: 0,
                     current_normalized_chars: 0,
                     required_min_overlap_chars: policy.min_overlap_chars,
@@ -427,24 +424,24 @@ fn evaluate_overlap(
         });
     }
 
-    let overlap_window_start = capture_start_ms;
-    let previous_window =
-        build_normalized_window(previous_tail, overlap_window_start, overlap_window_end);
-    let current_window =
-        build_normalized_window(&current_head, overlap_window_start, overlap_window_end);
-    if previous_window.chars.len() < policy.min_overlap_chars
-        || current_window.chars.len() < policy.min_overlap_chars
+    let overlap_range_start = capture_start_ms;
+    let previous_overlap_range =
+        build_normalized_overlap_range(previous_tail, overlap_range_start, overlap_range_end);
+    let current_overlap_range =
+        build_normalized_overlap_range(&current_head, overlap_range_start, overlap_range_end);
+    if previous_overlap_range.chars.len() < policy.min_overlap_chars
+        || current_overlap_range.chars.len() < policy.min_overlap_chars
     {
         return Some(OverlapEvaluation {
             splice_plan: None,
             audit_entry: MergeAuditEntry {
                 capture_index,
-                previous_window: previous_window.snapshot(),
-                current_window: current_window.snapshot(),
+                previous_overlap_range: previous_overlap_range.snapshot(),
+                current_overlap_range: current_overlap_range.snapshot(),
                 outcome: MergeAuditOutcome::Skipped {
                     reason: MergeSkipReason::InsufficientNormalizedChars,
-                    previous_normalized_chars: previous_window.chars.len(),
-                    current_normalized_chars: current_window.chars.len(),
+                    previous_normalized_chars: previous_overlap_range.chars.len(),
+                    current_normalized_chars: current_overlap_range.chars.len(),
                     required_min_overlap_chars: policy.min_overlap_chars,
                 },
             },
@@ -452,11 +449,11 @@ fn evaluate_overlap(
     }
 
     Some(
-        match find_best_overlap_candidate(&previous_window, &current_window, policy) {
+        match find_best_overlap_candidate(&previous_overlap_range, &current_overlap_range, policy) {
             Ok(candidate) => {
                 let overlap_text_source = choose_overlap_text_source(
-                    &previous_window,
-                    &current_window,
+                    &previous_overlap_range,
+                    &current_overlap_range,
                     candidate,
                     current_head.len(),
                 );
@@ -466,17 +463,17 @@ fn evaluate_overlap(
                             previous_tail,
                             current_segments,
                             current_head: &current_head,
-                            previous_window: &previous_window,
-                            current_window: &current_window,
-                            overlap_window_end,
+                            previous_overlap_range: &previous_overlap_range,
+                            current_overlap_range: &current_overlap_range,
+                            overlap_range_end,
                         },
                         candidate,
                         overlap_text_source,
                     )),
                     audit_entry: MergeAuditEntry {
                         capture_index,
-                        previous_window: previous_window.snapshot(),
-                        current_window: current_window.snapshot(),
+                        previous_overlap_range: previous_overlap_range.snapshot(),
+                        current_overlap_range: current_overlap_range.snapshot(),
                         outcome: MergeAuditOutcome::Accepted {
                             overlap_chars: candidate.overlap_chars,
                             alignment_ratio: candidate.alignment_ratio,
@@ -491,8 +488,8 @@ fn evaluate_overlap(
                 splice_plan: None,
                 audit_entry: MergeAuditEntry {
                     capture_index,
-                    previous_window: previous_window.snapshot(),
-                    current_window: current_window.snapshot(),
+                    previous_overlap_range: previous_overlap_range.snapshot(),
+                    current_overlap_range: current_overlap_range.snapshot(),
                     outcome: MergeAuditOutcome::Rejected {
                         overlap_chars: candidate.overlap_chars,
                         alignment_ratio: candidate.alignment_ratio,
@@ -506,11 +503,11 @@ fn evaluate_overlap(
     )
 }
 
-fn build_normalized_window(
+fn build_normalized_overlap_range(
     segments: &[MergedTranscriptSegment],
     overlap_start_ms: u64,
     overlap_end_ms: u64,
-) -> NormalizedWindow {
+) -> NormalizedOverlapRange {
     let mut chars = Vec::new();
     let mut positions = Vec::new();
     let mut text_chars = Vec::new();
@@ -544,7 +541,7 @@ fn build_normalized_window(
         }
     }
 
-    NormalizedWindow {
+    NormalizedOverlapRange {
         chars,
         positions,
         text_chars,
@@ -559,8 +556,8 @@ fn build_normalized_window(
 /// overlap 本文そのものは previous の方が句読点まで含めて自然なことがあります。
 /// そのため exact match が取れた候補だけは raw text の情報量を見て採用元を選びます。
 fn choose_overlap_text_source(
-    previous_window: &NormalizedWindow,
-    current_window: &NormalizedWindow,
+    previous_overlap_range: &NormalizedOverlapRange,
+    current_overlap_range: &NormalizedOverlapRange,
     candidate: OverlapCandidate,
     current_head_segment_count: usize,
 ) -> MergeOverlapTextSource {
@@ -568,33 +565,33 @@ fn choose_overlap_text_source(
     // そのまま残す必要があります。previous 側の raw text を跨って差し込むと 1 本化が必要になり、
     // diarization の意味を壊すため、このケースでは current 本文を優先します。
     if current_head_segment_count > 1 {
-        return MergeOverlapTextSource::CurrentWindow;
+        return MergeOverlapTextSource::CurrentOverlapRange;
     }
 
     if candidate.alignment_ratio < 1.0 {
-        return MergeOverlapTextSource::CurrentWindow;
+        return MergeOverlapTextSource::CurrentOverlapRange;
     }
 
-    let previous_start = previous_window.chars.len() - candidate.overlap_chars;
+    let previous_start = previous_overlap_range.chars.len() - candidate.overlap_chars;
     let current_start = candidate.current_prefix_trim_chars;
     let previous_overlap_text =
-        previous_window.raw_text_from_normalized_index_to_window_end(previous_start);
-    let current_overlap_text =
-        current_window.raw_text_from_normalized_range(current_start, candidate.overlap_chars);
+        previous_overlap_range.raw_text_from_normalized_index_to_range_end(previous_start);
+    let current_overlap_text = current_overlap_range
+        .raw_text_from_normalized_range(current_start, candidate.overlap_chars);
 
     let previous_ignored_count = ignored_character_count(&previous_overlap_text);
     let current_ignored_count = ignored_character_count(&current_overlap_text);
     if current_ignored_count > previous_ignored_count {
-        return MergeOverlapTextSource::CurrentWindow;
+        return MergeOverlapTextSource::CurrentOverlapRange;
     }
     if current_ignored_count < previous_ignored_count {
-        return MergeOverlapTextSource::PreviousWindow;
+        return MergeOverlapTextSource::PreviousOverlapRange;
     }
 
     if current_overlap_text.chars().count() >= previous_overlap_text.chars().count() {
-        MergeOverlapTextSource::CurrentWindow
+        MergeOverlapTextSource::CurrentOverlapRange
     } else {
-        MergeOverlapTextSource::PreviousWindow
+        MergeOverlapTextSource::PreviousOverlapRange
     }
 }
 
@@ -609,14 +606,15 @@ fn build_overlap_splice_plan(
     candidate: OverlapCandidate,
     overlap_text_source: MergeOverlapTextSource,
 ) -> OverlapSplicePlan {
-    let previous_overlap_start = context.previous_window.chars.len() - candidate.overlap_chars;
+    let previous_overlap_start =
+        context.previous_overlap_range.chars.len() - candidate.overlap_chars;
     let current_overlap_start = candidate.current_prefix_trim_chars;
-    let previous_position = context.previous_window.positions[previous_overlap_start];
+    let previous_position = context.previous_overlap_range.positions[previous_overlap_start];
     let previous_trim_from = TrimFromChar {
         segment_index: previous_position.segment_index,
         char_offset: previous_position.char_offset,
     };
-    let current_position = context.current_window.positions[current_overlap_start];
+    let current_position = context.current_overlap_range.positions[current_overlap_start];
     let current_trim_from = TrimFromChar {
         segment_index: current_position.segment_index,
         char_offset: current_position.char_offset,
@@ -626,14 +624,14 @@ fn build_overlap_splice_plan(
         previous_trim_from.char_offset,
     );
     let boundary_speaker = context.current_head
-        [context.current_window.positions[current_overlap_start].segment_index]
+        [context.current_overlap_range.positions[current_overlap_start].segment_index]
         .speaker
         .clone();
     let previous_overlap_text = context
-        .previous_window
-        .raw_text_from_normalized_index_to_window_end(previous_overlap_start);
+        .previous_overlap_range
+        .raw_text_from_normalized_index_to_range_end(previous_overlap_start);
     let current_overlap_text = context
-        .current_window
+        .current_overlap_range
         .raw_text_from_normalized_range(current_overlap_start, candidate.overlap_chars);
 
     if context.current_head.len() > 1 {
@@ -644,23 +642,23 @@ fn build_overlap_splice_plan(
     }
 
     let current_suffix_text = context
-        .current_window
+        .current_overlap_range
         .raw_text_after_normalized_range(current_overlap_start, candidate.overlap_chars);
     let overlap_text = match overlap_text_source {
-        MergeOverlapTextSource::PreviousWindow => previous_overlap_text,
-        MergeOverlapTextSource::CurrentWindow => current_overlap_text,
+        MergeOverlapTextSource::PreviousOverlapRange => previous_overlap_text,
+        MergeOverlapTextSource::CurrentOverlapRange => current_overlap_text,
     };
     // 共有時間窓は 1 本の synthetic segment に置き換え、
     // previous/current のどちらを採っても後続 segment と素直に連結できるようにする。
     let boundary_segment = MergedTranscriptSegment {
         speaker: boundary_speaker,
         start_ms: boundary_start_ms,
-        end_ms: context.overlap_window_end,
+        end_ms: context.overlap_range_end,
         text: format!("{overlap_text}{current_suffix_text}"),
     };
 
     let mut merged_current_segments = vec![boundary_segment];
-    for segment in keep_segments_after_ms(context.current_segments, context.overlap_window_end) {
+    for segment in keep_segments_after_ms(context.current_segments, context.overlap_range_end) {
         push_or_merge_adjacent_segment(&mut merged_current_segments, segment);
     }
 
@@ -778,8 +776,8 @@ fn is_ignored_punctuation(character: char) -> bool {
 }
 
 fn find_best_overlap_candidate(
-    previous: &NormalizedWindow,
-    current: &NormalizedWindow,
+    previous: &NormalizedOverlapRange,
+    current: &NormalizedOverlapRange,
     policy: &TranscriptMergePolicy,
 ) -> Result<OverlapCandidate, (OverlapCandidate, MergeRejectReason)> {
     let max_trim = MAX_CURRENT_PREFIX_TRIM_CHARS.min(current.chars.len());
@@ -1293,11 +1291,11 @@ mod tests {
         assert_eq!(second_batch.audit_entries.len(), 1);
         assert_eq!(second_batch.audit_entries[0].capture_index, 2);
         assert_eq!(
-            second_batch.audit_entries[0].previous_window.text,
+            second_batch.audit_entries[0].previous_overlap_range.text,
             "EFGHIJKLMNOP"
         );
         assert_eq!(
-            second_batch.audit_entries[0].current_window.text,
+            second_batch.audit_entries[0].current_overlap_range.text,
             "EFGHIJKLMNOP"
         );
         assert_eq!(
@@ -1307,7 +1305,7 @@ mod tests {
                 alignment_ratio: 1.0,
                 trigram_similarity: 1.0,
                 current_prefix_trim_chars: 0,
-                overlap_text_source: MergeOverlapTextSource::CurrentWindow,
+                overlap_text_source: MergeOverlapTextSource::CurrentOverlapRange,
             }
         );
         assert_eq!(
@@ -1659,7 +1657,7 @@ mod tests {
                 alignment_ratio: 1.0,
                 trigram_similarity: 1.0,
                 current_prefix_trim_chars: 1,
-                overlap_text_source: MergeOverlapTextSource::CurrentWindow,
+                overlap_text_source: MergeOverlapTextSource::CurrentOverlapRange,
             }
         );
         assert_eq!(

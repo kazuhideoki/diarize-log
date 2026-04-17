@@ -19,9 +19,15 @@ pub use application::{
 pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
 pub use domain::{
     CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
+<<<<<<< HEAD
     KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeRejectReason,
     MergeSkipReason, MergeWindowSnapshot, MergedTranscriptSegment, RecordedAudio,
     SourcedTranscriptSegment, TranscriptMergePolicy, TranscriptSegment, TranscriptSource,
+=======
+    KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeOverlapRangeSnapshot,
+    MergeRejectReason, MergeSkipReason, MergedTranscriptSegment, RecordedAudio,
+    TranscriptMergePolicy, TranscriptSegment,
+>>>>>>> main
 };
 
 pub(crate) fn debug_log(debug_enabled: bool, message: &str) {

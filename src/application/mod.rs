@@ -10,8 +10,8 @@ pub use ports::{
 };
 pub use usecase::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,
-    LogSource, MixedCaptureError, MixedCaptureRunResult, MixedSourceRun, SourceMergedSegments,
-    SpeakerCommand, SpeakerCommandResult, SpeakerLabel, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
+    MixedCaptureError, MixedCaptureRunResult, MixedSourceRun, SourceMergedSegments, SpeakerCommand,
+    SpeakerCommandResult, SpeakerLabel, SpeakerUseCaseError, TRANSCRIPTION_MODEL,
     finalize_mixed_capture, merge_source_segments, run_capture, run_capture_with_interrupt_monitor,
     run_mixed_capture, run_speaker_command, write_debug_transcript,
 };

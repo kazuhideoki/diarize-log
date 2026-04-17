@@ -5,9 +5,9 @@ use diarize_log::adapters::{
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
     AudioSource, CaptureConfig, ChunkingStrategy, CliAction, InterruptMonitor, KnownSpeakerSample,
-    LogSource, MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
-    SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource, parse_cli_args,
-    run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
+    LogSource, Logger, MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder,
+    ResponseFormat, SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource,
+    parse_cli_args, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
     write_debug_transcript,
 };
 use std::io::{self};
@@ -28,7 +28,7 @@ impl InterruptMonitor for SignalInterruptState {
 }
 
 impl SignalInterruptState {
-    fn install() -> Result<Arc<Self>, ctrlc::Error> {
+    fn install(logger: Logger) -> Result<Arc<Self>, ctrlc::Error> {
         let state = Arc::new(Self::default());
         let handler_state = Arc::clone(&state);
         ctrlc::set_handler(move || {
@@ -37,15 +37,11 @@ impl SignalInterruptState {
                 .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                eprintln!(
-                    "[{}] interrupt received, stopping after flushing the recorded audio; press Ctrl+C again to abort immediately",
-                    LogSource::System.as_log_prefix()
+                let _ = logger.info(
+                    "interrupt received, stopping after flushing the recorded audio; press Ctrl+C again to abort immediately",
                 );
             } else {
-                eprintln!(
-                    "[{}] interrupt received again, aborting immediately",
-                    LogSource::System.as_log_prefix()
-                );
+                let _ = logger.info("interrupt received again, aborting immediately");
                 std::process::exit(130);
             }
         })?;
@@ -74,13 +70,17 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let root_logger = Logger::stderr(runtime_config.debug_enabled);
 
     match action {
         CliAction::Run {
             speaker_samples,
             audio_source,
         } => {
-            let interrupt_state = match SignalInterruptState::install() {
+            let system_logger = root_logger
+                .with_source(LogSource::System)
+                .with_component("signal");
+            let interrupt_state = match SignalInterruptState::install(system_logger) {
                 Ok(state) => state,
                 Err(error) => {
                     eprintln!("{error}");
@@ -93,19 +93,25 @@ fn main() -> ExitCode {
                     &runtime_config,
                     &speaker_samples,
                     SpeakerLabel::KeepOriginal,
-                    LogSource::Microphone,
+                    &root_logger.with_source(LogSource::Microphone),
                     interrupt_state.as_ref(),
-                    CpalRecorder::new(runtime_config.debug_enabled),
+                    CpalRecorder::new(
+                        root_logger
+                            .with_source(LogSource::Microphone)
+                            .with_component("recorder"),
+                    ),
                 ),
                 AudioSource::Application { bundle_id } => run_capture_command(
                     &runtime_config,
                     &speaker_samples,
                     SpeakerLabel::KeepOriginal,
-                    LogSource::Application,
+                    &root_logger.with_source(LogSource::Application),
                     interrupt_state.as_ref(),
                     ScreenCaptureKitApplicationRecorder::new(
                         bundle_id,
-                        runtime_config.debug_enabled,
+                        root_logger
+                            .with_source(LogSource::Application)
+                            .with_component("recorder"),
                     ),
                 ),
                 AudioSource::Mixed {
@@ -117,6 +123,7 @@ fn main() -> ExitCode {
                     bundle_id,
                     microphone_speaker,
                     interrupt_state,
+                    &root_logger,
                 ),
             }
         }
@@ -164,7 +171,7 @@ fn run_capture_command<R>(
     runtime_config: &Config,
     speaker_sample_names: &[String],
     speaker_label: SpeakerLabel,
-    log_source: LogSource,
+    source_logger: &Logger,
     interrupt_monitor: &dyn InterruptMonitor,
     mut recorder: R,
 ) -> ExitCode
@@ -183,7 +190,7 @@ where
     };
     let mut transcriber = match OpenAiTranscriber::new(
         runtime_config.openai_api_key.clone(),
-        runtime_config.debug_enabled,
+        source_logger.with_component("transcriber"),
     ) {
         Ok(transcriber) => transcriber,
         Err(error) => {
@@ -191,7 +198,6 @@ where
             return ExitCode::FAILURE;
         }
     };
-    let mut stderr = io::stderr();
     let mut stdout = io::stdout();
     let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
         Ok(store) => store,
@@ -215,11 +221,10 @@ where
         &config,
         &speaker_samples,
         &speaker_label,
-        log_source,
+        &source_logger.with_component("capture"),
         &mut recorder,
         &mut transcriber,
         &mut capture_store,
-        &mut stderr,
         interrupt_monitor,
     ) {
         Ok(result) => {
@@ -251,6 +256,7 @@ fn run_mixed_capture_command(
     bundle_id: String,
     microphone_speaker: String,
     interrupt_state: Arc<SignalInterruptState>,
+    root_logger: &Logger,
 ) -> ExitCode {
     let session_dir = match FileSystemCaptureStore::create_session_dir(&runtime_config.storage_root)
     {
@@ -278,6 +284,8 @@ fn run_mixed_capture_command(
     let app_speaker_samples = known_speakers.clone();
     let microphone_interrupt_state = Arc::clone(&interrupt_state);
     let application_interrupt_state = Arc::clone(&interrupt_state);
+    let microphone_logger = root_logger.with_source(LogSource::Microphone);
+    let application_logger = root_logger.with_source(LogSource::Application);
     let mut final_store = match FileSystemMergedTranscriptStore::new(&session_dir) {
         Ok(store) => store,
         Err(error) => {
@@ -291,7 +299,7 @@ fn run_mixed_capture_command(
         &mut final_store,
         metadata,
         move || {
-            let mut recorder = CpalRecorder::new(microphone_config.debug_enabled);
+            let mut recorder = CpalRecorder::new(microphone_logger.with_component("recorder"));
             let mut capture_store = FileSystemCaptureStore::new_for_source(
                 &microphone_session_dir,
                 TranscriptSource::Microphone,
@@ -301,7 +309,7 @@ fn run_mixed_capture_command(
                 &microphone_config,
                 &[],
                 &SpeakerLabel::Fixed(microphone_speaker),
-                LogSource::Microphone,
+                &microphone_logger,
                 microphone_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
@@ -310,7 +318,7 @@ fn run_mixed_capture_command(
         move || {
             let mut recorder = ScreenCaptureKitApplicationRecorder::new(
                 application_bundle_id,
-                application_config.debug_enabled,
+                application_logger.with_component("recorder"),
             );
             let mut capture_store = FileSystemCaptureStore::new_for_source(
                 &application_session_dir,
@@ -321,7 +329,7 @@ fn run_mixed_capture_command(
                 &application_config,
                 &app_speaker_samples,
                 &SpeakerLabel::KeepOriginal,
-                LogSource::Application,
+                &application_logger,
                 application_interrupt_state.as_ref(),
                 &mut recorder,
                 &mut capture_store,
@@ -422,7 +430,7 @@ fn run_capture_pipeline<R, S>(
     runtime_config: &Config,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    log_source: LogSource,
+    source_logger: &Logger,
     interrupt_monitor: &dyn InterruptMonitor,
     recorder: &mut R,
     capture_store: &mut S,
@@ -443,20 +451,18 @@ where
     };
     let mut transcriber = OpenAiTranscriber::new(
         runtime_config.openai_api_key.clone(),
-        runtime_config.debug_enabled,
+        source_logger.with_component("transcriber"),
     )
     .map_err(|error| error.to_string())?;
-    let mut stderr = io::stderr();
 
     run_capture_with_interrupt_monitor(
         &config,
         speaker_samples,
         speaker_label,
-        log_source,
+        &source_logger.with_component("capture"),
         recorder,
         &mut transcriber,
         capture_store,
-        &mut stderr,
         interrupt_monitor,
     )
     .map_err(|error| error.to_string())

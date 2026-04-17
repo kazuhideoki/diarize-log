@@ -4,7 +4,7 @@ mod speaker;
 
 pub use capture::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,
-    LogSource, SpeakerLabel, TRANSCRIPTION_MODEL, run_capture, run_capture_with_interrupt_monitor,
+    SpeakerLabel, TRANSCRIPTION_MODEL, run_capture, run_capture_with_interrupt_monitor,
     write_debug_transcript,
 };
 pub use mixed::{

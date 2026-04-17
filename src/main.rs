@@ -101,10 +101,10 @@ where
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
+        runtime_config.transcription_language.clone(),
     );
     let config = CaptureConfig {
         merge_policy: runtime_config.transcript_merge_policy.clone(),
-        transcription_language: runtime_config.transcription_language.clone(),
         ..config
     };
     let mut transcriber = match OpenAiTranscriber::new(

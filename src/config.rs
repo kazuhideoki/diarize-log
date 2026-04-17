@@ -91,6 +91,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidTranscriptionLanguageValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     InvalidCaptureOverlap {
         overlap_name: &'static str,
         capture_duration_name: &'static str,
@@ -148,6 +153,14 @@ impl fmt::Display for ConfigValidationError {
             } => write!(
                 f,
                 "invalid unit interval value for {name} from {source}: {value}"
+            ),
+            Self::InvalidTranscriptionLanguageValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid transcription language value for {name} from {source}: {value}"
             ),
             Self::InvalidCaptureOverlap {
                 overlap_name,
@@ -441,14 +454,12 @@ impl RawConfig {
 
         let transcription_language = match self.transcription_language {
             Some(value) => {
-                if value.value.trim().is_empty() {
-                    errors.push(ConfigValidationError::EmptyValue {
-                        name: TRANSCRIPTION_LANGUAGE_ENV_VAR,
-                        source: value.source,
-                    });
-                    None
-                } else {
-                    Some(value.value)
+                match parse_transcription_language(value, TRANSCRIPTION_LANGUAGE_ENV_VAR) {
+                    Ok(language) => Some(language),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
                 }
             }
             None => Some(DEFAULT_TRANSCRIPTION_LANGUAGE.to_string()),
@@ -651,6 +662,28 @@ fn parse_unit_interval(
     match value.value.parse::<f64>() {
         Ok(parsed) if (0.0..=1.0).contains(&parsed) => Ok(parsed),
         _ => Err(ConfigValidationError::InvalidUnitIntervalValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
+    }
+}
+
+fn parse_transcription_language(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<String, ConfigValidationError> {
+    let trimmed = value.value.trim();
+    if trimmed.is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match trimmed {
+        "ja" | "en" => Ok(trimmed.to_string()),
+        _ => Err(ConfigValidationError::InvalidTranscriptionLanguageValue {
             name,
             value: value.value,
             source: value.source,
@@ -869,6 +902,35 @@ mod tests {
         assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.88);
         assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.66);
         assert_eq!(config.storage_root, storage_root);
+    }
+
+    #[test]
+    /// transcription language は .env から読み込み、許可値ならそのまま解決する。
+    fn resolves_transcription_language_from_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=en\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert_eq!(config.transcription_language, "en");
     }
 
     #[test]
@@ -1143,6 +1205,77 @@ mod tests {
             if errors == vec![ConfigValidationError::EmptyValue {
                 name: "OPENAI_API_KEY",
                 source: ConfigSource::Environment,
+            }]
+        ));
+    }
+
+    #[test]
+    /// transcription language が空白だけなら設定エラーにする。
+    fn returns_error_when_transcription_language_is_blank() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=   \nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::EmptyValue {
+                name: "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
+    /// transcription language は日本語と英語だけを許可する。
+    fn returns_error_for_unsupported_transcription_language() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=fr\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidTranscriptionLanguageValue {
+                name: "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+                value: "fr".to_string(),
+                source: ConfigSource::DotEnv,
             }]
         ));
     }

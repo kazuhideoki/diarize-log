@@ -1,5 +1,5 @@
 use crate::application::TranscriptionLanguage;
-use crate::domain::TranscriptMergePolicy;
+use crate::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
 use dotenvy::{Error as DotenvError, from_filename_iter};
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -12,6 +12,10 @@ const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 const RECORDING_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_RECORDING_DURATION_SECONDS";
 const CAPTURE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_DURATION_SECONDS";
 const CAPTURE_OVERLAP_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS";
+const CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS";
+const CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS";
+const CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR: &str =
+    "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS";
 const SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS";
 const TRANSCRIPTION_LANGUAGE_ENV_VAR: &str = "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
@@ -28,6 +32,7 @@ pub struct Config {
     pub recording_duration: Duration,
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
+    pub capture_silence_request_policy: SilenceRequestPolicy,
     pub speaker_sample_duration: Duration,
     pub transcription_language: TranscriptionLanguage,
     pub transcript_merge_policy: TranscriptMergePolicy,
@@ -97,12 +102,24 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidNegativeDecibelValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     InvalidCaptureOverlap {
         overlap_name: &'static str,
         capture_duration_name: &'static str,
         overlap_seconds: u64,
         capture_duration_seconds: u64,
         overlap_source: ConfigSource,
+    },
+    InvalidTailSilenceDuration {
+        silence_name: &'static str,
+        tail_silence_name: &'static str,
+        silence_duration_ms: u64,
+        tail_silence_duration_ms: u64,
+        tail_silence_source: ConfigSource,
     },
     RelativePathValue {
         name: &'static str,
@@ -163,6 +180,14 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "invalid transcription language mode value for {name} from {source}: {value}"
             ),
+            Self::InvalidNegativeDecibelValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid negative dBFS value for {name} from {source}: {value}"
+            ),
             Self::InvalidCaptureOverlap {
                 overlap_name,
                 capture_duration_name,
@@ -172,6 +197,16 @@ impl fmt::Display for ConfigValidationError {
             } => write!(
                 f,
                 "{overlap_name} from {overlap_source} must be smaller than {capture_duration_name}: overlap_seconds={overlap_seconds} capture_duration_seconds={capture_duration_seconds}"
+            ),
+            Self::InvalidTailSilenceDuration {
+                silence_name,
+                tail_silence_name,
+                silence_duration_ms,
+                tail_silence_duration_ms,
+                tail_silence_source,
+            } => write!(
+                f,
+                "{tail_silence_name} from {tail_silence_source} must be smaller than or equal to {silence_name}: tail_silence_duration_ms={tail_silence_duration_ms} silence_duration_ms={silence_duration_ms}"
             ),
             Self::RelativePathValue {
                 name,
@@ -205,6 +240,9 @@ struct RawConfig {
     recording_duration_seconds: Option<ConfigValue<String>>,
     capture_duration_seconds: Option<ConfigValue<String>>,
     capture_overlap_seconds: Option<ConfigValue<String>>,
+    capture_silence_threshold_dbfs: Option<ConfigValue<String>>,
+    capture_silence_min_duration_ms: Option<ConfigValue<String>>,
+    capture_tail_silence_min_duration_ms: Option<ConfigValue<String>>,
     speaker_sample_duration_seconds: Option<ConfigValue<String>>,
     transcription_language: Option<ConfigValue<String>>,
     merge_min_overlap_chars: Option<ConfigValue<String>>,
@@ -228,6 +266,18 @@ impl RawConfig {
             ),
             capture_overlap_seconds: read_env_var(
                 CAPTURE_OVERLAP_SECONDS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            capture_silence_threshold_dbfs: read_env_var(
+                CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            capture_silence_min_duration_ms: read_env_var(
+                CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            capture_tail_silence_min_duration_ms: read_env_var(
+                CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR,
                 ConfigSource::Environment,
             ),
             speaker_sample_duration_seconds: read_env_var(
@@ -276,6 +326,18 @@ impl RawConfig {
                         }
                         CAPTURE_OVERLAP_SECONDS_ENV_VAR => {
                             raw.capture_overlap_seconds =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR => {
+                            raw.capture_silence_threshold_dbfs =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR => {
+                            raw.capture_silence_min_duration_ms =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR => {
+                            raw.capture_tail_silence_min_duration_ms =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR => {
@@ -327,6 +389,15 @@ impl RawConfig {
             capture_overlap_seconds: self
                 .capture_overlap_seconds
                 .or(fallback.capture_overlap_seconds),
+            capture_silence_threshold_dbfs: self
+                .capture_silence_threshold_dbfs
+                .or(fallback.capture_silence_threshold_dbfs),
+            capture_silence_min_duration_ms: self
+                .capture_silence_min_duration_ms
+                .or(fallback.capture_silence_min_duration_ms),
+            capture_tail_silence_min_duration_ms: self
+                .capture_tail_silence_min_duration_ms
+                .or(fallback.capture_tail_silence_min_duration_ms),
             speaker_sample_duration_seconds: self
                 .speaker_sample_duration_seconds
                 .or(fallback.speaker_sample_duration_seconds),
@@ -422,6 +493,52 @@ impl RawConfig {
                 });
                 None
             }
+        };
+        let default_silence_request_policy = SilenceRequestPolicy::recommended();
+        let capture_silence_threshold_dbfs = match self.capture_silence_threshold_dbfs {
+            Some(value) => {
+                match parse_negative_decibel(value, CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR) {
+                    Ok(dbfs) => Some(dbfs),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => Some(default_silence_request_policy.silence_threshold_dbfs),
+        };
+        let capture_silence_min_duration = match self.capture_silence_min_duration_ms {
+            Some(value) => {
+                match parse_positive_integer(value, CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR) {
+                    Ok(duration_ms) => Some(Duration::from_millis(duration_ms)),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => Some(default_silence_request_policy.silence_min_duration),
+        };
+        let capture_tail_silence_min_duration = match self.capture_tail_silence_min_duration_ms {
+            Some(value) => {
+                let source = value.source;
+                match parse_positive_integer(value, CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR) {
+                    Ok(duration_ms) => Some((duration_ms, source)),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => Some((
+                u64::try_from(
+                    default_silence_request_policy
+                        .tail_silence_min_duration
+                        .as_millis(),
+                )
+                .expect("tail silence duration must fit into u64"),
+                ConfigSource::Environment,
+            )),
         };
 
         let debug_enabled = match self.debug_enabled {
@@ -537,6 +654,26 @@ impl RawConfig {
 
         let capture_overlap =
             capture_overlap.map(|(seconds, _source)| Duration::from_secs(seconds));
+        let capture_tail_silence_min_duration =
+            capture_tail_silence_min_duration.and_then(|(tail_duration_ms, tail_source)| {
+                if let Some(silence_duration) = capture_silence_min_duration
+                    && tail_duration_ms
+                        > u64::try_from(silence_duration.as_millis())
+                            .expect("silence duration must fit into u64")
+                {
+                    errors.push(ConfigValidationError::InvalidTailSilenceDuration {
+                        silence_name: CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR,
+                        tail_silence_name: CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR,
+                        silence_duration_ms: u64::try_from(silence_duration.as_millis())
+                            .expect("silence duration must fit into u64"),
+                        tail_silence_duration_ms: tail_duration_ms,
+                        tail_silence_source: tail_source,
+                    });
+                    return None;
+                }
+
+                Some(Duration::from_millis(tail_duration_ms))
+            });
 
         if !errors.is_empty() {
             return Err(ConfigError::InvalidConfig(errors));
@@ -557,6 +694,18 @@ impl RawConfig {
         let capture_overlap = match capture_overlap {
             Some(value) => value,
             None => unreachable!("validated missing capture overlap"),
+        };
+        let capture_silence_threshold_dbfs = match capture_silence_threshold_dbfs {
+            Some(value) => value,
+            None => unreachable!("validated missing capture silence threshold"),
+        };
+        let capture_silence_min_duration = match capture_silence_min_duration {
+            Some(value) => value,
+            None => unreachable!("validated missing capture silence duration"),
+        };
+        let capture_tail_silence_min_duration = match capture_tail_silence_min_duration {
+            Some(value) => value,
+            None => unreachable!("validated missing capture tail silence duration"),
         };
         let speaker_sample_duration = match speaker_sample_duration {
             Some(value) => value,
@@ -589,6 +738,11 @@ impl RawConfig {
             recording_duration,
             capture_duration,
             capture_overlap,
+            capture_silence_request_policy: SilenceRequestPolicy {
+                silence_threshold_dbfs: capture_silence_threshold_dbfs,
+                silence_min_duration: capture_silence_min_duration,
+                tail_silence_min_duration: capture_tail_silence_min_duration,
+            },
             speaker_sample_duration,
             transcription_language,
             transcript_merge_policy: TranscriptMergePolicy {
@@ -665,6 +819,27 @@ fn parse_unit_interval(
     match value.value.parse::<f64>() {
         Ok(parsed) if (0.0..=1.0).contains(&parsed) => Ok(parsed),
         _ => Err(ConfigValidationError::InvalidUnitIntervalValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
+    }
+}
+
+fn parse_negative_decibel(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<f64, ConfigValidationError> {
+    if value.value.trim().is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match value.value.parse::<f64>() {
+        Ok(parsed) if parsed.is_finite() && parsed < 0.0 => Ok(parsed),
+        _ => Err(ConfigValidationError::InvalidNegativeDecibelValue {
             name,
             value: value.value,
             source: value.source,

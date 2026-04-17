@@ -1,5 +1,5 @@
 use crate::application::ports::{InterruptMonitor, RecordingWaitOutcome};
-use crate::domain::RecordedAudio;
+use crate::domain::{CaptureBoundary, CapturePolicy, RecordedAudio, SilenceRequestPolicy};
 use std::fmt;
 use std::time::Duration;
 
@@ -18,6 +18,15 @@ pub trait RecordingSession {
         duration: Duration,
         interrupt_monitor: &dyn InterruptMonitor,
     ) -> Result<RecordingWaitOutcome, RecorderError>;
+
+    /// 現在の capture 開始位置から、次に request を送るべき境界まで待機します。
+    fn wait_for_capture_boundary(
+        &mut self,
+        capture_start_offset: Duration,
+        capture_policy: &CapturePolicy,
+        silence_request_policy: &SilenceRequestPolicy,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<CaptureBoundary, RecorderError>;
 
     /// 現時点でバッファ済みの録音長を返します。
     fn recorded_duration(&mut self) -> Result<Duration, RecorderError>;

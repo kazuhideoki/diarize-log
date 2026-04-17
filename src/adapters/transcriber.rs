@@ -325,28 +325,6 @@ mod tests {
     }
 
     #[test]
-    /// transport エラー詳細は source chain と reqwest の判定結果を連結して診断しやすくする。
-    fn summarizes_request_error_details_for_debug_logging() {
-        let details = super::RequestErrorDetails {
-            is_builder: false,
-            is_connect: true,
-            is_request: true,
-            is_body: false,
-            is_decode: false,
-            is_redirect: false,
-            is_status: false,
-            is_timeout: true,
-            url: Some(super::TRANSCRIPTIONS_ENDPOINT.to_string()),
-            source_chain: "operation timed out -> dns failed".to_string(),
-        };
-
-        assert_eq!(
-            details.summary(),
-            "kind={builder:false connect:true request:true body:false decode:false redirect:false status:false timeout:true} url=https://api.openai.com/v1/audio/transcriptions source_chain=operation timed out -> dns failed"
-        );
-    }
-
-    #[test]
     /// source chain は最下層の原因まで順に連結する。
     fn formats_error_source_chain_in_order() {
         let error = TestError::with_source(

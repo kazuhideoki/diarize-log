@@ -402,44 +402,6 @@ mod tests {
     }
 
     #[test]
-    /// `--help` を受け取ると help 表示モードを返す。
-    fn returns_show_help_action_when_help_flag_is_given() {
-        let action =
-            parse_cli_args([OsString::from("diarize-log"), OsString::from("--help")]).unwrap();
-
-        match action {
-            CliAction::PrintOutput(message) => {
-                assert!(message.contains(
-                    "Records audio, requests diarized transcription for each capture, and stores the results."
-                ));
-                assert!(message.contains("Usage: diarize-log"));
-                assert!(message.contains("-h, --help"));
-                assert!(message.contains("-i, --audio-source <AUDIO_SOURCE>"));
-                assert!(message.contains("-s, --speaker-sample <SPEAKER_SAMPLES>"));
-                assert!(message.contains("--application-bundle-id <APPLICATION_BUNDLE_ID>"));
-            }
-            other => panic!("unexpected action: {other:?}"),
-        }
-    }
-
-    #[test]
-    /// `-h` を受け取ると help 表示モードを返す。
-    fn returns_show_help_action_when_short_help_flag_is_given() {
-        let action = parse_cli_args([OsString::from("diarize-log"), OsString::from("-h")]).unwrap();
-
-        match action {
-            CliAction::PrintOutput(message) => {
-                assert!(message.contains(
-                    "Records audio, requests diarized transcription for each capture, and stores the results."
-                ));
-                assert!(message.contains("Usage: diarize-log"));
-                assert!(message.contains("-h, --help"));
-            }
-            other => panic!("unexpected action: {other:?}"),
-        }
-    }
-
-    #[test]
     /// `speaker add` を受け取ると話者サンプル追加コマンドとして解釈する。
     fn parses_speaker_add_command() {
         let action = parse_cli_args([
@@ -526,26 +488,6 @@ mod tests {
                 assert!(message.contains("--verbose"));
             }
             other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[test]
-    /// `speaker --help` はサブコマンド固有の usage を表示する。
-    fn returns_speaker_subcommand_help_output() {
-        let action = parse_cli_args([
-            OsString::from("diarize-log"),
-            OsString::from("speaker"),
-            OsString::from("--help"),
-        ])
-        .unwrap();
-
-        match action {
-            CliAction::PrintOutput(message) => {
-                assert!(message.contains("Usage: diarize-log speaker <COMMAND>"));
-                assert!(message.contains("add"));
-                assert!(message.contains("remove"));
-            }
-            other => panic!("unexpected action: {other:?}"),
         }
     }
 

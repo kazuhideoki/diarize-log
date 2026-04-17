@@ -21,6 +21,7 @@ pub struct CaptureConfig {
     pub merge_policy: TranscriptMergePolicy,
     pub response_format: ResponseFormat,
     pub transcription_model: &'static str,
+    pub transcription_language: String,
     pub chunking_strategy: ChunkingStrategy,
 }
 
@@ -36,6 +37,7 @@ impl CaptureConfig {
         recording_duration: Duration,
         capture_duration: Duration,
         capture_overlap: Duration,
+        transcription_language: String,
     ) -> Self {
         Self {
             capture_policy: CapturePolicy {
@@ -46,6 +48,7 @@ impl CaptureConfig {
             merge_policy: TranscriptMergePolicy::recommended(),
             response_format: ResponseFormat::DiarizedJson,
             transcription_model: TRANSCRIPTION_MODEL,
+            transcription_language,
             chunking_strategy: ChunkingStrategy::Auto,
         }
     }
@@ -194,6 +197,7 @@ where
             capture_duration_ms: duration_to_millis(config.capture_policy.capture_duration),
             capture_overlap_ms: duration_to_millis(config.capture_policy.capture_overlap),
             transcription_model: config.transcription_model.to_string(),
+            transcription_language: config.transcription_language.clone(),
             response_format: config.response_format.as_api_value().to_string(),
             chunking_strategy: config.chunking_strategy.as_api_value().to_string(),
             merge_policy: config.merge_policy.clone(),
@@ -278,9 +282,40 @@ where
             audio,
             config,
             speaker_samples,
+<<<<<<< HEAD
             speaker_label,
             transcriber,
             capture_store,
+=======
+            model: config.transcription_model,
+            language: config.transcription_language.as_str(),
+            response_format: config.response_format,
+            chunking_strategy: config.chunking_strategy,
+        }) {
+            Ok(transcript) => transcript,
+            Err(error) => {
+                if !is_recoverable_transcription_error(&error) {
+                    return Err(CaptureError::Transcribe(error));
+                }
+                info_log(
+                    stderr,
+                    &format!(
+                        "transcription failed for capture {}, continuing: {error}",
+                        capture_range.capture_index
+                    ),
+                )
+                .map_err(CaptureError::Write)?;
+                transcription_failures.push(CaptureTranscriptionFailure {
+                    capture_index: capture_range.capture_index,
+                    capture_start_ms,
+                    message: error.to_string(),
+                });
+                continue;
+            }
+        };
+        let transcript = apply_speaker_label(transcript, speaker_label);
+        info_log(
+>>>>>>> main
             stderr,
             &mut capture_merger,
             &mut transcripts,
@@ -538,12 +573,15 @@ mod tests {
     use std::collections::VecDeque;
     use std::rc::Rc;
 
+    const TEST_TRANSCRIPTION_LANGUAGE: &str = "ja";
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct CapturedRequest {
         wav_bytes: Vec<u8>,
         content_type: &'static str,
         speaker_samples: Vec<KnownSpeakerSample>,
         model: &'static str,
+        language: String,
         response_format: ResponseFormat,
         chunking_strategy: ChunkingStrategy,
     }
@@ -665,6 +703,7 @@ mod tests {
                 content_type: request.audio.content_type,
                 speaker_samples: request.speaker_samples.to_vec(),
                 model: request.model,
+                language: request.language.to_string(),
                 response_format: request.response_format,
                 chunking_strategy: request.chunking_strategy,
             });
@@ -795,6 +834,19 @@ mod tests {
         }
     }
 
+    fn capture_config(
+        recording_duration: Duration,
+        capture_duration: Duration,
+        capture_overlap: Duration,
+    ) -> CaptureConfig {
+        CaptureConfig::new(
+            recording_duration,
+            capture_duration,
+            capture_overlap,
+            TEST_TRANSCRIPTION_LANGUAGE.to_string(),
+        )
+    }
+
     #[test]
     /// run 結果には recorder.start_recording の直後に取得した録音開始 Unix 時刻を含める。
     fn returns_recording_started_unix_time_in_result() {
@@ -836,7 +888,7 @@ mod tests {
     #[test]
     /// 継続録音を一度だけ開始し、capture ごとに待機と切り出しを行う。
     fn records_incremental_captures_with_overlap_and_requests_transcription() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(360),
             Duration::from_secs(180),
             Duration::from_secs(15),
@@ -907,6 +959,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
+                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -915,6 +968,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
+                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -923,6 +977,7 @@ mod tests {
                     content_type: "audio/wav",
                     speaker_samples: Vec::new(),
                     model: TRANSCRIPTION_MODEL,
+                    language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
@@ -933,7 +988,7 @@ mod tests {
     #[test]
     /// 指定した既知話者サンプルを各 capture の文字起こしリクエストへ添付する。
     fn attaches_known_speaker_samples_to_each_transcription_request() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -979,9 +1034,56 @@ mod tests {
     }
 
     #[test]
+    /// 設定した transcription language を各 capture の文字起こしリクエストへ渡す。
+    fn passes_transcription_language_to_each_request() {
+        let mut config = capture_config(
+            Duration::from_secs(40),
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+        );
+        config.transcription_language = "en".to_string();
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession {
+                observation: Rc::clone(&observation),
+                audios: VecDeque::from(vec![sample_audio(), sample_audio()]),
+            }),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let mut stderr = Vec::new();
+
+        run_capture(
+            &config,
+            &[],
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert_eq!(
+            transcriber
+                .observed_requests
+                .borrow()
+                .iter()
+                .map(|request| request.language.clone())
+                .collect::<Vec<_>>(),
+            vec!["en".to_string(), "en".to_string()]
+        );
+    }
+
+    #[test]
     /// 文字起こし結果を capture 順にまとめて返す。
     fn returns_transcription_results_to_caller() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(18),
@@ -1057,7 +1159,7 @@ mod tests {
     #[test]
     /// capture store へ各 capture の wav と transcript を開始オフセット付きで保存する。
     fn persists_each_capture_via_capture_store() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -1118,7 +1220,7 @@ mod tests {
     #[test]
     /// overlap が重複した発話は merge 後の absolute segment として 1 回だけ保存する。
     fn persists_merged_segments_after_deduplicating_overlap() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(18),
@@ -1192,7 +1294,7 @@ mod tests {
     #[test]
     /// send request 失敗は capture 単位で記録して後続 capture の処理を続ける。
     fn continues_after_recoverable_transcription_failure_and_records_it_in_result() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -1409,7 +1511,7 @@ mod tests {
     #[test]
     /// 非回復な transcription 失敗は run 全体の失敗として即時に返す。
     fn stops_on_nonrecoverable_transcription_failure() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -1465,7 +1567,7 @@ mod tests {
     #[test]
     /// 通常ログとして録音開始と capture ごとの API 送受信を標準エラーへ順序通りに出力する。
     fn writes_normal_operation_logs_to_stderr() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -1528,7 +1630,7 @@ mod tests {
     #[test]
     /// capture 開始前に session metadata を保存し、各 merge 判定の監査ログも保存する。
     fn persists_session_metadata_and_merge_audit_entries() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(18),
@@ -1587,6 +1689,7 @@ mod tests {
                 capture_duration_ms: 30_000,
                 capture_overlap_ms: 18_000,
                 transcription_model: TRANSCRIPTION_MODEL.to_string(),
+                transcription_language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
                 response_format: "diarized_json".to_string(),
                 chunking_strategy: "auto".to_string(),
                 merge_policy: TranscriptMergePolicy::recommended(),
@@ -1622,7 +1725,7 @@ mod tests {
     #[test]
     /// 最終 capture を切り出したら最後の文字起こし前に録音 session を破棄する。
     fn drops_recording_session_before_transcribing_final_capture() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
             Duration::from_secs(10),
@@ -1661,7 +1764,7 @@ mod tests {
     #[test]
     /// 録音終端に届く capture の後ろに tail capture が続く場合でも、最後の capture までは session を維持する。
     fn keeps_recording_session_until_tail_capture_is_copied() {
-        let config = CaptureConfig::new(
+        let config = capture_config(
             Duration::from_secs(20),
             Duration::from_secs(10),
             Duration::from_secs(5),

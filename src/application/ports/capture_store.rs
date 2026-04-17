@@ -12,6 +12,7 @@ pub struct CaptureSessionMetadata {
     pub capture_duration_ms: u64,
     pub capture_overlap_ms: u64,
     pub transcription_model: String,
+    pub transcription_language: String,
     pub response_format: String,
     pub chunking_strategy: String,
     pub merge_policy: TranscriptMergePolicy,

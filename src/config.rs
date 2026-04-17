@@ -6,11 +6,13 @@ use std::time::Duration;
 
 /// 既定の `.env` ファイルパスです。
 pub const DEFAULT_DOTENV_PATH: &str = ".env";
+const DEFAULT_TRANSCRIPTION_LANGUAGE: &str = "ja";
 const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 const RECORDING_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_RECORDING_DURATION_SECONDS";
 const CAPTURE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_DURATION_SECONDS";
 const CAPTURE_OVERLAP_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS";
 const SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR: &str = "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS";
+const TRANSCRIPTION_LANGUAGE_ENV_VAR: &str = "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE";
 const DEBUG_ENV_VAR: &str = "DIARIZE_LOG_DEBUG";
 const STORAGE_ROOT_ENV_VAR: &str = "DIARIZE_LOG_STORAGE_ROOT";
 const MERGE_MIN_OVERLAP_CHARS_ENV_VAR: &str = "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS";
@@ -26,6 +28,7 @@ pub struct Config {
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
     pub speaker_sample_duration: Duration,
+    pub transcription_language: String,
     pub transcript_merge_policy: TranscriptMergePolicy,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
@@ -88,6 +91,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidTranscriptionLanguageValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     InvalidCaptureOverlap {
         overlap_name: &'static str,
         capture_duration_name: &'static str,
@@ -146,6 +154,14 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "invalid unit interval value for {name} from {source}: {value}"
             ),
+            Self::InvalidTranscriptionLanguageValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid transcription language value for {name} from {source}: {value}"
+            ),
             Self::InvalidCaptureOverlap {
                 overlap_name,
                 capture_duration_name,
@@ -189,6 +205,7 @@ struct RawConfig {
     capture_duration_seconds: Option<ConfigValue<String>>,
     capture_overlap_seconds: Option<ConfigValue<String>>,
     speaker_sample_duration_seconds: Option<ConfigValue<String>>,
+    transcription_language: Option<ConfigValue<String>>,
     merge_min_overlap_chars: Option<ConfigValue<String>>,
     merge_alignment_ratio: Option<ConfigValue<String>>,
     merge_trigram_similarity: Option<ConfigValue<String>>,
@@ -214,6 +231,10 @@ impl RawConfig {
             ),
             speaker_sample_duration_seconds: read_env_var(
                 SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            transcription_language: read_env_var(
+                TRANSCRIPTION_LANGUAGE_ENV_VAR,
                 ConfigSource::Environment,
             ),
             merge_min_overlap_chars: read_env_var(
@@ -260,6 +281,10 @@ impl RawConfig {
                             raw.speaker_sample_duration_seconds =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
+                        TRANSCRIPTION_LANGUAGE_ENV_VAR => {
+                            raw.transcription_language =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
                         MERGE_MIN_OVERLAP_CHARS_ENV_VAR => {
                             raw.merge_min_overlap_chars =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
@@ -304,6 +329,9 @@ impl RawConfig {
             speaker_sample_duration_seconds: self
                 .speaker_sample_duration_seconds
                 .or(fallback.speaker_sample_duration_seconds),
+            transcription_language: self
+                .transcription_language
+                .or(fallback.transcription_language),
             merge_min_overlap_chars: self
                 .merge_min_overlap_chars
                 .or(fallback.merge_min_overlap_chars),
@@ -424,6 +452,19 @@ impl RawConfig {
             }
         };
 
+        let transcription_language = match self.transcription_language {
+            Some(value) => {
+                match parse_transcription_language(value, TRANSCRIPTION_LANGUAGE_ENV_VAR) {
+                    Ok(language) => Some(language),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => Some(DEFAULT_TRANSCRIPTION_LANGUAGE.to_string()),
+        };
+
         let storage_root = match self.storage_root {
             Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
                 Ok(path) => Some(path),
@@ -518,6 +559,10 @@ impl RawConfig {
             Some(value) => value,
             None => unreachable!("validated missing speaker sample duration"),
         };
+        let transcription_language = match transcription_language {
+            Some(value) => value,
+            None => unreachable!("validated missing transcription language"),
+        };
         let merge_min_overlap_chars = match merge_min_overlap_chars {
             Some(value) => value,
             None => unreachable!("validated missing merge min overlap chars"),
@@ -542,6 +587,7 @@ impl RawConfig {
             capture_duration,
             capture_overlap,
             speaker_sample_duration,
+            transcription_language,
             transcript_merge_policy: TranscriptMergePolicy {
                 min_overlap_chars: merge_min_overlap_chars,
                 min_alignment_ratio: merge_alignment_ratio,
@@ -623,6 +669,28 @@ fn parse_unit_interval(
     }
 }
 
+fn parse_transcription_language(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<String, ConfigValidationError> {
+    let trimmed = value.value.trim();
+    if trimmed.is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match trimmed {
+        "ja" | "en" => Ok(trimmed.to_string()),
+        _ => Err(ConfigValidationError::InvalidTranscriptionLanguageValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
+    }
+}
+
 fn parse_absolute_path(
     value: ConfigValue<String>,
     name: &'static str,
@@ -677,6 +745,8 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_transcription_language =
+            std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
         let original_merge_min_overlap_chars =
             std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
         let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
@@ -689,6 +759,7 @@ mod tests {
             std::env::set_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS", "20");
             std::env::set_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS", "5");
             std::env::set_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS", "8");
+            std::env::set_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", "en");
             std::env::set_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS", "11");
             std::env::set_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO", "0.85");
             std::env::set_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY", "0.6");
@@ -712,6 +783,10 @@ mod tests {
             original_sample_duration,
         );
         restore_env_var(
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            original_transcription_language,
+        );
+        restore_env_var(
             "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
             original_merge_min_overlap_chars,
         );
@@ -730,6 +805,7 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(20));
         assert_eq!(config.capture_overlap, Duration::from_secs(5));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(8));
+        assert_eq!(config.transcription_language, "en");
         assert_eq!(config.transcript_merge_policy.min_overlap_chars, 11);
         assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.85);
         assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.6);
@@ -761,6 +837,8 @@ mod tests {
         let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
         let original_sample_duration =
             std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_transcription_language =
+            std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
         let original_merge_min_overlap_chars =
             std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
         let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
@@ -773,6 +851,7 @@ mod tests {
             std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
             std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
             std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
             std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
             std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
             std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
@@ -796,6 +875,10 @@ mod tests {
             original_sample_duration,
         );
         restore_env_var(
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            original_transcription_language,
+        );
+        restore_env_var(
             "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
             original_merge_min_overlap_chars,
         );
@@ -814,10 +897,40 @@ mod tests {
         assert_eq!(config.capture_duration, Duration::from_secs(12));
         assert_eq!(config.capture_overlap, Duration::from_secs(2));
         assert_eq!(config.speaker_sample_duration, Duration::from_secs(6));
+        assert_eq!(config.transcription_language, "ja");
         assert_eq!(config.transcript_merge_policy.min_overlap_chars, 12);
         assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.88);
         assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.66);
         assert_eq!(config.storage_root, storage_root);
+    }
+
+    #[test]
+    /// transcription language は .env から読み込み、許可値ならそのまま解決する。
+    fn resolves_transcription_language_from_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=en\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert_eq!(config.transcription_language, "en");
     }
 
     #[test]
@@ -1092,6 +1205,77 @@ mod tests {
             if errors == vec![ConfigValidationError::EmptyValue {
                 name: "OPENAI_API_KEY",
                 source: ConfigSource::Environment,
+            }]
+        ));
+    }
+
+    #[test]
+    /// transcription language が空白だけなら設定エラーにする。
+    fn returns_error_when_transcription_language_is_blank() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=   \nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::EmptyValue {
+                name: "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
+    /// transcription language は日本語と英語だけを許可する。
+    fn returns_error_for_unsupported_transcription_language() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=fr\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_language = std::env::var_os("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", original_language);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidTranscriptionLanguageValue {
+                name: "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+                value: "fr".to_string(),
+                source: ConfigSource::DotEnv,
             }]
         ));
     }

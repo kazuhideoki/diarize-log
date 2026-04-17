@@ -21,6 +21,12 @@
   - 現在は `ScreenCaptureKit` の Swift runtime をテスト/実行バイナリから解決するための `rpath` 付与だけを責務にする。
   - 手動実行は不要で、`cargo check` / `cargo build` / `cargo test` 実行時に Cargo から自動実行される前提で扱う。
 
+## Documentation
+
+- ドメイン用語の正しい意味と使い分け [docs/domain-words.md](docs/domain-words.md)
+  - 参照タイミング: `domain/` の型・関数・doc comment、`application/` から見える公開用語、新しい概念名・別名・略語を追加または変更する前に参照する。
+  - 変更タイミング: 中心概念の追加、既存語の意味やスコープ変更、用語統一の命名変更、禁止語や注意語の明文化をしたときに同じ変更内で更新する。
+
 ## Commands
 
 - `cargo check`

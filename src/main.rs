@@ -4,13 +4,14 @@ use diarize_log::adapters::{
 };
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
-    AudioSource, CaptureConfig, ChunkingStrategy, CliAction, InterruptMonitor, KnownSpeakerSample,
-    LineLogger, LogSource, Logger, MixedCaptureSessionMetadata, MixedCaptureSourceSettings,
-    Recorder, ResponseFormat, SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource,
-    parse_cli_args, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
+    AudioSource, CaptureConfig, CaptureRunResult, ChunkingStrategy, CliAction, DebugOutputError,
+    InterruptMonitor, KnownSpeakerSample, LineLogger, LogSource, Logger, MixedCaptureRunResult,
+    MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
+    SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource, parse_cli_args,
+    run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
     write_debug_transcript,
 };
-use std::io::{self};
+use std::io::{self, Write};
 use std::path::Path;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -138,11 +139,15 @@ fn main() -> ExitCode {
                 &mut speaker_store,
             ) {
                 Ok(SpeakerCommandResult::Updated) => ExitCode::SUCCESS,
-                Ok(SpeakerCommandResult::ListedSpeakers(speaker_names)) => {
-                    for speaker_name in speaker_names {
-                        println!("{speaker_name}");
+                Ok(result) => {
+                    let mut stdout = io::stdout();
+                    match complete_speaker_command(&mut stdout, result) {
+                        Ok(exit_code) => exit_code,
+                        Err(error) => {
+                            eprintln!("{error}");
+                            ExitCode::FAILURE
+                        }
                     }
-                    ExitCode::SUCCESS
                 }
                 Err(error) => {
                     eprintln!("{error}");
@@ -229,19 +234,12 @@ where
         interrupt_monitor,
     ) {
         Ok(result) => {
-            if let Err(error) = write_debug_transcript(
-                runtime_config.debug_enabled,
-                &mut stdout,
-                &result.transcripts,
-            ) {
-                eprintln!("{error}");
-                return ExitCode::FAILURE;
-            }
-
-            if result.completed_without_failures() {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
+            match complete_capture_command(runtime_config.debug_enabled, &mut stdout, &result) {
+                Ok(exit_code) => exit_code,
+                Err(error) => {
+                    eprintln!("{error}");
+                    ExitCode::FAILURE
+                }
             }
         }
         Err(error) => {
@@ -341,19 +339,13 @@ fn run_mixed_capture_command(
     let mut stdout = io::stdout();
     match mixed_result {
         Ok(result) => {
-            if let Err(error) = write_debug_transcript(
-                runtime_config.debug_enabled,
-                &mut stdout,
-                &result.debug_transcripts,
-            ) {
-                eprintln!("{error}");
-                return ExitCode::FAILURE;
-            }
-
-            if result.completed_without_failures() {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
+            match complete_mixed_capture_command(runtime_config.debug_enabled, &mut stdout, &result)
+            {
+                Ok(exit_code) => exit_code,
+                Err(error) => {
+                    eprintln!("{error}");
+                    ExitCode::FAILURE
+                }
             }
         }
         Err(error) => {
@@ -493,6 +485,53 @@ where
     .map_err(|error| error.to_string())
 }
 
+fn complete_capture_command<W>(
+    debug_enabled: bool,
+    output: &mut W,
+    result: &CaptureRunResult,
+) -> Result<ExitCode, DebugOutputError>
+where
+    W: Write,
+{
+    write_debug_transcript(debug_enabled, output, &result.transcripts)?;
+    Ok(if result.completed_without_failures() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
+fn complete_mixed_capture_command<W>(
+    debug_enabled: bool,
+    output: &mut W,
+    result: &MixedCaptureRunResult,
+) -> Result<ExitCode, DebugOutputError>
+where
+    W: Write,
+{
+    write_debug_transcript(debug_enabled, output, &result.debug_transcripts)?;
+    Ok(if result.completed_without_failures() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
+fn complete_speaker_command<W>(output: &mut W, result: SpeakerCommandResult) -> io::Result<ExitCode>
+where
+    W: Write,
+{
+    match result {
+        SpeakerCommandResult::Updated => Ok(ExitCode::SUCCESS),
+        SpeakerCommandResult::ListedSpeakers(speaker_names) => {
+            for speaker_name in speaker_names {
+                writeln!(output, "{speaker_name}")?;
+            }
+            Ok(ExitCode::SUCCESS)
+        }
+    }
+}
+
 fn duration_to_millis(duration: std::time::Duration) -> u64 {
     u64::try_from(duration.as_millis()).expect("duration in millis must fit into u64")
 }
@@ -506,5 +545,316 @@ fn response_format_value(format: ResponseFormat) -> &'static str {
 fn chunking_strategy_value(strategy: ChunkingStrategy) -> &'static str {
     match strategy {
         ChunkingStrategy::Auto => "auto",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use diarize_log::{
+        CaptureRunResult, CaptureTranscriptionFailure, DiarizedTranscript, MergedTranscriptSegment,
+        MixedCaptureRunResult, RecordedAudio, SourcedTranscriptSegment, TranscriptSegment,
+        TranscriptionLanguage,
+    };
+    use std::cell::RefCell;
+    use std::io;
+    use std::path::PathBuf;
+    use std::rc::Rc;
+    use std::time::Duration;
+
+    #[derive(Clone, Default)]
+    struct SpySpeakerStore {
+        reads: Rc<RefCell<Vec<String>>>,
+        samples: Vec<KnownSpeakerSample>,
+        read_error: Option<diarize_log::SpeakerStoreError>,
+    }
+
+    impl SpeakerStore for SpySpeakerStore {
+        fn create_sample(
+            &mut self,
+            _speaker_name: &str,
+            _audio: &RecordedAudio,
+        ) -> Result<(), diarize_log::SpeakerStoreError> {
+            unimplemented!("speaker sample creation is not used in these tests")
+        }
+
+        fn remove_sample(
+            &mut self,
+            _speaker_name: &str,
+        ) -> Result<(), diarize_log::SpeakerStoreError> {
+            unimplemented!("speaker sample removal is not used in these tests")
+        }
+
+        fn list_samples(&self) -> Result<Vec<String>, diarize_log::SpeakerStoreError> {
+            unimplemented!("speaker sample listing is not used in these tests")
+        }
+
+        fn read_sample(
+            &self,
+            speaker_name: &str,
+        ) -> Result<KnownSpeakerSample, diarize_log::SpeakerStoreError> {
+            self.reads.borrow_mut().push(speaker_name.to_string());
+            if let Some(error) = &self.read_error {
+                return Err(error.clone());
+            }
+
+            self.samples
+                .iter()
+                .find(|sample| sample.speaker_name == speaker_name)
+                .cloned()
+                .ok_or_else(|| diarize_log::SpeakerStoreError::SpeakerNotFound {
+                    speaker_name: speaker_name.to_string(),
+                })
+        }
+    }
+
+    struct FailingWriter;
+
+    impl io::Write for FailingWriter {
+        fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+            Err(io::Error::other("write failed"))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn sample_audio() -> RecordedAudio {
+        RecordedAudio {
+            wav_bytes: vec![0x52, 0x49, 0x46, 0x46],
+            content_type: "audio/wav",
+        }
+    }
+
+    fn sample_known_speaker(name: &str) -> KnownSpeakerSample {
+        KnownSpeakerSample {
+            speaker_name: name.to_string(),
+            audio: sample_audio(),
+        }
+    }
+
+    fn sample_transcript(text: &str, speaker: &str) -> DiarizedTranscript {
+        DiarizedTranscript {
+            text: text.to_string(),
+            segments: vec![TranscriptSegment {
+                speaker: speaker.to_string(),
+                start_ms: 0,
+                end_ms: 800,
+                text: text.to_string(),
+            }],
+        }
+    }
+
+    fn sample_config() -> Config {
+        Config {
+            openai_api_key: "test-api-key".to_string(),
+            openai_api_key_source: diarize_log::config::ConfigSource::Environment,
+            recording_duration: Duration::from_secs(90),
+            capture_duration: Duration::from_secs(30),
+            capture_overlap: Duration::from_secs(5),
+            capture_silence_request_policy: diarize_log::domain::SilenceRequestPolicy {
+                silence_threshold_dbfs: -33.5,
+                silence_min_duration: Duration::from_millis(900),
+                tail_silence_min_duration: Duration::from_millis(400),
+            },
+            speaker_sample_duration: Duration::from_secs(7),
+            transcription_language: TranscriptionLanguage::Fixed("ja".to_string()),
+            transcript_merge_policy: diarize_log::domain::TranscriptMergePolicy {
+                min_overlap_chars: 12,
+                min_alignment_ratio: 0.82,
+                min_trigram_similarity: 0.61,
+            },
+            debug_enabled: true,
+            storage_root: PathBuf::from("/tmp/diarize-log-tests"),
+        }
+    }
+
+    fn sample_capture_run_result() -> CaptureRunResult {
+        CaptureRunResult {
+            started_at_unix_ms: 1_700_000_000_000,
+            transcripts: vec![sample_transcript("hello", "spk_0")],
+            merged_segments: vec![MergedTranscriptSegment {
+                speaker: "spk_0".to_string(),
+                start_ms: 0,
+                end_ms: 800,
+                text: "hello".to_string(),
+            }],
+            transcription_failures: Vec::new(),
+        }
+    }
+
+    fn sample_mixed_capture_run_result() -> MixedCaptureRunResult {
+        MixedCaptureRunResult {
+            final_segments: vec![SourcedTranscriptSegment {
+                source: TranscriptSource::Application,
+                speaker: "spk_0".to_string(),
+                start_ms: 0,
+                end_ms: 800,
+                text: "hello".to_string(),
+            }],
+            source_outcomes: vec![
+                diarize_log::MixedCaptureSourceOutcome {
+                    source: TranscriptSource::Microphone,
+                    started_at_unix_ms: 1_700_000_000_000,
+                    status: diarize_log::MixedCaptureSourceStatus::Succeeded,
+                    transcription_failure_count: 0,
+                    error_message: None,
+                },
+                diarize_log::MixedCaptureSourceOutcome {
+                    source: TranscriptSource::Application,
+                    started_at_unix_ms: 1_700_000_000_100,
+                    status: diarize_log::MixedCaptureSourceStatus::Succeeded,
+                    transcription_failure_count: 0,
+                    error_message: None,
+                },
+            ],
+            debug_transcripts: vec![sample_transcript("hello", "spk_0")],
+        }
+    }
+
+    #[test]
+    /// 既知話者サンプル読み込みは CLI 指定順を保ったまま保存先へ委譲する。
+    fn loads_known_speaker_samples_in_cli_order() {
+        let speaker_store = SpySpeakerStore {
+            reads: Rc::new(RefCell::new(Vec::new())),
+            samples: vec![sample_known_speaker("sato"), sample_known_speaker("suzuki")],
+            read_error: None,
+        };
+
+        let samples =
+            load_known_speaker_samples(&speaker_store, &["suzuki".to_string(), "sato".to_string()])
+                .unwrap();
+
+        assert_eq!(
+            *speaker_store.reads.borrow(),
+            vec!["suzuki".to_string(), "sato".to_string()]
+        );
+        assert_eq!(
+            samples
+                .iter()
+                .map(|sample| sample.speaker_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["suzuki", "sato"]
+        );
+    }
+
+    #[test]
+    /// mixed capture metadata には runtime config と source ごとの差分設定を保存する。
+    fn builds_mixed_capture_metadata_from_runtime_config() {
+        let metadata = build_mixed_capture_metadata(&sample_config(), "com.apple.Safari", "me");
+
+        assert_eq!(metadata.mode, "mixed");
+        assert_eq!(metadata.application_bundle_id, "com.apple.Safari");
+        assert_eq!(metadata.microphone_speaker, "me");
+        assert_eq!(metadata.source_outcomes, Vec::new());
+        assert_eq!(metadata.source_settings.len(), 2);
+        assert_eq!(
+            metadata.source_settings[0].source,
+            TranscriptSource::Microphone
+        );
+        assert_eq!(
+            metadata.source_settings[0].fixed_speaker,
+            Some("me".to_string())
+        );
+        assert_eq!(metadata.source_settings[0].recording_duration_ms, 90_000);
+        assert_eq!(metadata.source_settings[0].capture_duration_ms, 30_000);
+        assert_eq!(metadata.source_settings[0].capture_overlap_ms, 5_000);
+        assert_eq!(
+            metadata.source_settings[0].capture_silence_threshold_dbfs,
+            -33.5
+        );
+        assert_eq!(
+            metadata.source_settings[0].capture_silence_min_duration_ms,
+            900
+        );
+        assert_eq!(
+            metadata.source_settings[0].capture_tail_silence_min_duration_ms,
+            400
+        );
+        assert_eq!(metadata.source_settings[0].transcription_language, "ja");
+        assert_eq!(metadata.source_settings[0].response_format, "diarized_json");
+        assert_eq!(metadata.source_settings[0].chunking_strategy, "auto");
+        assert_eq!(
+            metadata.source_settings[0].merge_policy,
+            sample_config().transcript_merge_policy
+        );
+        assert_eq!(
+            metadata.source_settings[1].source,
+            TranscriptSource::Application
+        );
+        assert_eq!(metadata.source_settings[1].fixed_speaker, None);
+    }
+
+    #[test]
+    /// capture 完了時は debug transcript を出力し、失敗が無ければ成功コードを返す。
+    fn completes_capture_command_with_success_exit_code_after_debug_output() {
+        let mut output = Vec::new();
+
+        let exit_code =
+            complete_capture_command(true, &mut output, &sample_capture_run_result()).unwrap();
+
+        assert_eq!(exit_code, ExitCode::SUCCESS);
+        let stdout = String::from_utf8(output).unwrap();
+        assert!(stdout.contains("\"text\": \"hello\""));
+    }
+
+    #[test]
+    /// partial failure を含む capture 結果は transcript を出力しても失敗コードを返す。
+    fn completes_capture_command_with_failure_exit_code_for_partial_failure() {
+        let mut output = Vec::new();
+        let mut result = sample_capture_run_result();
+        result
+            .transcription_failures
+            .push(CaptureTranscriptionFailure {
+                capture_index: 2,
+                capture_start_ms: 800,
+                message: "request failed".to_string(),
+            });
+
+        let exit_code = complete_capture_command(true, &mut output, &result).unwrap();
+
+        assert_eq!(exit_code, ExitCode::FAILURE);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    /// debug transcript の出力に失敗した場合は capture 完了処理も失敗する。
+    fn fails_capture_command_completion_when_debug_output_write_fails() {
+        let error =
+            complete_capture_command(true, &mut FailingWriter, &sample_capture_run_result())
+                .unwrap_err();
+
+        assert!(error.to_string().contains("failed to"));
+        assert!(error.to_string().contains("debug stdout"));
+    }
+
+    #[test]
+    /// mixed capture 完了時は debug transcript を出力し、全 source 成功なら成功コードを返す。
+    fn completes_mixed_capture_command_with_success_exit_code_after_debug_output() {
+        let mut output = Vec::new();
+
+        let exit_code =
+            complete_mixed_capture_command(true, &mut output, &sample_mixed_capture_run_result())
+                .unwrap();
+
+        assert_eq!(exit_code, ExitCode::SUCCESS);
+        let stdout = String::from_utf8(output).unwrap();
+        assert!(stdout.contains("\"text\": \"hello\""));
+    }
+
+    #[test]
+    /// 話者一覧出力は 1 行 1 話者の現在の CLI 表示を維持する。
+    fn completes_speaker_command_result_by_printing_each_name_on_its_own_line() {
+        let mut output = Vec::new();
+
+        let exit_code = complete_speaker_command(
+            &mut output,
+            SpeakerCommandResult::ListedSpeakers(vec!["sato".to_string(), "suzuki".to_string()]),
+        )
+        .unwrap();
+
+        assert_eq!(exit_code, ExitCode::SUCCESS);
+        assert_eq!(String::from_utf8(output).unwrap(), "sato\nsuzuki\n");
     }
 }

@@ -1096,28 +1096,19 @@ fn frame_count_to_duration(frame_count: u64, sample_rate: u32) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::{
-<<<<<<< HEAD
-        encode_wav, normalize_pcm_format, select_application_display_index,
-        wait_for_capture_boundary,
+        AUDIO_DETECTION_SAMPLE_THRESHOLD, encode_wav, maybe_log_audio_detected,
+        normalize_pcm_format, select_application_display_index, wait_for_capture_boundary,
     };
     use crate::application::ports::{InterruptMonitor, RecorderError};
     use crate::domain::{
         CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
     };
-    use screencapturekit::cg::CGRect;
-    use std::io::Cursor;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-=======
-        AUDIO_DETECTION_SAMPLE_THRESHOLD, encode_wav, maybe_log_audio_detected,
-        normalize_pcm_format, select_application_display_index,
-    };
-    use crate::domain::RecordedAudio;
     use crate::{LogSource, Logger};
     use screencapturekit::cg::CGRect;
     use std::io::Cursor;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[derive(Clone, Default)]
     struct SharedBuffer {
@@ -1140,7 +1131,6 @@ mod tests {
             Ok(())
         }
     }
->>>>>>> main
 
     #[test]
     /// PCM サンプル列を 16bit PCM の WAV バイト列へ変換する。
@@ -1210,7 +1200,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
     /// 無音分割は 50ms 窓ごとの連続無音が必要長に届くまで待ち、届いた時点で確定する。
     fn waits_until_trailing_silence_reaches_required_duration() {
         let sample_rate = 1_000;
@@ -1272,7 +1261,9 @@ mod tests {
         fn is_interrupt_requested(&self) -> bool {
             false
         }
-=======
+    }
+
+    #[test]
     /// しきい値未満の微小ノイズだけでは音声検知しないが、しきい値到達で検知する。
     fn detects_audio_only_after_samples_reach_threshold() {
         assert!(!super::contains_detectable_audio(&[
@@ -1304,6 +1295,5 @@ mod tests {
             sink.contents(),
             "[info] [microphone] [recorder] audio input detected\n"
         );
->>>>>>> main
     }
 }

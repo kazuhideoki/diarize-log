@@ -1,6 +1,9 @@
+mod load;
+mod resolve;
+
 use crate::application::TranscriptionLanguage;
 use crate::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
-use dotenvy::{Error as DotenvError, from_filename_iter};
+use dotenvy::Error as DotenvError;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -252,653 +255,14 @@ struct RawConfig {
     storage_root: Option<ConfigValue<String>>,
 }
 
-impl RawConfig {
-    fn from_env() -> Self {
-        Self {
-            openai_api_key: read_env_var(OPENAI_API_KEY_ENV_VAR, ConfigSource::Environment),
-            recording_duration_seconds: read_env_var(
-                RECORDING_DURATION_SECONDS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            capture_duration_seconds: read_env_var(
-                CAPTURE_DURATION_SECONDS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            capture_overlap_seconds: read_env_var(
-                CAPTURE_OVERLAP_SECONDS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            capture_silence_threshold_dbfs: read_env_var(
-                CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            capture_silence_min_duration_ms: read_env_var(
-                CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            capture_tail_silence_min_duration_ms: read_env_var(
-                CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            speaker_sample_duration_seconds: read_env_var(
-                SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            transcription_language: read_env_var(
-                TRANSCRIPTION_LANGUAGE_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            merge_min_overlap_chars: read_env_var(
-                MERGE_MIN_OVERLAP_CHARS_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            merge_alignment_ratio: read_env_var(
-                MERGE_ALIGNMENT_RATIO_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            merge_trigram_similarity: read_env_var(
-                MERGE_TRIGRAM_SIMILARITY_ENV_VAR,
-                ConfigSource::Environment,
-            ),
-            debug_enabled: read_env_var(DEBUG_ENV_VAR, ConfigSource::Environment),
-            storage_root: read_env_var(STORAGE_ROOT_ENV_VAR, ConfigSource::Environment),
-        }
-    }
-
-    fn from_dotenv_path(dotenv_path: &Path) -> Result<Self, ConfigError> {
-        let mut raw = Self::default();
-
-        match from_filename_iter(dotenv_path) {
-            Ok(iter) => {
-                for item in iter {
-                    let (key, value) = item.map_err(ConfigError::ReadDotEnv)?;
-                    match key.as_str() {
-                        OPENAI_API_KEY_ENV_VAR => {
-                            raw.openai_api_key = Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        RECORDING_DURATION_SECONDS_ENV_VAR => {
-                            raw.recording_duration_seconds =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        CAPTURE_DURATION_SECONDS_ENV_VAR => {
-                            raw.capture_duration_seconds =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        CAPTURE_OVERLAP_SECONDS_ENV_VAR => {
-                            raw.capture_overlap_seconds =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR => {
-                            raw.capture_silence_threshold_dbfs =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR => {
-                            raw.capture_silence_min_duration_ms =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR => {
-                            raw.capture_tail_silence_min_duration_ms =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR => {
-                            raw.speaker_sample_duration_seconds =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        TRANSCRIPTION_LANGUAGE_ENV_VAR => {
-                            raw.transcription_language =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        MERGE_MIN_OVERLAP_CHARS_ENV_VAR => {
-                            raw.merge_min_overlap_chars =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        MERGE_ALIGNMENT_RATIO_ENV_VAR => {
-                            raw.merge_alignment_ratio =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        MERGE_TRIGRAM_SIMILARITY_ENV_VAR => {
-                            raw.merge_trigram_similarity =
-                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        DEBUG_ENV_VAR => {
-                            raw.debug_enabled = Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        STORAGE_ROOT_ENV_VAR => {
-                            raw.storage_root = Some(ConfigValue::new(value, ConfigSource::DotEnv))
-                        }
-                        _ => {}
-                    }
-                }
-
-                Ok(raw)
-            }
-            Err(DotenvError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => Ok(raw),
-            Err(error) => Err(ConfigError::ReadDotEnv(error)),
-        }
-    }
-
-    fn merge_missing(self, fallback: Self) -> Self {
-        Self {
-            openai_api_key: self.openai_api_key.or(fallback.openai_api_key),
-            recording_duration_seconds: self
-                .recording_duration_seconds
-                .or(fallback.recording_duration_seconds),
-            capture_duration_seconds: self
-                .capture_duration_seconds
-                .or(fallback.capture_duration_seconds),
-            capture_overlap_seconds: self
-                .capture_overlap_seconds
-                .or(fallback.capture_overlap_seconds),
-            capture_silence_threshold_dbfs: self
-                .capture_silence_threshold_dbfs
-                .or(fallback.capture_silence_threshold_dbfs),
-            capture_silence_min_duration_ms: self
-                .capture_silence_min_duration_ms
-                .or(fallback.capture_silence_min_duration_ms),
-            capture_tail_silence_min_duration_ms: self
-                .capture_tail_silence_min_duration_ms
-                .or(fallback.capture_tail_silence_min_duration_ms),
-            speaker_sample_duration_seconds: self
-                .speaker_sample_duration_seconds
-                .or(fallback.speaker_sample_duration_seconds),
-            transcription_language: self
-                .transcription_language
-                .or(fallback.transcription_language),
-            merge_min_overlap_chars: self
-                .merge_min_overlap_chars
-                .or(fallback.merge_min_overlap_chars),
-            merge_alignment_ratio: self
-                .merge_alignment_ratio
-                .or(fallback.merge_alignment_ratio),
-            merge_trigram_similarity: self
-                .merge_trigram_similarity
-                .or(fallback.merge_trigram_similarity),
-            debug_enabled: self.debug_enabled.or(fallback.debug_enabled),
-            storage_root: self.storage_root.or(fallback.storage_root),
-        }
-    }
-
-    fn validate(self) -> Result<Config, ConfigError> {
-        let mut errors = Vec::new();
-
-        let openai_api_key = match self.openai_api_key {
-            Some(value) => {
-                if value.value.trim().is_empty() {
-                    errors.push(ConfigValidationError::EmptyValue {
-                        name: OPENAI_API_KEY_ENV_VAR,
-                        source: value.source,
-                    });
-                }
-                Some(value)
-            }
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: OPENAI_API_KEY_ENV_VAR,
-                });
-                None
-            }
-        };
-
-        let recording_duration = match self.recording_duration_seconds {
-            Some(value) => {
-                match parse_positive_integer(value, RECORDING_DURATION_SECONDS_ENV_VAR) {
-                    Ok(seconds) => Some(Duration::from_secs(seconds)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: RECORDING_DURATION_SECONDS_ENV_VAR,
-                });
-                None
-            }
-        };
-
-        let capture_duration = match self.capture_duration_seconds {
-            Some(value) => {
-                let source = value.source;
-                match parse_positive_integer(value, CAPTURE_DURATION_SECONDS_ENV_VAR) {
-                    Ok(seconds) => Some((seconds, source)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: CAPTURE_DURATION_SECONDS_ENV_VAR,
-                });
-                None
-            }
-        };
-
-        let capture_overlap = match self.capture_overlap_seconds {
-            Some(value) => {
-                let source = value.source;
-                match parse_positive_integer(value, CAPTURE_OVERLAP_SECONDS_ENV_VAR) {
-                    Ok(seconds) => Some((seconds, source)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: CAPTURE_OVERLAP_SECONDS_ENV_VAR,
-                });
-                None
-            }
-        };
-        let default_silence_request_policy = SilenceRequestPolicy::recommended();
-        let capture_silence_threshold_dbfs = match self.capture_silence_threshold_dbfs {
-            Some(value) => {
-                match parse_negative_decibel(value, CAPTURE_SILENCE_THRESHOLD_DBFS_ENV_VAR) {
-                    Ok(dbfs) => Some(dbfs),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => Some(default_silence_request_policy.silence_threshold_dbfs),
-        };
-        let capture_silence_min_duration = match self.capture_silence_min_duration_ms {
-            Some(value) => {
-                match parse_positive_integer(value, CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR) {
-                    Ok(duration_ms) => Some(Duration::from_millis(duration_ms)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => Some(default_silence_request_policy.silence_min_duration),
-        };
-        let capture_tail_silence_min_duration = match self.capture_tail_silence_min_duration_ms {
-            Some(value) => {
-                let source = value.source;
-                match parse_positive_integer(value, CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR) {
-                    Ok(duration_ms) => Some((duration_ms, source)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => Some((
-                u64::try_from(
-                    default_silence_request_policy
-                        .tail_silence_min_duration
-                        .as_millis(),
-                )
-                .expect("tail silence duration must fit into u64"),
-                ConfigSource::Environment,
-            )),
-        };
-
-        let debug_enabled = match self.debug_enabled {
-            Some(value) => match parse_bool(value, DEBUG_ENV_VAR) {
-                Ok(parsed) => parsed,
-                Err(error) => {
-                    errors.push(error);
-                    false
-                }
-            },
-            None => false,
-        };
-
-        let speaker_sample_duration = match self.speaker_sample_duration_seconds {
-            Some(value) => {
-                match parse_positive_integer(value, SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR) {
-                    Ok(seconds) => Some(Duration::from_secs(seconds)),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: SPEAKER_SAMPLE_DURATION_SECONDS_ENV_VAR,
-                });
-                None
-            }
-        };
-
-        let transcription_language = match self.transcription_language {
-            Some(value) => {
-                match parse_transcription_language(value, TRANSCRIPTION_LANGUAGE_ENV_VAR) {
-                    Ok(language) => Some(language),
-                    Err(error) => {
-                        errors.push(error);
-                        None
-                    }
-                }
-            }
-            None => Some(TranscriptionLanguage::Fixed(
-                DEFAULT_TRANSCRIPTION_LANGUAGE.to_string(),
-            )),
-        };
-
-        let storage_root = match self.storage_root {
-            Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
-                Ok(path) => Some(path),
-                Err(error) => {
-                    errors.push(error);
-                    None
-                }
-            },
-            None => {
-                errors.push(ConfigValidationError::MissingRequiredValue {
-                    name: STORAGE_ROOT_ENV_VAR,
-                });
-                None
-            }
-        };
-
-        let default_merge_policy = TranscriptMergePolicy::recommended();
-        let merge_min_overlap_chars = match self.merge_min_overlap_chars {
-            Some(value) => match parse_positive_integer(value, MERGE_MIN_OVERLAP_CHARS_ENV_VAR) {
-                Ok(chars) => Some(
-                    usize::try_from(chars).expect("merge min overlap chars must fit into usize"),
-                ),
-                Err(error) => {
-                    errors.push(error);
-                    None
-                }
-            },
-            None => Some(default_merge_policy.min_overlap_chars),
-        };
-        let merge_alignment_ratio = match self.merge_alignment_ratio {
-            Some(value) => match parse_unit_interval(value, MERGE_ALIGNMENT_RATIO_ENV_VAR) {
-                Ok(ratio) => Some(ratio),
-                Err(error) => {
-                    errors.push(error);
-                    None
-                }
-            },
-            None => Some(default_merge_policy.min_alignment_ratio),
-        };
-        let merge_trigram_similarity = match self.merge_trigram_similarity {
-            Some(value) => match parse_unit_interval(value, MERGE_TRIGRAM_SIMILARITY_ENV_VAR) {
-                Ok(ratio) => Some(ratio),
-                Err(error) => {
-                    errors.push(error);
-                    None
-                }
-            },
-            None => Some(default_merge_policy.min_trigram_similarity),
-        };
-
-        let capture_duration = capture_duration.and_then(|(seconds, _source)| {
-            if let Some((overlap_seconds, overlap_source)) = capture_overlap
-                && overlap_seconds >= seconds
-            {
-                errors.push(ConfigValidationError::InvalidCaptureOverlap {
-                    overlap_name: CAPTURE_OVERLAP_SECONDS_ENV_VAR,
-                    capture_duration_name: CAPTURE_DURATION_SECONDS_ENV_VAR,
-                    overlap_seconds,
-                    capture_duration_seconds: seconds,
-                    overlap_source,
-                });
-                return None;
-            }
-
-            Some(Duration::from_secs(seconds))
-        });
-
-        let capture_overlap =
-            capture_overlap.map(|(seconds, _source)| Duration::from_secs(seconds));
-        let capture_tail_silence_min_duration =
-            capture_tail_silence_min_duration.and_then(|(tail_duration_ms, tail_source)| {
-                if let Some(silence_duration) = capture_silence_min_duration
-                    && tail_duration_ms
-                        > u64::try_from(silence_duration.as_millis())
-                            .expect("silence duration must fit into u64")
-                {
-                    errors.push(ConfigValidationError::InvalidTailSilenceDuration {
-                        silence_name: CAPTURE_SILENCE_MIN_DURATION_MS_ENV_VAR,
-                        tail_silence_name: CAPTURE_TAIL_SILENCE_MIN_DURATION_MS_ENV_VAR,
-                        silence_duration_ms: u64::try_from(silence_duration.as_millis())
-                            .expect("silence duration must fit into u64"),
-                        tail_silence_duration_ms: tail_duration_ms,
-                        tail_silence_source: tail_source,
-                    });
-                    return None;
-                }
-
-                Some(Duration::from_millis(tail_duration_ms))
-            });
-
-        if !errors.is_empty() {
-            return Err(ConfigError::InvalidConfig(errors));
-        }
-
-        let openai_api_key = match openai_api_key {
-            Some(value) => value,
-            None => unreachable!("validated missing OPENAI_API_KEY"),
-        };
-        let recording_duration = match recording_duration {
-            Some(value) => value,
-            None => unreachable!("validated missing recording duration"),
-        };
-        let capture_duration = match capture_duration {
-            Some(value) => value,
-            None => unreachable!("validated missing capture duration"),
-        };
-        let capture_overlap = match capture_overlap {
-            Some(value) => value,
-            None => unreachable!("validated missing capture overlap"),
-        };
-        let capture_silence_threshold_dbfs = match capture_silence_threshold_dbfs {
-            Some(value) => value,
-            None => unreachable!("validated missing capture silence threshold"),
-        };
-        let capture_silence_min_duration = match capture_silence_min_duration {
-            Some(value) => value,
-            None => unreachable!("validated missing capture silence duration"),
-        };
-        let capture_tail_silence_min_duration = match capture_tail_silence_min_duration {
-            Some(value) => value,
-            None => unreachable!("validated missing capture tail silence duration"),
-        };
-        let speaker_sample_duration = match speaker_sample_duration {
-            Some(value) => value,
-            None => unreachable!("validated missing speaker sample duration"),
-        };
-        let transcription_language = match transcription_language {
-            Some(value) => value,
-            None => unreachable!("validated missing transcription language"),
-        };
-        let merge_min_overlap_chars = match merge_min_overlap_chars {
-            Some(value) => value,
-            None => unreachable!("validated missing merge min overlap chars"),
-        };
-        let merge_alignment_ratio = match merge_alignment_ratio {
-            Some(value) => value,
-            None => unreachable!("validated missing merge alignment ratio"),
-        };
-        let merge_trigram_similarity = match merge_trigram_similarity {
-            Some(value) => value,
-            None => unreachable!("validated missing merge trigram similarity"),
-        };
-        let storage_root = match storage_root {
-            Some(value) => value,
-            None => unreachable!("validated missing storage root"),
-        };
-
-        Ok(Config {
-            openai_api_key: openai_api_key.value,
-            openai_api_key_source: openai_api_key.source,
-            recording_duration,
-            capture_duration,
-            capture_overlap,
-            capture_silence_request_policy: SilenceRequestPolicy {
-                silence_threshold_dbfs: capture_silence_threshold_dbfs,
-                silence_min_duration: capture_silence_min_duration,
-                tail_silence_min_duration: capture_tail_silence_min_duration,
-            },
-            speaker_sample_duration,
-            transcription_language,
-            transcript_merge_policy: TranscriptMergePolicy {
-                min_overlap_chars: merge_min_overlap_chars,
-                min_alignment_ratio: merge_alignment_ratio,
-                min_trigram_similarity: merge_trigram_similarity,
-            },
-            debug_enabled,
-            storage_root,
-        })
-    }
-}
-
-fn read_env_var(name: &'static str, source: ConfigSource) -> Option<ConfigValue<String>> {
-    std::env::var(name)
-        .ok()
-        .map(|value| ConfigValue::new(value, source))
-}
-
-fn parse_bool(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<bool, ConfigValidationError> {
-    if value.value.trim().is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    match value.value.as_str() {
-        "1" | "true" | "TRUE" | "yes" | "YES" => Ok(true),
-        "0" | "false" | "FALSE" | "no" | "NO" => Ok(false),
-        _ => Err(ConfigValidationError::InvalidBooleanValue {
-            name,
-            value: value.value,
-            source: value.source,
-        }),
-    }
-}
-
-fn parse_positive_integer(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<u64, ConfigValidationError> {
-    if value.value.trim().is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    match value.value.parse::<u64>() {
-        Ok(parsed) if parsed > 0 => Ok(parsed),
-        _ => Err(ConfigValidationError::InvalidPositiveIntegerValue {
-            name,
-            value: value.value,
-            source: value.source,
-        }),
-    }
-}
-
-fn parse_unit_interval(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<f64, ConfigValidationError> {
-    if value.value.trim().is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    match value.value.parse::<f64>() {
-        Ok(parsed) if (0.0..=1.0).contains(&parsed) => Ok(parsed),
-        _ => Err(ConfigValidationError::InvalidUnitIntervalValue {
-            name,
-            value: value.value,
-            source: value.source,
-        }),
-    }
-}
-
-fn parse_negative_decibel(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<f64, ConfigValidationError> {
-    if value.value.trim().is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    match value.value.parse::<f64>() {
-        Ok(parsed) if parsed.is_finite() && parsed < 0.0 => Ok(parsed),
-        _ => Err(ConfigValidationError::InvalidNegativeDecibelValue {
-            name,
-            value: value.value,
-            source: value.source,
-        }),
-    }
-}
-
-fn parse_transcription_language(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<TranscriptionLanguage, ConfigValidationError> {
-    let trimmed = value.value.trim();
-    if trimmed.is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    match trimmed {
-        "auto" => Ok(TranscriptionLanguage::Auto),
-        "ja" | "en" => Ok(TranscriptionLanguage::Fixed(trimmed.to_string())),
-        _ => Err(
-            ConfigValidationError::InvalidTranscriptionLanguageModeValue {
-                name,
-                value: value.value,
-                source: value.source,
-            },
-        ),
-    }
-}
-
-fn parse_absolute_path(
-    value: ConfigValue<String>,
-    name: &'static str,
-) -> Result<PathBuf, ConfigValidationError> {
-    if value.value.trim().is_empty() {
-        return Err(ConfigValidationError::EmptyValue {
-            name,
-            source: value.source,
-        });
-    }
-
-    let path = PathBuf::from(&value.value);
-    if !path.is_absolute() {
-        return Err(ConfigValidationError::RelativePathValue {
-            name,
-            value: value.value,
-            source: value.source,
-        });
-    }
-
-    Ok(path)
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
     use crate::application::TranscriptionLanguage;
+    use crate::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
+    use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
     use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
@@ -1594,6 +958,299 @@ mod tests {
     }
 
     #[test]
+    /// .env が存在しなくても必要な設定が環境変数に揃っていれば解決する。
+    fn resolves_required_values_from_environment_when_dotenv_file_is_missing() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join("missing.env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        let original_vars = snapshot_env_vars(all_config_env_var_names());
+        clear_env_vars(all_config_env_var_names());
+        unsafe {
+            std::env::set_var("OPENAI_API_KEY", "from-env");
+            std::env::set_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", "30");
+            std::env::set_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS", "10");
+            std::env::set_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS", "2");
+            std::env::set_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS", "6");
+            std::env::set_var("DIARIZE_LOG_STORAGE_ROOT", storage_root.as_os_str());
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_vars(original_vars);
+        assert_eq!(config.openai_api_key, "from-env");
+        assert_eq!(config.openai_api_key_source, ConfigSource::Environment);
+        assert_eq!(config.recording_duration, Duration::from_secs(30));
+        assert_eq!(config.capture_duration, Duration::from_secs(10));
+        assert_eq!(config.capture_overlap, Duration::from_secs(2));
+        assert_eq!(config.speaker_sample_duration, Duration::from_secs(6));
+        assert_eq!(config.storage_root, storage_root);
+    }
+
+    #[test]
+    /// optional 設定が未指定なら既定の推奨値で解決する。
+    fn resolves_recommended_defaults_for_optional_values() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_vars = snapshot_env_vars(&[
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            "DIARIZE_LOG_DEBUG",
+        ]);
+        clear_env_vars(&[
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            "DIARIZE_LOG_DEBUG",
+        ]);
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_vars(original_vars);
+        assert_eq!(
+            config.capture_silence_request_policy,
+            SilenceRequestPolicy::recommended()
+        );
+        assert_eq!(
+            config.transcription_language,
+            TranscriptionLanguage::Fixed("ja".to_string())
+        );
+        assert_eq!(
+            config.transcript_merge_policy,
+            TranscriptMergePolicy::recommended()
+        );
+        assert!(!config.debug_enabled);
+    }
+
+    #[test]
+    /// optional 設定も環境変数が .env より優先される。
+    fn prefers_environment_variables_over_dotenv_for_optional_values() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS=-42.0\nDIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS=800\nDIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS=400\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_LANGUAGE=ja\nDIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS=14\nDIARIZE_LOG_MERGE_ALIGNMENT_RATIO=0.9\nDIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY=0.7\nDIARIZE_LOG_DEBUG=false\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_vars = snapshot_env_vars(&[
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            "DIARIZE_LOG_DEBUG",
+        ]);
+        clear_env_vars(&[
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            "DIARIZE_LOG_DEBUG",
+        ]);
+        unsafe {
+            std::env::set_var("DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS", "-30.5");
+            std::env::set_var("DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS", "900");
+            std::env::set_var("DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS", "450");
+            std::env::set_var("DIARIZE_LOG_TRANSCRIPTION_LANGUAGE", "auto");
+            std::env::set_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS", "11");
+            std::env::set_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO", "0.85");
+            std::env::set_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY", "0.6");
+            std::env::set_var("DIARIZE_LOG_DEBUG", "true");
+        }
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_vars(original_vars);
+        assert_eq!(
+            config.capture_silence_request_policy.silence_threshold_dbfs,
+            -30.5
+        );
+        assert_eq!(
+            config.capture_silence_request_policy.silence_min_duration,
+            Duration::from_millis(900)
+        );
+        assert_eq!(
+            config
+                .capture_silence_request_policy
+                .tail_silence_min_duration,
+            Duration::from_millis(450)
+        );
+        assert_eq!(config.transcription_language, TranscriptionLanguage::Auto);
+        assert_eq!(config.transcript_merge_policy.min_overlap_chars, 11);
+        assert_eq!(config.transcript_merge_policy.min_alignment_ratio, 0.85);
+        assert_eq!(config.transcript_merge_policy.min_trigram_similarity, 0.6);
+        assert!(config.debug_enabled);
+    }
+
+    #[test]
+    /// 正の整数が必要な設定に不正値を入れると設定エラーにする。
+    fn returns_error_for_invalid_positive_integer_value() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=abc\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidPositiveIntegerValue {
+                name: "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+                value: "abc".to_string(),
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
+    /// 0 以上 1 以下が必要な設定に範囲外の値を入れると設定エラーにする。
+    fn returns_error_for_invalid_unit_interval_value() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_MERGE_ALIGNMENT_RATIO=1.2\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO", original_ratio);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidUnitIntervalValue {
+                name: "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+                value: "1.2".to_string(),
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
+    /// 負の dBFS が必要な設定に 0 以上の値を入れると設定エラーにする。
+    fn returns_error_for_invalid_negative_decibel_value() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=10\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS=0\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_threshold = std::env::var_os("DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var(
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            original_threshold,
+        );
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidNegativeDecibelValue {
+                name: "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+                value: "0".to_string(),
+                source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    /// .env が未発見以外の I/O 失敗なら読み込みエラーとして返す。
+    fn returns_error_for_unreadable_dotenv_path() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let protected_dir = temp_dir.path().join("protected");
+        fs::create_dir(&protected_dir).unwrap();
+        fs::set_permissions(&protected_dir, fs::Permissions::from_mode(0o000)).unwrap();
+        let dotenv_path = protected_dir.join(".env");
+        let original_vars = snapshot_env_vars(all_config_env_var_names());
+        clear_env_vars(all_config_env_var_names());
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        fs::set_permissions(&protected_dir, fs::Permissions::from_mode(0o755)).unwrap();
+        restore_env_vars(original_vars);
+        assert!(matches!(result, Err(ConfigError::ReadDotEnv(_))));
+    }
+
+    #[test]
     /// debug 値が不正なら設定エラーにする。
     fn returns_error_for_invalid_boolean_value() {
         let _guard = env_lock()
@@ -1683,6 +1340,48 @@ mod tests {
                 std::env::remove_var(name);
             },
         }
+    }
+
+    fn restore_env_vars(originals: Vec<(&'static str, Option<std::ffi::OsString>)>) {
+        for (name, original) in originals {
+            restore_env_var(name, original);
+        }
+    }
+
+    fn snapshot_env_vars(
+        names: &[&'static str],
+    ) -> Vec<(&'static str, Option<std::ffi::OsString>)> {
+        names
+            .iter()
+            .map(|&name| (name, std::env::var_os(name)))
+            .collect()
+    }
+
+    fn clear_env_vars(names: &[&str]) {
+        for name in names {
+            unsafe {
+                std::env::remove_var(name);
+            }
+        }
+    }
+
+    fn all_config_env_var_names() -> &'static [&'static str] {
+        &[
+            "OPENAI_API_KEY",
+            "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_THRESHOLD_DBFS",
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            "DIARIZE_LOG_DEBUG",
+            "DIARIZE_LOG_STORAGE_ROOT",
+        ]
     }
 
     fn env_lock() -> &'static Mutex<()> {

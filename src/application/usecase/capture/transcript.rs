@@ -2,13 +2,12 @@ use super::{
     CaptureConfig, CaptureError, CaptureTranscriptionFailure, SpeakerLabel, duration_to_millis,
 };
 use crate::application::ports::{
-    CaptureStore, Transcriber, TranscriberError, TranscriptionRequest,
+    CaptureStore, Logger, Transcriber, TranscriberError, TranscriptionRequest,
 };
 use crate::domain::{
     CaptureMerger, CaptureRange, CapturedTranscript, DiarizedTranscript, KnownSpeakerSample,
     MergedTranscriptSegment, RecordedAudio, TranscriptSegment,
 };
-use crate::logger::Logger;
 use std::fmt;
 use std::io::Write;
 
@@ -38,7 +37,7 @@ pub(super) fn process_capture_audio<T, S>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    logger: &Logger,
+    logger: &dyn Logger,
     transcriber: &mut T,
     capture_store: &mut S,
     capture_merger: &mut CaptureMerger,

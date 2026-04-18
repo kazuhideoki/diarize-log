@@ -1,3 +1,4 @@
+use crate::application::ports::Logger;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
@@ -21,13 +22,13 @@ impl LogSource {
 }
 
 #[derive(Clone)]
-pub struct Logger {
+pub struct LineLogger {
     debug_enabled: bool,
     sink: Arc<Mutex<Box<dyn Write + Send>>>,
     labels: Vec<String>,
 }
 
-impl Logger {
+impl LineLogger {
     /// 共通ログ設定を持つ root logger を生成します。
     pub fn new<W>(sink: W, debug_enabled: bool) -> Self
     where
@@ -55,20 +56,6 @@ impl Logger {
         self.with_label(component.into())
     }
 
-    /// info レベルのログを出力します。
-    pub fn info(&self, message: &str) -> io::Result<()> {
-        self.write("info", message)
-    }
-
-    /// debug 有効時だけ debug ログを出力します。
-    pub fn debug(&self, message: &str) -> io::Result<()> {
-        if !self.debug_enabled {
-            return Ok(());
-        }
-
-        self.write("debug", message)
-    }
-
     fn with_label(&self, label: impl Into<String>) -> Self {
         let mut labels = self.labels.clone();
         labels.push(label.into());
@@ -94,9 +81,24 @@ impl Logger {
     }
 }
 
+impl Logger for LineLogger {
+    fn info(&self, message: &str) -> io::Result<()> {
+        self.write("info", message)
+    }
+
+    fn debug(&self, message: &str) -> io::Result<()> {
+        if !self.debug_enabled {
+            return Ok(());
+        }
+
+        self.write("debug", message)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{LogSource, Logger};
+    use super::{LineLogger, LogSource};
+    use crate::application::ports::Logger;
     use std::io::{self, Write};
     use std::sync::{Arc, Mutex};
 
@@ -142,7 +144,7 @@ mod tests {
     /// info ログは level, source, component, message の順で共通書式にそろえる。
     fn writes_info_log_with_common_format() {
         let buffer = SharedBuffer::new();
-        let logger = Logger::new(buffer.clone(), false)
+        let logger = LineLogger::new(buffer.clone(), false)
             .with_source(LogSource::Microphone)
             .with_component("capture");
 
@@ -158,7 +160,7 @@ mod tests {
     /// debug 無効時は debug ログを出力しない。
     fn skips_debug_log_when_debug_is_disabled() {
         let buffer = SharedBuffer::new();
-        let logger = Logger::new(buffer.clone(), false)
+        let logger = LineLogger::new(buffer.clone(), false)
             .with_source(LogSource::Application)
             .with_component("transcriber");
 
@@ -171,7 +173,7 @@ mod tests {
     /// debug 有効時は debug レベルでも共通書式でログを出力する。
     fn writes_debug_log_with_common_format_when_debug_is_enabled() {
         let buffer = SharedBuffer::new();
-        let logger = Logger::new(buffer.clone(), true)
+        let logger = LineLogger::new(buffer.clone(), true)
             .with_source(LogSource::Application)
             .with_component("transcriber");
 
@@ -186,7 +188,7 @@ mod tests {
     #[test]
     /// debug 無効時は sink が壊れていても書き込みに行かず成功扱いで返す。
     fn does_not_touch_sink_for_debug_log_when_debug_is_disabled() {
-        let logger = Logger::new(AlwaysFailWriter, false)
+        let logger = LineLogger::new(AlwaysFailWriter, false)
             .with_source(LogSource::Application)
             .with_component("transcriber");
 
@@ -196,7 +198,7 @@ mod tests {
     #[test]
     /// info ログの sink 書き込み失敗はそのまま呼び出し元へ返す。
     fn returns_sink_error_when_info_log_write_fails() {
-        let logger = Logger::new(AlwaysFailWriter, false).with_source(LogSource::System);
+        let logger = LineLogger::new(AlwaysFailWriter, false).with_source(LogSource::System);
 
         let error = logger.info("recording started").unwrap_err();
 
@@ -207,7 +209,7 @@ mod tests {
     #[test]
     /// debug 有効時の sink 書き込み失敗はそのまま呼び出し元へ返す。
     fn returns_sink_error_when_debug_log_write_fails() {
-        let logger = Logger::new(AlwaysFailWriter, true).with_source(LogSource::System);
+        let logger = LineLogger::new(AlwaysFailWriter, true).with_source(LogSource::System);
 
         let error = logger.debug("interrupt received").unwrap_err();
 
@@ -219,7 +221,7 @@ mod tests {
     /// 派生 logger は元の label を保ったまま追加の component を積み増せる。
     fn appends_labels_when_building_child_logger() {
         let buffer = SharedBuffer::new();
-        let root = Logger::new(buffer.clone(), true).with_source(LogSource::System);
+        let root = LineLogger::new(buffer.clone(), true).with_source(LogSource::System);
         let child = root.with_component("signal");
 
         root.info("root message").unwrap();

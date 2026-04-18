@@ -3,10 +3,11 @@ mod usecase;
 
 pub use ports::{
     AudioClipper, AudioClipperError, CaptureSessionMetadata, CaptureStore, CaptureStoreError,
-    ChunkingStrategy, InterruptMonitor, MixedCaptureSessionMetadata, MixedCaptureSourceOutcome,
-    MixedCaptureSourceSettings, MixedCaptureSourceStatus, MixedCaptureStore, Recorder,
-    RecorderError, RecordingSession, RecordingWaitOutcome, ResponseFormat, SpeakerStore,
-    SpeakerStoreError, Transcriber, TranscriberError, TranscriptionLanguage, TranscriptionRequest,
+    ChunkingStrategy, InterruptMonitor, Logger, MixedCaptureSessionMetadata,
+    MixedCaptureSourceOutcome, MixedCaptureSourceSettings, MixedCaptureSourceStatus,
+    MixedCaptureStore, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
+    ResponseFormat, SpeakerStore, SpeakerStoreError, Transcriber, TranscriberError,
+    TranscriptionLanguage, TranscriptionRequest,
 };
 pub use usecase::{
     CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure, DebugOutputError,

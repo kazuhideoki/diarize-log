@@ -1,10 +1,10 @@
+use crate::adapters::LineLogger;
 use crate::application::ports::{
-    InterruptMonitor, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
+    InterruptMonitor, Logger, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
 };
 use crate::domain::{
     CaptureBoundary, CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
 };
-use crate::logger::Logger;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 use screencapturekit::cm::CMSampleBuffer;
@@ -29,11 +29,11 @@ const SILENCE_ANALYSIS_WINDOW_MILLIS: u64 = 50;
 /// `cpal` を使ってデフォルトマイクから継続録音します。
 #[derive(Clone)]
 pub struct CpalRecorder {
-    logger: Logger,
+    logger: LineLogger,
 }
 
 impl CpalRecorder {
-    pub fn new(logger: Logger) -> Self {
+    pub fn new(logger: LineLogger) -> Self {
         Self { logger }
     }
 }
@@ -42,11 +42,11 @@ impl CpalRecorder {
 #[derive(Clone)]
 pub struct ScreenCaptureKitApplicationRecorder {
     bundle_id: String,
-    logger: Logger,
+    logger: LineLogger,
 }
 
 impl ScreenCaptureKitApplicationRecorder {
-    pub fn new(bundle_id: String, logger: Logger) -> Self {
+    pub fn new(bundle_id: String, logger: LineLogger) -> Self {
         Self { bundle_id, logger }
     }
 }
@@ -211,7 +211,7 @@ pub struct CpalRecordingSession {
     error_receiver: mpsc::Receiver<RecorderError>,
     channels: u16,
     sample_rate: u32,
-    logger: Logger,
+    logger: LineLogger,
 }
 
 /// `ScreenCaptureKit` の継続録音中セッションです。
@@ -221,7 +221,7 @@ pub struct ScreenCaptureKitRecordingSession {
     audio_detected: Arc<AtomicBool>,
     audio_detection_logged: bool,
     error_receiver: mpsc::Receiver<RecorderError>,
-    logger: Logger,
+    logger: LineLogger,
 }
 
 impl RecordingSession for CpalRecordingSession {
@@ -995,7 +995,7 @@ fn contains_detectable_audio(samples: &[i16]) -> bool {
         .any(|sample| sample.unsigned_abs() >= AUDIO_DETECTION_SAMPLE_THRESHOLD)
 }
 
-fn maybe_log_audio_detected(detected: &AtomicBool, logged: &mut bool, logger: &Logger) {
+fn maybe_log_audio_detected(detected: &AtomicBool, logged: &mut bool, logger: &LineLogger) {
     if *logged || !detected.load(Ordering::SeqCst) {
         return;
     }
@@ -1103,7 +1103,7 @@ mod tests {
     use crate::domain::{
         CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
     };
-    use crate::{LogSource, Logger};
+    use crate::{LineLogger, LogSource};
     use screencapturekit::cg::CGRect;
     use std::io::Cursor;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -1280,7 +1280,7 @@ mod tests {
     /// 音声検知ログは同じ source で一度だけ出力する。
     fn writes_audio_detection_log_only_once_per_source() {
         let sink = SharedBuffer::default();
-        let logger = Logger::new(sink.clone(), false)
+        let logger = LineLogger::new(sink.clone(), false)
             .with_source(LogSource::Microphone)
             .with_component("recorder");
         let detected = AtomicBool::new(false);

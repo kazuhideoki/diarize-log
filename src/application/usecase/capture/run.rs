@@ -1,11 +1,11 @@
 use super::{CaptureConfig, CaptureError, CaptureRunResult, SpeakerLabel, duration_to_millis};
 use crate::application::ports::{
-    CaptureSessionMetadata, CaptureStore, InterruptMonitor, Recorder, RecordingSession, Transcriber,
+    CaptureSessionMetadata, CaptureStore, InterruptMonitor, Logger, Recorder, RecordingSession,
+    Transcriber,
 };
 use crate::domain::{
     CaptureBoundaryReason, CaptureMerger, CaptureRange, KnownSpeakerSample, RecordedAudio,
 };
-use crate::logger::Logger;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::transcript::process_capture_audio;
@@ -18,7 +18,7 @@ pub(super) fn run_capture_with_clock<R, T, S, C>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    logger: &Logger,
+    logger: &dyn Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -210,10 +210,9 @@ mod tests {
         run_capture_with_interrupt_monitor, write_debug_transcript,
     };
     use super::*;
-    use crate::LogSource;
     use crate::application::ports::{
-        CaptureStoreError, ChunkingStrategy, RecorderError, RecordingWaitOutcome, ResponseFormat,
-        TranscriberError, TranscriptionLanguage, TranscriptionRequest,
+        CaptureStoreError, ChunkingStrategy, Logger, RecorderError, RecordingWaitOutcome,
+        ResponseFormat, TranscriberError, TranscriptionLanguage, TranscriptionRequest,
     };
     use crate::domain::{
         CaptureBoundary, CapturePolicy, DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry,
@@ -222,11 +221,52 @@ mod tests {
     };
     use std::cell::RefCell;
     use std::collections::VecDeque;
-    use std::io::{self, Write};
+    use std::io;
     use std::rc::Rc;
-    use std::sync::{Arc, Mutex};
 
     const TEST_TRANSCRIPTION_LANGUAGE: &str = "ja";
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct LoggedMessage {
+        level: &'static str,
+        message: String,
+    }
+
+    #[derive(Clone, Default)]
+    struct SpyLogger {
+        messages: Rc<RefCell<Vec<LoggedMessage>>>,
+    }
+
+    impl SpyLogger {
+        fn entries(&self) -> Vec<LoggedMessage> {
+            self.messages.borrow().clone()
+        }
+    }
+
+    impl Logger for SpyLogger {
+        fn info(&self, message: &str) -> io::Result<()> {
+            self.messages.borrow_mut().push(LoggedMessage {
+                level: "info",
+                message: message.to_string(),
+            });
+            Ok(())
+        }
+
+        fn debug(&self, message: &str) -> io::Result<()> {
+            self.messages.borrow_mut().push(LoggedMessage {
+                level: "debug",
+                message: message.to_string(),
+            });
+            Ok(())
+        }
+    }
+
+    fn info(message: &str) -> LoggedMessage {
+        LoggedMessage {
+            level: "info",
+            message: message.to_string(),
+        }
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct CapturedRequest {
@@ -498,39 +538,8 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Default)]
-    struct SharedBuffer {
-        bytes: Arc<Mutex<Vec<u8>>>,
-    }
-
-    impl SharedBuffer {
-        fn new() -> Self {
-            Self::default()
-        }
-
-        fn contents(&self) -> String {
-            String::from_utf8(self.bytes.lock().unwrap().clone()).unwrap()
-        }
-    }
-
-    impl Write for SharedBuffer {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            self.bytes.lock().unwrap().extend_from_slice(buf);
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    fn test_capture_logger() -> (Logger, SharedBuffer) {
-        let buffer = SharedBuffer::new();
-        let logger = Logger::new(buffer.clone(), true)
-            .with_source(LogSource::Microphone)
-            .with_component("capture");
-
-        (logger, buffer)
+    fn test_capture_logger() -> SpyLogger {
+        SpyLogger::default()
     }
 
     fn sample_audio() -> RecordedAudio {
@@ -603,7 +612,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let result = run_capture_with_clock(
             &config,
@@ -658,7 +667,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -762,7 +771,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -826,7 +835,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -872,7 +881,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
         let speaker_sample = sample_known_speaker();
 
         run_capture(
@@ -921,7 +930,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -969,7 +978,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1026,7 +1035,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let returned = run_capture(
             &config,
@@ -1107,7 +1116,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1172,7 +1181,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1238,7 +1247,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let result = run_capture(
             &config,
@@ -1286,16 +1295,20 @@ mod tests {
             }
         );
         assert_eq!(
-            stderr.contents(),
-            concat!(
-                "[info] [microphone] [capture] recording started\n",
-                "[info] [microphone] [capture] transcription request sent for capture 1\n",
-                "[info] [microphone] [capture] transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout\n",
-                "[info] [microphone] [capture] recording finished\n",
-                "[info] [microphone] [capture] transcription request sent for capture 2\n",
-                "[info] [microphone] [capture] transcription response received for capture 2\n",
-                "[info] [microphone] [capture] capture run completed with partial transcription failures: succeeded=1 failed=1 total=2\n"
-            )
+            logger.entries(),
+            vec![
+                info("recording started"),
+                info("transcription request sent for capture 1"),
+                info(
+                    "transcription failed for capture 1, continuing: failed to send transcription request: simulated timeout"
+                ),
+                info("recording finished"),
+                info("transcription request sent for capture 2"),
+                info("transcription response received for capture 2"),
+                info(
+                    "capture run completed with partial transcription failures: succeeded=1 failed=1 total=2"
+                ),
+            ]
         );
     }
 
@@ -1342,7 +1355,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(transcript1.clone()), Ok(transcript2.clone())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let result = run_capture_with_interrupt_monitor(
             &config,
@@ -1408,16 +1421,16 @@ mod tests {
             }
         );
         assert_eq!(
-            stderr.contents(),
-            concat!(
-                "[info] [microphone] [capture] recording started\n",
-                "[info] [microphone] [capture] transcription request sent for capture 1\n",
-                "[info] [microphone] [capture] transcription response received for capture 1\n",
-                "[info] [microphone] [capture] interrupt received, finalizing recorded audio\n",
-                "[info] [microphone] [capture] recording finished\n",
-                "[info] [microphone] [capture] transcription request sent for capture 2\n",
-                "[info] [microphone] [capture] transcription response received for capture 2\n"
-            )
+            logger.entries(),
+            vec![
+                info("recording started"),
+                info("transcription request sent for capture 1"),
+                info("transcription response received for capture 1"),
+                info("interrupt received, finalizing recorded audio"),
+                info("recording finished"),
+                info("transcription request sent for capture 2"),
+                info("transcription response received for capture 2"),
+            ]
         );
     }
 
@@ -1448,7 +1461,7 @@ mod tests {
             })]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let error = run_capture(
             &config,
@@ -1468,14 +1481,17 @@ mod tests {
         assert_eq!(*capture_store.observed_audios.borrow(), vec![(1, audio1)]);
         assert!(capture_store.observed_transcripts.borrow().is_empty());
         assert_eq!(
-            stderr.contents(),
-            "[info] [microphone] [capture] recording started\n[info] [microphone] [capture] transcription request sent for capture 1\n"
+            logger.entries(),
+            vec![
+                info("recording started"),
+                info("transcription request sent for capture 1"),
+            ]
         );
     }
 
     #[test]
-    /// 通常ログ出力では録音開始と capture ごとの送受信イベントが標準エラーへ記録される。
-    fn writes_normal_operation_logs_to_stderr() {
+    /// 通常経路では録音開始と capture ごとの送受信イベントを順序どおり記録する。
+    fn records_normal_operation_logs_in_order() {
         let config = capture_config(
             Duration::from_secs(40),
             Duration::from_secs(30),
@@ -1496,7 +1512,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1509,25 +1525,17 @@ mod tests {
         )
         .unwrap();
 
-        let printed_logs = stderr.contents();
-        assert!(printed_logs.contains("[info] [microphone] [capture] recording started\n"));
-        assert!(
-            printed_logs.contains(
-                "[info] [microphone] [capture] transcription request sent for capture 1\n"
-            )
+        assert_eq!(
+            logger.entries(),
+            vec![
+                info("recording started"),
+                info("transcription request sent for capture 1"),
+                info("transcription response received for capture 1"),
+                info("recording finished"),
+                info("transcription request sent for capture 2"),
+                info("transcription response received for capture 2"),
+            ]
         );
-        assert!(printed_logs.contains(
-            "[info] [microphone] [capture] transcription response received for capture 1\n"
-        ));
-        assert!(printed_logs.contains("[info] [microphone] [capture] recording finished\n"));
-        assert!(
-            printed_logs.contains(
-                "[info] [microphone] [capture] transcription request sent for capture 2\n"
-            )
-        );
-        assert!(printed_logs.contains(
-            "[info] [microphone] [capture] transcription response received for capture 2\n"
-        ));
     }
 
     #[test]
@@ -1598,7 +1606,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1677,7 +1685,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript()), Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1726,7 +1734,7 @@ mod tests {
             ]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         run_capture(
             &config,
@@ -1771,7 +1779,7 @@ mod tests {
             outcomes: VecDeque::from(vec![Ok(sample_transcript())]),
         };
         let mut capture_store = FakeCaptureStore::new();
-        let (logger, _stderr) = test_capture_logger();
+        let logger = test_capture_logger();
 
         let result = run_capture(
             &config,

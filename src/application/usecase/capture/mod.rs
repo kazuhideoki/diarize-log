@@ -2,14 +2,13 @@ mod run;
 mod transcript;
 
 use crate::application::ports::{
-    CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor, Recorder, RecorderError,
-    ResponseFormat, Transcriber, TranscriberError, TranscriptionLanguage,
+    CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor, Logger, Recorder,
+    RecorderError, ResponseFormat, Transcriber, TranscriberError, TranscriptionLanguage,
 };
 use crate::domain::{
     CapturePolicy, DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment,
     SilenceRequestPolicy, TranscriptMergePolicy,
 };
-use crate::logger::Logger;
 use std::fmt;
 use std::time::Duration;
 
@@ -122,7 +121,7 @@ pub fn run_capture<R, T, S>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    logger: &Logger,
+    logger: &dyn Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,
@@ -154,7 +153,7 @@ pub fn run_capture_with_interrupt_monitor<R, T, S>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    logger: &Logger,
+    logger: &dyn Logger,
     recorder: &mut R,
     transcriber: &mut T,
     capture_store: &mut S,

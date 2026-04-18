@@ -5,8 +5,8 @@ use diarize_log::adapters::{
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
 use diarize_log::{
     AudioSource, CaptureConfig, ChunkingStrategy, CliAction, InterruptMonitor, KnownSpeakerSample,
-    LogSource, Logger, MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder,
-    ResponseFormat, SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource,
+    LineLogger, LogSource, Logger, MixedCaptureSessionMetadata, MixedCaptureSourceSettings,
+    Recorder, ResponseFormat, SpeakerCommandResult, SpeakerLabel, SpeakerStore, TranscriptSource,
     parse_cli_args, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
     write_debug_transcript,
 };
@@ -28,7 +28,7 @@ impl InterruptMonitor for SignalInterruptState {
 }
 
 impl SignalInterruptState {
-    fn install(logger: Logger) -> Result<Arc<Self>, ctrlc::Error> {
+    fn install(logger: LineLogger) -> Result<Arc<Self>, ctrlc::Error> {
         let state = Arc::new(Self::default());
         let handler_state = Arc::clone(&state);
         ctrlc::set_handler(move || {
@@ -70,7 +70,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let root_logger = Logger::stderr(runtime_config.debug_enabled);
+    let root_logger = LineLogger::stderr(runtime_config.debug_enabled);
 
     match action {
         CliAction::Run {
@@ -171,7 +171,7 @@ fn run_capture_command<R>(
     runtime_config: &Config,
     speaker_sample_names: &[String],
     speaker_label: SpeakerLabel,
-    source_logger: &Logger,
+    source_logger: &LineLogger,
     interrupt_monitor: &dyn InterruptMonitor,
     mut recorder: R,
 ) -> ExitCode
@@ -257,7 +257,7 @@ fn run_mixed_capture_command(
     bundle_id: String,
     microphone_speaker: String,
     interrupt_state: Arc<SignalInterruptState>,
-    root_logger: &Logger,
+    root_logger: &LineLogger,
 ) -> ExitCode {
     let session_dir = match FileSystemCaptureStore::create_session_dir(&runtime_config.storage_root)
     {
@@ -454,7 +454,7 @@ fn run_capture_pipeline<R, S>(
     runtime_config: &Config,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
-    source_logger: &Logger,
+    source_logger: &LineLogger,
     interrupt_monitor: &dyn InterruptMonitor,
     recorder: &mut R,
     capture_store: &mut S,

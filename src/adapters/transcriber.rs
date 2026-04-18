@@ -1,6 +1,6 @@
-use crate::application::ports::{Transcriber, TranscriberError, TranscriptionRequest};
+use crate::adapters::LineLogger;
+use crate::application::ports::{Logger, Transcriber, TranscriberError, TranscriptionRequest};
 use crate::domain::{DiarizedTranscript, RecordedAudio, TranscriptSegment};
-use crate::logger::Logger;
 use base64::Engine;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, multipart};
@@ -15,11 +15,11 @@ const TRANSCRIPTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
 pub struct OpenAiTranscriber {
     client: Client,
     api_key: String,
-    logger: Logger,
+    logger: LineLogger,
 }
 
 impl OpenAiTranscriber {
-    pub fn new(api_key: String, logger: Logger) -> Result<Self, TranscriberError> {
+    pub fn new(api_key: String, logger: LineLogger) -> Result<Self, TranscriberError> {
         let client = build_http_client(TRANSCRIPTION_REQUEST_TIMEOUT, &logger)?;
 
         Ok(Self {
@@ -175,7 +175,7 @@ fn language_debug_label(language: Option<&str>) -> &str {
     language.unwrap_or("<auto>")
 }
 
-fn build_http_client(timeout: Duration, logger: &Logger) -> Result<Client, TranscriberError> {
+fn build_http_client(timeout: Duration, logger: &LineLogger) -> Result<Client, TranscriberError> {
     Client::builder().timeout(timeout).build().map_err(|error| {
         let source_chain = format_error_chain(&error);
         let _ = logger.debug(&format!(
@@ -333,7 +333,7 @@ mod tests {
     /// blocking HTTP client は指定した timeout を送信全体へ適用する。
     fn applies_requested_timeout_to_blocking_http_client() {
         let server = TestHttpServer::spawn(Duration::from_millis(150));
-        let logger = crate::logger::Logger::new(Vec::new(), false);
+        let logger = crate::LineLogger::new(Vec::new(), false);
         let client = super::build_http_client(Duration::from_millis(50), &logger)
             .expect("client should build");
 

@@ -2,22 +2,23 @@
 
 ## Architecture
 
-- config.rs: 環境変数や .env ファイルの読み込みはここで一元管理する。
-  - 設定の解決はエントリーポイントで一度だけ行い、解決済みの値を後続の処理へ渡す。
-- domain/: 外部 I/O に依存しない業務モデルと業務ルールを置く。
-  - `domain/` は `ports/` や `application/` に依存しない。
-- application/: ユースケース単位の orchestration を置く。
-  - CLI や外部 I/O の詳細は持ち込まず、`domain/` と `ports/` 越しに必要な境界だけへ依存する。
-  - コマンドの種類が増えた場合でも、CLI のサブコマンドごとではなく「何をするユースケースか」で分割する。
-- 外部境界とのやり取りは `ports/` に分離する。
-  - `ports/` は application が必要とする入出力境界として扱う。
-  - `ports/` は境界定義に集中し、業務モデルは必要に応じて `domain/` を参照する。
-- 外部依存や I/O を伴う具象実装は `adapters/` に分離する。
+- `src/adapters/`: 外部依存や I/O を伴う具象実装を分離する。
   - 例: `cpal` による録音、`reqwest` による API 呼び出し。
-- CLI の引数解釈と表示文言は `cli.rs` に置き、ユースケースの実行そのものは `application/` を呼ぶ。
-- コマンド分岐や adapter の組み立てはエントリーポイントで行う。
+- `src/application/`: ユースケース単位の orchestration を置く。
+- `src/application/ports/`: 外部境界とのやり取りを分離する。
+  - `ports/` は境界定義に集中し、業務モデルは必要に応じて `domain/` を参照する。
+- `src/application/usecase/`: コマンドの種類が増えた場合でも、CLI のサブコマンドごとではなく「何をするユースケースか」で分割する。
+- `src/bootstrap/`: `src/main.rs` から委譲される composition root の実体を置く。
+  - CLI 解釈後の設定解決、signal 初期化、use case への配線を担う。
+- `src/config/`: 環境変数や `.env` ファイルの読み込みはここで一元管理する。
+  - 設定の解決はエントリーポイントで一度だけ行い、解決済みの値を後続の処理へ渡す。
+- `src/domain/`: 外部 I/O に依存しない業務モデルと業務ルールを置く。
+- `src/cli.rs`: CLI の引数解釈と表示文言を置き、ユースケースの実行そのものは `application/` を呼ぶ。
+- `src/lib.rs`: library crate の公開境界として扱う。
+- `src/main.rs`: コマンド分岐や adapter の組み立てを行うエントリーポイントとして扱う。
   - `main.rs` は composition root として扱い、route/dispatch と設定解決に責務を限定する。
-- `build.rs` は通常の業務ロジックではなくビルド実行環境の補助として扱う。
+- `tests/`: 統合テストが必要になったら `tests/` を追加する。
+- `build.rs`: 通常の業務ロジックではなくビルド実行環境の補助として扱う。
   - 現在は `ScreenCaptureKit` の Swift runtime をテスト/実行バイナリから解決するための `rpath` 付与だけを責務にする。
   - 手動実行は不要で、`cargo check` / `cargo build` / `cargo test` 実行時に Cargo から自動実行される前提で扱う。
 

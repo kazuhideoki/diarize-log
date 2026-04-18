@@ -1,175 +1,20 @@
+use super::{CaptureConfig, CaptureError, CaptureRunResult, SpeakerLabel, duration_to_millis};
 use crate::application::ports::{
-    CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor,
-    Recorder, RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
-    TranscriptionLanguage, TranscriptionRequest,
+    CaptureSessionMetadata, CaptureStore, InterruptMonitor, Recorder, RecordingSession, Transcriber,
 };
 use crate::domain::{
-    CaptureBoundaryReason, CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript,
-    DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
-    SilenceRequestPolicy, TranscriptMergePolicy, TranscriptSegment,
+    CaptureBoundaryReason, CaptureMerger, CaptureRange, KnownSpeakerSample, RecordedAudio,
 };
 use crate::logger::Logger;
-use std::fmt;
-use std::io::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
+use super::transcript::process_capture_audio;
 
-/// 連続録音から capture を切り出して文字起こしするユースケースの設定です。
-#[derive(Debug, Clone, PartialEq)]
-pub struct CaptureConfig {
-    pub capture_policy: CapturePolicy,
-    pub silence_request_policy: SilenceRequestPolicy,
-    pub merge_policy: TranscriptMergePolicy,
-    pub response_format: ResponseFormat,
-    pub transcription_model: &'static str,
-    pub transcription_language: TranscriptionLanguage,
-    pub chunking_strategy: ChunkingStrategy,
-}
-
-/// capture 実行時の話者ラベル適用方針です。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SpeakerLabel {
-    KeepOriginal,
-    Fixed(String),
-}
-
-impl CaptureConfig {
-    pub fn new(
-        recording_duration: Duration,
-        capture_duration: Duration,
-        capture_overlap: Duration,
-        transcription_language: TranscriptionLanguage,
-    ) -> Self {
-        Self {
-            capture_policy: CapturePolicy {
-                recording_duration,
-                capture_duration,
-                capture_overlap,
-            },
-            silence_request_policy: SilenceRequestPolicy::recommended(),
-            merge_policy: TranscriptMergePolicy::recommended(),
-            response_format: ResponseFormat::DiarizedJson,
-            transcription_model: TRANSCRIPTION_MODEL,
-            transcription_language,
-            chunking_strategy: ChunkingStrategy::Auto,
-        }
-    }
-}
-
-/// capture run の成功・部分失敗をまとめた結果です。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CaptureRunResult {
-    pub started_at_unix_ms: u64,
-    pub transcripts: Vec<DiarizedTranscript>,
-    pub merged_segments: Vec<MergedTranscriptSegment>,
-    pub transcription_failures: Vec<CaptureTranscriptionFailure>,
-}
-
-impl CaptureRunResult {
-    /// すべての capture が文字起こし成功で完了したかを返します。
-    pub fn completed_without_failures(&self) -> bool {
-        self.transcription_failures.is_empty()
-    }
-}
-
-/// 継続実行した capture のうち文字起こしに失敗した 1 件の記録です。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CaptureTranscriptionFailure {
-    pub capture_index: u64,
-    pub capture_start_ms: u64,
-    pub message: String,
-}
-
-#[derive(Debug)]
-pub enum CaptureError {
-    Record(RecorderError),
-    Transcribe(TranscriberError),
-    Store(CaptureStoreError),
-    Write(std::io::Error),
-}
-
-impl fmt::Display for CaptureError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Record(error) => write!(f, "recording failed: {error}"),
-            Self::Transcribe(error) => write!(f, "transcription failed: {error}"),
-            Self::Store(error) => write!(f, "capture persistence failed: {error}"),
-            Self::Write(error) => write!(f, "logger write failed: {error}"),
-        }
-    }
-}
-
-impl std::error::Error for CaptureError {}
-
-struct NoopInterruptMonitor;
-
-impl InterruptMonitor for NoopInterruptMonitor {
-    fn is_interrupt_requested(&self) -> bool {
-        false
-    }
-}
-
-/// 連続録音と文字起こしを実行します。
+/// capture 実行本体です。
+///
+/// 現在時刻取得を引数で受け取り、録音開始時刻を固定したテストを書けるようにしています。
 #[allow(clippy::too_many_arguments)]
-pub fn run_capture<R, T, S>(
-    config: &CaptureConfig,
-    speaker_samples: &[KnownSpeakerSample],
-    speaker_label: &SpeakerLabel,
-    logger: &Logger,
-    recorder: &mut R,
-    transcriber: &mut T,
-    capture_store: &mut S,
-) -> Result<CaptureRunResult, CaptureError>
-where
-    R: Recorder,
-    T: Transcriber,
-    S: CaptureStore,
-{
-    run_capture_with_interrupt_monitor(
-        config,
-        speaker_samples,
-        speaker_label,
-        logger,
-        recorder,
-        transcriber,
-        capture_store,
-        &NoopInterruptMonitor,
-    )
-}
-
-/// 連続録音と文字起こしを実行し、中断要求が来たら録音済みぶんだけを処理して終了します。
-#[allow(clippy::too_many_arguments)]
-pub fn run_capture_with_interrupt_monitor<R, T, S>(
-    config: &CaptureConfig,
-    speaker_samples: &[KnownSpeakerSample],
-    speaker_label: &SpeakerLabel,
-    logger: &Logger,
-    recorder: &mut R,
-    transcriber: &mut T,
-    capture_store: &mut S,
-    interrupt_monitor: &dyn InterruptMonitor,
-) -> Result<CaptureRunResult, CaptureError>
-where
-    R: Recorder,
-    T: Transcriber,
-    S: CaptureStore,
-{
-    run_capture_with_clock(
-        config,
-        speaker_samples,
-        speaker_label,
-        logger,
-        recorder,
-        transcriber,
-        capture_store,
-        interrupt_monitor,
-        current_unix_ms,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-fn run_capture_with_clock<R, T, S, C>(
+pub(super) fn run_capture_with_clock<R, T, S, C>(
     config: &CaptureConfig,
     speaker_samples: &[KnownSpeakerSample],
     speaker_label: &SpeakerLabel,
@@ -318,7 +163,7 @@ where
                 transcription_failures.len(),
                 transcripts.len() + transcription_failures.len()
             ))
-        .map_err(CaptureError::Write)?;
+            .map_err(CaptureError::Write)?;
     }
 
     Ok(CaptureRunResult {
@@ -327,6 +172,16 @@ where
         merged_segments,
         transcription_failures,
     })
+}
+
+pub(super) fn current_unix_ms() -> u64 {
+    u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time must be after Unix epoch")
+            .as_millis(),
+    )
+    .expect("unix timestamp in milliseconds must fit into u64")
 }
 
 fn capture_audio<SN, ST>(
@@ -347,175 +202,23 @@ where
     Ok(audio)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn process_capture_audio<T, S>(
-    capture_range: CaptureRange,
-    audio: RecordedAudio,
-    config: &CaptureConfig,
-    speaker_samples: &[KnownSpeakerSample],
-    speaker_label: &SpeakerLabel,
-    logger: &Logger,
-    transcriber: &mut T,
-    capture_store: &mut S,
-    capture_merger: &mut CaptureMerger,
-    transcripts: &mut Vec<DiarizedTranscript>,
-    merged_segments: &mut Vec<MergedTranscriptSegment>,
-    transcription_failures: &mut Vec<CaptureTranscriptionFailure>,
-) -> Result<(), CaptureError>
-where
-    T: Transcriber,
-    S: CaptureStore,
-{
-    logger
-        .info(&format!(
-            "transcription request sent for capture {}",
-            capture_range.capture_index
-        ))
-        .map_err(CaptureError::Write)?;
-    let capture_start_ms = duration_to_millis(capture_range.start_offset);
-    let capture_end_ms = duration_to_millis(capture_range.end_offset());
-    let transcript = match transcriber.transcribe(TranscriptionRequest {
-        audio: &audio,
-        speaker_samples,
-        model: config.transcription_model,
-        language: config.transcription_language.as_api_value(),
-        response_format: config.response_format,
-        chunking_strategy: config.chunking_strategy,
-    }) {
-        Ok(transcript) => transcript,
-        Err(error) => {
-            if !is_recoverable_transcription_error(&error) {
-                return Err(CaptureError::Transcribe(error));
-            }
-            logger
-                .info(&format!(
-                    "transcription failed for capture {}, continuing: {error}",
-                    capture_range.capture_index
-                ))
-                .map_err(CaptureError::Write)?;
-            transcription_failures.push(CaptureTranscriptionFailure {
-                capture_index: capture_range.capture_index,
-                capture_start_ms,
-                message: error.to_string(),
-            });
-            return Ok(());
-        }
-    };
-    let transcript = apply_speaker_label(transcript, speaker_label);
-    logger
-        .info(&format!(
-            "transcription response received for capture {}",
-            capture_range.capture_index
-        ))
-        .map_err(CaptureError::Write)?;
-    capture_store
-        .persist_transcript(capture_range.capture_index, capture_start_ms, &transcript)
-        .map_err(CaptureError::Store)?;
-    let merge_batch = capture_merger.push_capture(CapturedTranscript::from_relative(
-        capture_range.capture_index,
-        capture_start_ms,
-        capture_end_ms,
-        &transcript,
-    ));
-    capture_store
-        .persist_merge_audit_entries(&merge_batch.audit_entries)
-        .map_err(CaptureError::Store)?;
-    capture_store
-        .persist_merged_segments(&merge_batch.finalized_segments)
-        .map_err(CaptureError::Store)?;
-    merged_segments.extend(merge_batch.finalized_segments);
-    transcripts.push(transcript);
-    Ok(())
-}
-
-fn is_recoverable_transcription_error(error: &TranscriberError) -> bool {
-    matches!(error, TranscriberError::SendRequest(_))
-}
-
-fn apply_speaker_label(
-    transcript: DiarizedTranscript,
-    speaker_label: &SpeakerLabel,
-) -> DiarizedTranscript {
-    match speaker_label {
-        SpeakerLabel::KeepOriginal => transcript,
-        SpeakerLabel::Fixed(speaker_name) => DiarizedTranscript {
-            text: transcript.text,
-            segments: transcript
-                .segments
-                .into_iter()
-                .map(|segment| TranscriptSegment {
-                    speaker: speaker_name.clone(),
-                    start_ms: segment.start_ms,
-                    end_ms: segment.end_ms,
-                    text: segment.text,
-                })
-                .collect(),
-        },
-    }
-}
-fn duration_to_millis(duration: Duration) -> u64 {
-    u64::try_from(duration.as_millis()).expect("capture duration in millis must fit into u64")
-}
-
-fn current_unix_ms() -> u64 {
-    u64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time must be after Unix epoch")
-            .as_millis(),
-    )
-    .expect("unix timestamp in milliseconds must fit into u64")
-}
-
-#[derive(Debug)]
-pub enum DebugOutputError {
-    Serialize(serde_json::Error),
-    Write(std::io::Error),
-}
-
-impl fmt::Display for DebugOutputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Serialize(source) => {
-                write!(f, "failed to serialize debug stdout: {source}")
-            }
-            Self::Write(source) => write!(f, "failed to write debug stdout: {source}"),
-        }
-    }
-}
-
-impl std::error::Error for DebugOutputError {}
-
-/// debug 有効時だけ pretty JSON を出力します。
-pub fn write_debug_transcript<W>(
-    debug_enabled: bool,
-    output: &mut W,
-    transcripts: &[DiarizedTranscript],
-) -> Result<(), DebugOutputError>
-where
-    W: Write,
-{
-    if !debug_enabled {
-        return Ok(());
-    }
-
-    for transcript in transcripts {
-        serde_json::to_writer_pretty(&mut *output, transcript)
-            .map_err(DebugOutputError::Serialize)?;
-        output.write_all(b"\n").map_err(DebugOutputError::Write)?;
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::{
+        CaptureConfig, CaptureError, CaptureRunResult, CaptureTranscriptionFailure,
+        NoopInterruptMonitor, SpeakerLabel, TRANSCRIPTION_MODEL, run_capture,
+        run_capture_with_interrupt_monitor, write_debug_transcript,
+    };
     use super::*;
     use crate::LogSource;
-    use crate::application::ports::{CaptureSessionMetadata, RecordingWaitOutcome};
+    use crate::application::ports::{
+        CaptureStoreError, ChunkingStrategy, RecorderError, RecordingWaitOutcome, ResponseFormat,
+        TranscriberError, TranscriptionLanguage, TranscriptionRequest,
+    };
     use crate::domain::{
-        CaptureBoundary, MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot,
-        MergedTranscriptSegment, RecordedAudio, TranscriptSegment,
+        CaptureBoundary, CapturePolicy, DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry,
+        MergeAuditOutcome, MergeOverlapRangeSnapshot, MergedTranscriptSegment, RecordedAudio,
+        SilenceRequestPolicy, TranscriptMergePolicy, TranscriptSegment,
     };
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -684,14 +387,14 @@ mod tests {
         observed_requests: RefCell<Vec<CapturedRequest>>,
         observed_drop_counts: RefCell<Vec<u64>>,
         recording_observation: Option<Rc<RefCell<RecordingObservation>>>,
-        outcomes: VecDeque<Result<DiarizedTranscript, crate::application::ports::TranscriberError>>,
+        outcomes: VecDeque<Result<DiarizedTranscript, TranscriberError>>,
     }
 
     impl Transcriber for FakeTranscriber {
         fn transcribe(
             &mut self,
             request: TranscriptionRequest<'_>,
-        ) -> Result<DiarizedTranscript, crate::application::ports::TranscriberError> {
+        ) -> Result<DiarizedTranscript, TranscriberError> {
             let dropped_count = self
                 .recording_observation
                 .as_ref()
@@ -710,12 +413,10 @@ mod tests {
             match self.outcomes.pop_front() {
                 Some(Ok(transcript)) => Ok(transcript),
                 Some(Err(error)) => Err(error),
-                None => Err(
-                    crate::application::ports::TranscriberError::ParseResponseBody {
-                        source: "missing fake transcript".to_string(),
-                        body: String::new(),
-                    },
-                ),
+                None => Err(TranscriberError::ParseResponseBody {
+                    source: "missing fake transcript".to_string(),
+                    body: String::new(),
+                }),
             }
         }
     }
@@ -1530,7 +1231,7 @@ mod tests {
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
             outcomes: VecDeque::from(vec![
-                Err(crate::application::ports::TranscriberError::SendRequest(
+                Err(TranscriberError::SendRequest(
                     "simulated timeout".to_string(),
                 )),
                 Ok(success_transcript.clone()),
@@ -1741,12 +1442,10 @@ mod tests {
             observed_requests: RefCell::new(Vec::new()),
             observed_drop_counts: RefCell::new(Vec::new()),
             recording_observation: Some(Rc::clone(&observation)),
-            outcomes: VecDeque::from(vec![Err(
-                crate::application::ports::TranscriberError::ParseResponseBody {
-                    source: "invalid json".to_string(),
-                    body: "{".to_string(),
-                },
-            )]),
+            outcomes: VecDeque::from(vec![Err(TranscriberError::ParseResponseBody {
+                source: "invalid json".to_string(),
+                body: "{".to_string(),
+            })]),
         };
         let mut capture_store = FakeCaptureStore::new();
         let (logger, stderr) = test_capture_logger();
@@ -1764,9 +1463,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            CaptureError::Transcribe(
-                crate::application::ports::TranscriberError::ParseResponseBody { .. }
-            )
+            CaptureError::Transcribe(TranscriberError::ParseResponseBody { .. })
         ));
         assert_eq!(*capture_store.observed_audios.borrow(), vec![(1, audio1)]);
         assert!(capture_store.observed_transcripts.borrow().is_empty());

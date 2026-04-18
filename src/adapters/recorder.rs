@@ -15,10 +15,12 @@ use screencapturekit::stream::delegate_trait::StreamCallbacks;
 use screencapturekit::stream::output_type::SCStreamOutputType;
 use screencapturekit::stream::sc_stream::SCStream;
 use std::io::Cursor;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
+const AUDIO_DETECTION_SAMPLE_THRESHOLD: u16 = 512;
 const TARGET_CHANNELS: u16 = 1;
 const TARGET_SAMPLE_RATE: u32 = 24_000;
 const WAIT_INTERVAL_MILLIS: u64 = 10;
@@ -73,6 +75,7 @@ impl Recorder for CpalRecorder {
         ));
 
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
+        let audio_detected = Arc::new(AtomicBool::new(false));
         let (error_sender, error_receiver) = mpsc::channel();
 
         let stream = match sample_format {
@@ -80,18 +83,21 @@ impl Recorder for CpalRecorder {
                 &device,
                 &stream_config,
                 Arc::clone(&sample_buffer),
+                Arc::clone(&audio_detected),
                 error_sender.clone(),
             )?,
             cpal::SampleFormat::I16 => build_input_stream::<i16>(
                 &device,
                 &stream_config,
                 Arc::clone(&sample_buffer),
+                Arc::clone(&audio_detected),
                 error_sender.clone(),
             )?,
             cpal::SampleFormat::U16 => build_input_stream::<u16>(
                 &device,
                 &stream_config,
                 Arc::clone(&sample_buffer),
+                Arc::clone(&audio_detected),
                 error_sender.clone(),
             )?,
             other => return Err(RecorderError::UnsupportedSampleFormat(format!("{other:?}"))),
@@ -104,6 +110,8 @@ impl Recorder for CpalRecorder {
         Ok(CpalRecordingSession {
             _stream: stream,
             sample_buffer,
+            audio_detected,
+            audio_detection_logged: false,
             error_receiver,
             channels,
             sample_rate,
@@ -135,6 +143,7 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
             .with_channel_count(i32::from(TARGET_CHANNELS))
             .with_sample_rate(TARGET_SAMPLE_RATE as i32);
         let sample_buffer = Arc::new(Mutex::new(Vec::new()));
+        let audio_detected = Arc::new(AtomicBool::new(false));
         let (error_sender, error_receiver) = mpsc::channel();
         let callback_error_sender = error_sender.clone();
         let delegate = StreamCallbacks::new().on_error(move |error| {
@@ -142,6 +151,7 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
         });
         let mut stream = SCStream::new_with_delegate(&filter, &configuration, delegate);
         let audio_sample_buffer = Arc::clone(&sample_buffer);
+        let audio_detected_flag = Arc::clone(&audio_detected);
         let audio_error_sender = error_sender.clone();
         let logger = self.logger.clone();
 
@@ -149,7 +159,12 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
             move |sample: CMSampleBuffer, _of_type: SCStreamOutputType| {
                 match decode_screen_capture_audio(sample) {
                     Ok(decoded) => match audio_sample_buffer.lock() {
-                        Ok(mut guard) => guard.extend_from_slice(&decoded),
+                        Ok(mut guard) => {
+                            if contains_detectable_audio(&decoded) {
+                                audio_detected_flag.store(true, Ordering::SeqCst);
+                            }
+                            guard.extend_from_slice(&decoded)
+                        }
                         Err(_) => {
                             let _ = audio_error_sender.send(RecorderError::SampleBufferPoisoned);
                         }
@@ -179,6 +194,8 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
         Ok(ScreenCaptureKitRecordingSession {
             stream,
             sample_buffer,
+            audio_detected,
+            audio_detection_logged: false,
             error_receiver,
             logger,
         })
@@ -189,6 +206,8 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
 pub struct CpalRecordingSession {
     _stream: cpal::Stream,
     sample_buffer: Arc<Mutex<Vec<i16>>>,
+    audio_detected: Arc<AtomicBool>,
+    audio_detection_logged: bool,
     error_receiver: mpsc::Receiver<RecorderError>,
     channels: u16,
     sample_rate: u32,
@@ -199,6 +218,8 @@ pub struct CpalRecordingSession {
 pub struct ScreenCaptureKitRecordingSession {
     stream: SCStream,
     sample_buffer: Arc<Mutex<Vec<i16>>>,
+    audio_detected: Arc<AtomicBool>,
+    audio_detection_logged: bool,
     error_receiver: mpsc::Receiver<RecorderError>,
     logger: Logger,
 }
@@ -213,6 +234,11 @@ impl RecordingSession for CpalRecordingSession {
 
         loop {
             self.poll_callback_error()?;
+            maybe_log_audio_detected(
+                self.audio_detected.as_ref(),
+                &mut self.audio_detection_logged,
+                &self.logger,
+            );
             let available_frames = self.available_frame_count()?;
 
             if available_frames >= required_frames {
@@ -321,6 +347,11 @@ impl RecordingSession for ScreenCaptureKitRecordingSession {
 
         loop {
             self.poll_callback_error()?;
+            maybe_log_audio_detected(
+                self.audio_detected.as_ref(),
+                &mut self.audio_detection_logged,
+                &self.logger,
+            );
             let available_frames = self.available_frame_count()?;
 
             if available_frames >= required_frames {
@@ -913,6 +944,7 @@ fn build_input_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     sample_buffer: Arc<Mutex<Vec<i16>>>,
+    audio_detected: Arc<AtomicBool>,
     error_sender: mpsc::Sender<RecorderError>,
 ) -> Result<cpal::Stream, RecorderError>
 where
@@ -928,6 +960,9 @@ where
                 let mut converted = Vec::with_capacity(data.len());
                 for sample in data {
                     converted.push(sample_to_i16(*sample));
+                }
+                if contains_detectable_audio(&converted) {
+                    audio_detected.store(true, Ordering::SeqCst);
                 }
 
                 match sample_buffer.lock() {
@@ -952,6 +987,21 @@ where
     i16: FromSample<T>,
 {
     i16::from_sample(sample)
+}
+
+fn contains_detectable_audio(samples: &[i16]) -> bool {
+    samples
+        .iter()
+        .any(|sample| sample.unsigned_abs() >= AUDIO_DETECTION_SAMPLE_THRESHOLD)
+}
+
+fn maybe_log_audio_detected(detected: &AtomicBool, logged: &mut bool, logger: &Logger) {
+    if *logged || !detected.load(Ordering::SeqCst) {
+        return;
+    }
+
+    let _ = logger.info("audio input detected");
+    *logged = true;
 }
 
 fn downmix_to_mono(pcm_samples: &[i16], channels: u16) -> Vec<i16> {
@@ -1046,6 +1096,7 @@ fn frame_count_to_duration(frame_count: u64, sample_rate: u32) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::{
+<<<<<<< HEAD
         encode_wav, normalize_pcm_format, select_application_display_index,
         wait_for_capture_boundary,
     };
@@ -1057,6 +1108,39 @@ mod tests {
     use std::io::Cursor;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+=======
+        AUDIO_DETECTION_SAMPLE_THRESHOLD, encode_wav, maybe_log_audio_detected,
+        normalize_pcm_format, select_application_display_index,
+    };
+    use crate::domain::RecordedAudio;
+    use crate::{LogSource, Logger};
+    use screencapturekit::cg::CGRect;
+    use std::io::Cursor;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct SharedBuffer {
+        bytes: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl SharedBuffer {
+        fn contents(&self) -> String {
+            String::from_utf8(self.bytes.lock().unwrap().clone()).unwrap()
+        }
+    }
+
+    impl std::io::Write for SharedBuffer {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.bytes.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+>>>>>>> main
 
     #[test]
     /// PCM サンプル列を 16bit PCM の WAV バイト列へ変換する。
@@ -1126,6 +1210,7 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     /// 無音分割は 50ms 窓ごとの連続無音が必要長に届くまで待ち、届いた時点で確定する。
     fn waits_until_trailing_silence_reaches_required_duration() {
         let sample_rate = 1_000;
@@ -1187,5 +1272,38 @@ mod tests {
         fn is_interrupt_requested(&self) -> bool {
             false
         }
+=======
+    /// しきい値未満の微小ノイズだけでは音声検知しないが、しきい値到達で検知する。
+    fn detects_audio_only_after_samples_reach_threshold() {
+        assert!(!super::contains_detectable_audio(&[
+            0,
+            12,
+            -(AUDIO_DETECTION_SAMPLE_THRESHOLD as i16 - 1),
+        ]));
+        assert!(super::contains_detectable_audio(&[
+            AUDIO_DETECTION_SAMPLE_THRESHOLD as i16
+        ]));
+    }
+
+    #[test]
+    /// 音声検知ログは同じ source で一度だけ出力する。
+    fn writes_audio_detection_log_only_once_per_source() {
+        let sink = SharedBuffer::default();
+        let logger = Logger::new(sink.clone(), false)
+            .with_source(LogSource::Microphone)
+            .with_component("recorder");
+        let detected = AtomicBool::new(false);
+        let mut logged = false;
+
+        maybe_log_audio_detected(&detected, &mut logged, &logger);
+        detected.store(true, Ordering::SeqCst);
+        maybe_log_audio_detected(&detected, &mut logged, &logger);
+        maybe_log_audio_detected(&detected, &mut logged, &logger);
+
+        assert_eq!(
+            sink.contents(),
+            "[info] [microphone] [recorder] audio input detected\n"
+        );
+>>>>>>> main
     }
 }

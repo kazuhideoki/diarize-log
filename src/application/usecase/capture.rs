@@ -1,12 +1,12 @@
 use crate::application::ports::{
     CaptureSessionMetadata, CaptureStore, CaptureStoreError, ChunkingStrategy, InterruptMonitor,
-    Recorder, RecorderError, RecordingSession, RecordingWaitOutcome, ResponseFormat, Transcriber,
-    TranscriberError, TranscriptionLanguage, TranscriptionRequest,
+    Recorder, RecorderError, RecordingSession, ResponseFormat, Transcriber, TranscriberError,
+    TranscriptionLanguage, TranscriptionRequest,
 };
 use crate::domain::{
-    CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
-    KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio, TranscriptMergePolicy,
-    TranscriptSegment,
+    CaptureBoundaryReason, CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript,
+    DiarizedTranscript, KnownSpeakerSample, MergedTranscriptSegment, RecordedAudio,
+    SilenceRequestPolicy, TranscriptMergePolicy, TranscriptSegment,
 };
 use crate::logger::Logger;
 use std::fmt;
@@ -19,6 +19,7 @@ pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaptureConfig {
     pub capture_policy: CapturePolicy,
+    pub silence_request_policy: SilenceRequestPolicy,
     pub merge_policy: TranscriptMergePolicy,
     pub response_format: ResponseFormat,
     pub transcription_model: &'static str,
@@ -46,6 +47,7 @@ impl CaptureConfig {
                 capture_duration,
                 capture_overlap,
             },
+            silence_request_policy: SilenceRequestPolicy::recommended(),
             merge_policy: TranscriptMergePolicy::recommended(),
             response_format: ResponseFormat::DiarizedJson,
             transcription_model: TRANSCRIPTION_MODEL,
@@ -106,12 +108,6 @@ impl InterruptMonitor for NoopInterruptMonitor {
     fn is_interrupt_requested(&self) -> bool {
         false
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PendingCaptureAudio {
-    range: CaptureRange,
-    audio: RecordedAudio,
 }
 
 /// 連続録音と文字起こしを実行します。
@@ -195,6 +191,13 @@ where
             recording_duration_ms: duration_to_millis(config.capture_policy.recording_duration),
             capture_duration_ms: duration_to_millis(config.capture_policy.capture_duration),
             capture_overlap_ms: duration_to_millis(config.capture_policy.capture_overlap),
+            capture_silence_threshold_dbfs: config.silence_request_policy.silence_threshold_dbfs,
+            capture_silence_min_duration_ms: duration_to_millis(
+                config.silence_request_policy.silence_min_duration,
+            ),
+            capture_tail_silence_min_duration_ms: duration_to_millis(
+                config.silence_request_policy.tail_silence_min_duration,
+            ),
             transcription_model: config.transcription_model.to_string(),
             transcription_language: config.transcription_language.to_string(),
             response_format: config.response_format.as_api_value().to_string(),
@@ -207,69 +210,44 @@ where
         .map_err(CaptureError::Write)?;
     let mut session = Some(recorder.start_recording().map_err(CaptureError::Record)?);
     let started_at_unix_ms = current_unix_ms();
-    let capture_ranges = config.capture_policy.capture_ranges();
-    let capture_count = capture_ranges.len();
     let mut capture_merger = CaptureMerger::new(config.merge_policy.clone());
-    let mut transcripts = Vec::with_capacity(capture_ranges.len());
+    let mut transcripts = Vec::new();
     let mut merged_segments = Vec::new();
     let mut transcription_failures = Vec::new();
+    let mut capture_index = 1_u64;
+    let mut capture_start_offset = Duration::ZERO;
 
-    for (capture_position, capture_range) in capture_ranges.into_iter().enumerate() {
-        let is_last_capture = capture_position + 1 == capture_count;
-        let wait_outcome = session
+    while capture_start_offset < config.capture_policy.recording_duration {
+        let boundary = session
             .as_mut()
             .expect("recording session must exist until the final capture is copied")
-            .wait_until(capture_range.end_offset(), interrupt_monitor)
+            .wait_for_capture_boundary(
+                capture_start_offset,
+                &config.capture_policy,
+                &config.silence_request_policy,
+                interrupt_monitor,
+            )
             .map_err(CaptureError::Record)?;
 
-        if wait_outcome == RecordingWaitOutcome::Interrupted {
+        if boundary.reason == CaptureBoundaryReason::Interrupted {
             logger
                 .info("interrupt received, finalizing recorded audio")
                 .map_err(CaptureError::Write)?;
-            let available_duration = session
-                .as_mut()
-                .expect("recording session must exist until interrupted captures are copied")
-                .recorded_duration()
-                .map_err(CaptureError::Record)?;
-            let interrupted_policy = CapturePolicy {
-                recording_duration: available_duration,
-                capture_duration: config.capture_policy.capture_duration,
-                capture_overlap: config.capture_policy.capture_overlap,
-            };
-            let pending_ranges = interrupted_policy
-                .capture_ranges()
-                .into_iter()
-                .skip(capture_position)
-                .collect::<Vec<_>>();
-            let pending_audios = capture_pending_audios(
-                session
-                    .as_mut()
-                    .expect("recording session must exist until interrupted captures are copied"),
-                capture_store,
-                pending_ranges,
-            )?;
+        }
+
+        if boundary.duration.is_zero() {
             drop(session.take());
             logger
                 .info("recording finished")
                 .map_err(CaptureError::Write)?;
-            for pending in pending_audios {
-                process_capture_audio(
-                    pending.range,
-                    pending.audio,
-                    config,
-                    speaker_samples,
-                    speaker_label,
-                    logger,
-                    transcriber,
-                    capture_store,
-                    &mut capture_merger,
-                    &mut transcripts,
-                    &mut merged_segments,
-                    &mut transcription_failures,
-                )?;
-            }
             break;
         }
+
+        let capture_range = CaptureRange {
+            capture_index,
+            start_offset: capture_start_offset,
+            duration: boundary.duration,
+        };
         let audio = capture_audio(
             session
                 .as_mut()
@@ -277,12 +255,28 @@ where
             capture_store,
             capture_range,
         )?;
-        if is_last_capture {
+        let capture_end_offset = capture_range.end_offset();
+        let reached_recording_end = capture_end_offset >= config.capture_policy.recording_duration;
+        let next_overlap_start_offset =
+            capture_end_offset.saturating_sub(config.capture_policy.capture_overlap);
+        // hard limit で録音終端に達した直後だけは、従来どおり overlap tail capture を 1 本残して
+        // 末尾の切れ目を merge で救えるようにします。
+        let needs_overlap_tail_capture = boundary.reason == CaptureBoundaryReason::MaxDuration
+            && reached_recording_end
+            && boundary.duration == config.capture_policy.capture_duration
+            && config.capture_policy.capture_overlap > Duration::ZERO
+            && next_overlap_start_offset > capture_start_offset
+            && next_overlap_start_offset < config.capture_policy.recording_duration;
+        let should_finish_recording = boundary.reason == CaptureBoundaryReason::Interrupted
+            || (reached_recording_end && !needs_overlap_tail_capture);
+
+        if should_finish_recording {
             drop(session.take());
             logger
                 .info("recording finished")
                 .map_err(CaptureError::Write)?;
         }
+
         process_capture_audio(
             capture_range,
             audio,
@@ -297,6 +291,18 @@ where
             &mut merged_segments,
             &mut transcription_failures,
         )?;
+
+        if should_finish_recording {
+            break;
+        }
+
+        // 無音境界はその終了位置から次を始め、hard limit 境界だけ既存 overlap を使います。
+        capture_start_offset = match boundary.reason {
+            CaptureBoundaryReason::Silence => capture_end_offset,
+            CaptureBoundaryReason::MaxDuration => next_overlap_start_offset,
+            CaptureBoundaryReason::Interrupted => break,
+        };
+        capture_index += 1;
     }
     let tail_segments = capture_merger.finish();
     capture_store
@@ -321,24 +327,6 @@ where
         merged_segments,
         transcription_failures,
     })
-}
-
-fn capture_pending_audios<SN, ST>(
-    session: &mut SN,
-    capture_store: &mut ST,
-    pending_ranges: Vec<CaptureRange>,
-) -> Result<Vec<PendingCaptureAudio>, CaptureError>
-where
-    SN: RecordingSession,
-    ST: CaptureStore,
-{
-    pending_ranges
-        .into_iter()
-        .map(|range| {
-            let audio = capture_audio(session, capture_store, range)?;
-            Ok(PendingCaptureAudio { range, audio })
-        })
-        .collect()
 }
 
 fn capture_audio<SN, ST>(
@@ -526,8 +514,8 @@ mod tests {
     use crate::LogSource;
     use crate::application::ports::{CaptureSessionMetadata, RecordingWaitOutcome};
     use crate::domain::{
-        MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot, MergedTranscriptSegment,
-        RecordedAudio, TranscriptSegment,
+        CaptureBoundary, MergeAuditEntry, MergeAuditOutcome, MergeOverlapRangeSnapshot,
+        MergedTranscriptSegment, RecordedAudio, TranscriptSegment,
     };
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -560,6 +548,7 @@ mod tests {
         observation: Rc<RefCell<RecordingObservation>>,
         audios: VecDeque<RecordedAudio>,
         wait_outcomes: VecDeque<RecordingWaitOutcome>,
+        boundary_outcomes: VecDeque<CaptureBoundary>,
         recorded_duration: Duration,
     }
 
@@ -569,6 +558,7 @@ mod tests {
                 observation,
                 audios: VecDeque::from(audios),
                 wait_outcomes: VecDeque::new(),
+                boundary_outcomes: VecDeque::new(),
                 recorded_duration: Duration::ZERO,
             }
         }
@@ -583,7 +573,22 @@ mod tests {
                 observation,
                 audios: VecDeque::from(audios),
                 wait_outcomes: VecDeque::from(wait_outcomes),
+                boundary_outcomes: VecDeque::new(),
                 recorded_duration,
+            }
+        }
+
+        fn with_capture_boundaries(
+            observation: Rc<RefCell<RecordingObservation>>,
+            audios: Vec<RecordedAudio>,
+            boundary_outcomes: Vec<CaptureBoundary>,
+        ) -> Self {
+            Self {
+                observation,
+                audios: VecDeque::from(audios),
+                wait_outcomes: VecDeque::new(),
+                boundary_outcomes: VecDeque::from(boundary_outcomes),
+                recorded_duration: Duration::ZERO,
             }
         }
     }
@@ -605,6 +610,39 @@ mod tests {
                 .wait_outcomes
                 .pop_front()
                 .unwrap_or(RecordingWaitOutcome::ReachedTarget))
+        }
+
+        fn wait_for_capture_boundary(
+            &mut self,
+            capture_start_offset: Duration,
+            capture_policy: &CapturePolicy,
+            _silence_request_policy: &SilenceRequestPolicy,
+            _interrupt_monitor: &dyn InterruptMonitor,
+        ) -> Result<CaptureBoundary, RecorderError> {
+            let max_capture_duration = (capture_policy.recording_duration - capture_start_offset)
+                .min(capture_policy.capture_duration);
+            self.observation
+                .borrow_mut()
+                .waited_until
+                .push(capture_start_offset + max_capture_duration);
+            if let Some(boundary) = self.boundary_outcomes.pop_front() {
+                return Ok(boundary);
+            }
+
+            match self
+                .wait_outcomes
+                .pop_front()
+                .unwrap_or(RecordingWaitOutcome::ReachedTarget)
+            {
+                RecordingWaitOutcome::ReachedTarget => Ok(CaptureBoundary {
+                    duration: max_capture_duration,
+                    reason: CaptureBoundaryReason::MaxDuration,
+                }),
+                RecordingWaitOutcome::Interrupted => Ok(CaptureBoundary {
+                    duration: self.recorded_duration.saturating_sub(capture_start_offset),
+                    reason: CaptureBoundaryReason::Interrupted,
+                }),
+            }
         }
 
         fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
@@ -978,6 +1016,134 @@ mod tests {
                     response_format: ResponseFormat::DiarizedJson,
                     chunking_strategy: ChunkingStrategy::Auto,
                 },
+            ]
+        );
+    }
+
+    #[test]
+    /// 無音境界で確定した次 capture は overlap を付けず、その終了位置から次を始める。
+    fn starts_next_capture_without_overlap_after_silence_boundary() {
+        let config = capture_config(
+            Duration::from_secs(330),
+            Duration::from_secs(180),
+            Duration::from_secs(15),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession::with_capture_boundaries(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio(), sample_audio()],
+                vec![
+                    CaptureBoundary {
+                        duration: Duration::from_secs(150),
+                        reason: CaptureBoundaryReason::Silence,
+                    },
+                    CaptureBoundary {
+                        duration: Duration::from_secs(180),
+                        reason: CaptureBoundaryReason::MaxDuration,
+                    },
+                    CaptureBoundary {
+                        duration: Duration::from_secs(15),
+                        reason: CaptureBoundaryReason::MaxDuration,
+                    },
+                ],
+            )),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+            ]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let (logger, _stderr) = test_capture_logger();
+
+        run_capture(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+            &logger,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+        )
+        .unwrap();
+
+        assert_eq!(
+            observation.borrow().captured_windows,
+            vec![
+                (Duration::from_secs(0), Duration::from_secs(150)),
+                (Duration::from_secs(150), Duration::from_secs(180)),
+                (Duration::from_secs(315), Duration::from_secs(15)),
+            ]
+        );
+    }
+
+    #[test]
+    /// hard limit 到達で確定した次 capture は既存 overlap ぶんだけ巻き戻して始める。
+    fn starts_next_capture_with_overlap_after_max_duration_boundary() {
+        let config = capture_config(
+            Duration::from_secs(345),
+            Duration::from_secs(180),
+            Duration::from_secs(15),
+        );
+        let observation = Rc::new(RefCell::new(RecordingObservation::default()));
+        let mut recorder = FakeRecorder {
+            observation: Rc::clone(&observation),
+            session: Some(FakeRecordingSession::with_capture_boundaries(
+                Rc::clone(&observation),
+                vec![sample_audio(), sample_audio(), sample_audio()],
+                vec![
+                    CaptureBoundary {
+                        duration: Duration::from_secs(180),
+                        reason: CaptureBoundaryReason::MaxDuration,
+                    },
+                    CaptureBoundary {
+                        duration: Duration::from_secs(180),
+                        reason: CaptureBoundaryReason::MaxDuration,
+                    },
+                    CaptureBoundary {
+                        duration: Duration::from_secs(15),
+                        reason: CaptureBoundaryReason::MaxDuration,
+                    },
+                ],
+            )),
+        };
+        let mut transcriber = FakeTranscriber {
+            observed_requests: RefCell::new(Vec::new()),
+            observed_drop_counts: RefCell::new(Vec::new()),
+            recording_observation: Some(Rc::clone(&observation)),
+            outcomes: VecDeque::from(vec![
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+                Ok(sample_transcript()),
+            ]),
+        };
+        let mut capture_store = FakeCaptureStore::new();
+        let (logger, _stderr) = test_capture_logger();
+
+        run_capture(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+            &logger,
+            &mut recorder,
+            &mut transcriber,
+            &mut capture_store,
+        )
+        .unwrap();
+
+        assert_eq!(
+            observation.borrow().captured_windows,
+            vec![
+                (Duration::from_secs(0), Duration::from_secs(180)),
+                (Duration::from_secs(165), Duration::from_secs(180)),
+                (Duration::from_secs(330), Duration::from_secs(15)),
             ]
         );
     }
@@ -1754,6 +1920,9 @@ mod tests {
                 recording_duration_ms: 40_000,
                 capture_duration_ms: 30_000,
                 capture_overlap_ms: 18_000,
+                capture_silence_threshold_dbfs: -42.0,
+                capture_silence_min_duration_ms: 700,
+                capture_tail_silence_min_duration_ms: 250,
                 transcription_model: TRANSCRIPTION_MODEL.to_string(),
                 transcription_language: TEST_TRANSCRIPTION_LANGUAGE.to_string(),
                 response_format: "diarized_json".to_string(),

@@ -1,7 +1,9 @@
 use crate::application::ports::{
     InterruptMonitor, Recorder, RecorderError, RecordingSession, RecordingWaitOutcome,
 };
-use crate::domain::RecordedAudio;
+use crate::domain::{
+    CaptureBoundary, CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
+};
 use crate::logger::Logger;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
@@ -22,6 +24,7 @@ const AUDIO_DETECTION_SAMPLE_THRESHOLD: u16 = 512;
 const TARGET_CHANNELS: u16 = 1;
 const TARGET_SAMPLE_RATE: u32 = 24_000;
 const WAIT_INTERVAL_MILLIS: u64 = 10;
+const SILENCE_ANALYSIS_WINDOW_MILLIS: u64 = 50;
 
 /// `cpal` を使ってデフォルトマイクから継続録音します。
 #[derive(Clone)]
@@ -249,6 +252,31 @@ impl RecordingSession for CpalRecordingSession {
         }
     }
 
+    fn wait_for_capture_boundary(
+        &mut self,
+        capture_start_offset: Duration,
+        capture_policy: &CapturePolicy,
+        silence_request_policy: &SilenceRequestPolicy,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<CaptureBoundary, RecorderError> {
+        let sample_buffer = Arc::clone(&self.sample_buffer);
+        let channels = self.channels;
+        let sample_rate = self.sample_rate;
+        wait_for_capture_boundary(
+            &sample_buffer,
+            channels,
+            sample_rate,
+            || {
+                self.poll_callback_error()?;
+                self.available_frame_count()
+            },
+            capture_start_offset,
+            capture_policy,
+            silence_request_policy,
+            interrupt_monitor,
+        )
+    }
+
     fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
         self.poll_callback_error()?;
         Ok(frame_count_to_duration(
@@ -337,6 +365,29 @@ impl RecordingSession for ScreenCaptureKitRecordingSession {
         }
     }
 
+    fn wait_for_capture_boundary(
+        &mut self,
+        capture_start_offset: Duration,
+        capture_policy: &CapturePolicy,
+        silence_request_policy: &SilenceRequestPolicy,
+        interrupt_monitor: &dyn InterruptMonitor,
+    ) -> Result<CaptureBoundary, RecorderError> {
+        let sample_buffer = Arc::clone(&self.sample_buffer);
+        wait_for_capture_boundary(
+            &sample_buffer,
+            TARGET_CHANNELS,
+            TARGET_SAMPLE_RATE,
+            || {
+                self.poll_callback_error()?;
+                self.available_frame_count()
+            },
+            capture_start_offset,
+            capture_policy,
+            silence_request_policy,
+            interrupt_monitor,
+        )
+    }
+
     fn recorded_duration(&mut self) -> Result<Duration, RecorderError> {
         self.poll_callback_error()?;
         Ok(frame_count_to_duration(
@@ -381,6 +432,144 @@ impl RecordingSession for ScreenCaptureKitRecordingSession {
 
         encode_wav(captured_samples, TARGET_CHANNELS, TARGET_SAMPLE_RATE)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn wait_for_capture_boundary<A>(
+    sample_buffer: &Arc<Mutex<Vec<i16>>>,
+    channels: u16,
+    sample_rate: u32,
+    mut read_available_frame_count: A,
+    capture_start_offset: Duration,
+    capture_policy: &CapturePolicy,
+    silence_request_policy: &SilenceRequestPolicy,
+    interrupt_monitor: &dyn InterruptMonitor,
+) -> Result<CaptureBoundary, RecorderError>
+where
+    A: FnMut() -> Result<u64, RecorderError>,
+{
+    let max_capture_duration = (capture_policy.recording_duration - capture_start_offset)
+        .min(capture_policy.capture_duration);
+    let capture_start_frame = duration_to_frame_count(capture_start_offset, sample_rate);
+    let max_capture_end_frame =
+        duration_to_frame_count(capture_start_offset + max_capture_duration, sample_rate);
+
+    loop {
+        let available_frames = read_available_frame_count()?;
+        let capture_end_frame = available_frames.min(max_capture_end_frame);
+        let elapsed_frames = capture_end_frame.saturating_sub(capture_start_frame);
+        let elapsed_duration = frame_count_to_duration(elapsed_frames, sample_rate);
+
+        if available_frames >= max_capture_end_frame {
+            return Ok(CaptureBoundary {
+                duration: max_capture_duration,
+                reason: CaptureBoundaryReason::MaxDuration,
+            });
+        }
+
+        if interrupt_monitor.is_interrupt_requested() {
+            return Ok(CaptureBoundary {
+                duration: elapsed_duration,
+                reason: CaptureBoundaryReason::Interrupted,
+            });
+        }
+
+        if silence_request_policy.is_silence_split_armed(elapsed_duration, max_capture_duration) {
+            let required_silence_duration = silence_request_policy
+                .required_silence_duration(elapsed_duration, max_capture_duration);
+            let trailing_silence_duration = trailing_silence_duration(
+                sample_buffer,
+                capture_start_frame,
+                capture_end_frame,
+                channels,
+                sample_rate,
+                silence_request_policy.silence_threshold_dbfs,
+            )?;
+
+            if trailing_silence_duration >= required_silence_duration {
+                return Ok(CaptureBoundary {
+                    duration: elapsed_duration,
+                    reason: CaptureBoundaryReason::Silence,
+                });
+            }
+        }
+
+        thread::sleep(Duration::from_millis(WAIT_INTERVAL_MILLIS));
+    }
+}
+
+fn trailing_silence_duration(
+    sample_buffer: &Arc<Mutex<Vec<i16>>>,
+    capture_start_frame: u64,
+    capture_end_frame: u64,
+    channels: u16,
+    sample_rate: u32,
+    silence_threshold_dbfs: f64,
+) -> Result<Duration, RecorderError> {
+    if capture_end_frame <= capture_start_frame {
+        return Ok(Duration::ZERO);
+    }
+
+    let analysis_window_frames = duration_to_frame_count(
+        Duration::from_millis(SILENCE_ANALYSIS_WINDOW_MILLIS),
+        sample_rate,
+    )
+    .max(1);
+    let mut trailing_silent_frames = 0_u64;
+    let mut window_end_frame = capture_end_frame;
+    let guard = sample_buffer
+        .lock()
+        .map_err(|_| RecorderError::SampleBufferPoisoned)?;
+
+    while window_end_frame > capture_start_frame {
+        let window_start_frame = window_end_frame
+            .saturating_sub(analysis_window_frames)
+            .max(capture_start_frame);
+        let window_samples = sample_slice(&guard, channels, window_start_frame, window_end_frame);
+        let window_dbfs = rms_dbfs(window_samples);
+
+        if window_dbfs > silence_threshold_dbfs {
+            break;
+        }
+
+        trailing_silent_frames += window_end_frame - window_start_frame;
+        window_end_frame = window_start_frame;
+    }
+
+    Ok(frame_count_to_duration(trailing_silent_frames, sample_rate))
+}
+
+fn sample_slice(samples: &[i16], channels: u16, start_frame: u64, end_frame: u64) -> &[i16] {
+    let channel_count = usize::from(channels);
+    let start_sample =
+        usize::try_from(start_frame).expect("frame count must fit into usize") * channel_count;
+    let end_sample =
+        usize::try_from(end_frame).expect("frame count must fit into usize") * channel_count;
+
+    &samples[start_sample..end_sample]
+}
+
+fn rms_dbfs(samples: &[i16]) -> f64 {
+    if samples.is_empty() {
+        return f64::NEG_INFINITY;
+    }
+
+    // PCM 振幅を full scale で正規化して RMS を求め、
+    // 20*log10(rms) で dBFS に変換します。
+    let normalized_square_sum = samples
+        .iter()
+        .map(|sample| {
+            let normalized = f64::from(*sample) / f64::from(i16::MAX);
+            normalized * normalized
+        })
+        .sum::<f64>();
+    let rms = (normalized_square_sum / samples.len() as f64).sqrt();
+
+    if rms == 0.0 {
+        return f64::NEG_INFINITY;
+    }
+
+    20.0 * rms.log10()
 }
 
 impl CpalRecordingSession {
@@ -908,14 +1097,18 @@ fn frame_count_to_duration(frame_count: u64, sample_rate: u32) -> Duration {
 mod tests {
     use super::{
         AUDIO_DETECTION_SAMPLE_THRESHOLD, encode_wav, maybe_log_audio_detected,
-        normalize_pcm_format, select_application_display_index,
+        normalize_pcm_format, select_application_display_index, wait_for_capture_boundary,
     };
-    use crate::domain::RecordedAudio;
+    use crate::application::ports::{InterruptMonitor, RecorderError};
+    use crate::domain::{
+        CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
+    };
     use crate::{LogSource, Logger};
     use screencapturekit::cg::CGRect;
     use std::io::Cursor;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[derive(Clone, Default)]
     struct SharedBuffer {
@@ -1004,6 +1197,70 @@ mod tests {
         );
 
         assert_eq!(display_index, Some(1));
+    }
+
+    #[test]
+    /// 無音分割は 50ms 窓ごとの連続無音が必要長に届くまで待ち、届いた時点で確定する。
+    fn waits_until_trailing_silence_reaches_required_duration() {
+        let sample_rate = 1_000;
+        let capture_policy = CapturePolicy {
+            recording_duration: Duration::from_secs(30),
+            capture_duration: Duration::from_secs(30),
+            capture_overlap: Duration::from_secs(0),
+        };
+        let silence_request_policy = SilenceRequestPolicy {
+            silence_threshold_dbfs: -42.0,
+            silence_min_duration: Duration::from_millis(700),
+            tail_silence_min_duration: Duration::from_millis(700),
+        };
+        let sample_buffer = Arc::new(Mutex::new(build_pcm_with_trailing_silence(24_700, 700)));
+        let mut available_frames = [24_650_u64, 24_700_u64].into_iter();
+
+        let boundary = wait_for_capture_boundary(
+            &sample_buffer,
+            1,
+            sample_rate,
+            || {
+                available_frames.next().ok_or_else(|| {
+                    RecorderError::CallbackStream(
+                        "test available frame sequence exhausted".to_string(),
+                    )
+                })
+            },
+            Duration::ZERO,
+            &capture_policy,
+            &silence_request_policy,
+            &NeverInterrupted,
+        )
+        .unwrap();
+
+        assert_eq!(
+            boundary,
+            crate::domain::CaptureBoundary {
+                duration: Duration::from_millis(24_700),
+                reason: CaptureBoundaryReason::Silence,
+            }
+        );
+    }
+
+    fn build_pcm_with_trailing_silence(
+        total_frames: usize,
+        trailing_silence_frames: usize,
+    ) -> Vec<i16> {
+        let audible_frames = total_frames
+            .checked_sub(trailing_silence_frames)
+            .expect("trailing silence must not exceed total frame count");
+        let mut samples = vec![12_000_i16; audible_frames];
+        samples.extend(vec![0_i16; trailing_silence_frames]);
+        samples
+    }
+
+    struct NeverInterrupted;
+
+    impl InterruptMonitor for NeverInterrupted {
+        fn is_interrupt_requested(&self) -> bool {
+            false
+        }
     }
 
     #[test]

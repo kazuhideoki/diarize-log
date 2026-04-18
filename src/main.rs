@@ -185,6 +185,7 @@ where
         runtime_config.transcription_language.clone(),
     );
     let config = CaptureConfig {
+        silence_request_policy: runtime_config.capture_silence_request_policy.clone(),
         merge_policy: runtime_config.transcript_merge_policy.clone(),
         ..config
     };
@@ -374,6 +375,7 @@ fn build_mixed_capture_metadata(
         runtime_config.transcription_language.clone(),
     );
     let capture_config = CaptureConfig {
+        silence_request_policy: runtime_config.capture_silence_request_policy.clone(),
         merge_policy: runtime_config.transcript_merge_policy.clone(),
         ..capture_config
     };
@@ -394,6 +396,17 @@ fn build_mixed_capture_metadata(
                 capture_overlap_ms: duration_to_millis(
                     capture_config.capture_policy.capture_overlap,
                 ),
+                capture_silence_threshold_dbfs: capture_config
+                    .silence_request_policy
+                    .silence_threshold_dbfs,
+                capture_silence_min_duration_ms: duration_to_millis(
+                    capture_config.silence_request_policy.silence_min_duration,
+                ),
+                capture_tail_silence_min_duration_ms: duration_to_millis(
+                    capture_config
+                        .silence_request_policy
+                        .tail_silence_min_duration,
+                ),
                 transcription_model: capture_config.transcription_model.to_string(),
                 transcription_language: capture_config.transcription_language.to_string(),
                 response_format: response_format_value(capture_config.response_format).to_string(),
@@ -412,6 +425,17 @@ fn build_mixed_capture_metadata(
                 ),
                 capture_overlap_ms: duration_to_millis(
                     capture_config.capture_policy.capture_overlap,
+                ),
+                capture_silence_threshold_dbfs: capture_config
+                    .silence_request_policy
+                    .silence_threshold_dbfs,
+                capture_silence_min_duration_ms: duration_to_millis(
+                    capture_config.silence_request_policy.silence_min_duration,
+                ),
+                capture_tail_silence_min_duration_ms: duration_to_millis(
+                    capture_config
+                        .silence_request_policy
+                        .tail_silence_min_duration,
                 ),
                 transcription_model: capture_config.transcription_model.to_string(),
                 transcription_language: capture_config.transcription_language.to_string(),
@@ -446,6 +470,7 @@ where
         runtime_config.transcription_language.clone(),
     );
     let config = CaptureConfig {
+        silence_request_policy: runtime_config.capture_silence_request_policy.clone(),
         merge_policy: runtime_config.transcript_merge_policy.clone(),
         ..config
     };

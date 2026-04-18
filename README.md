@@ -1,8 +1,21 @@
 # diarize-log
 
-音声を継続録音して話者分離文字起こしする CLI です。
-OpenAI の gpt-4o-transcribe-diarize 利用が前提となっています。
-既定では transcription language に `ja` を指定し、`DIARIZE_LOG_TRANSCRIPTION_LANGUAGE` 環境変数で `ja`、`en`、`auto` に上書きできます。`auto` を指定した場合は API へ `language` を送らず、自動判定に委ねます。
+`diarize-log` は、macOS 上でマイク音声や特定アプリケーションの音声を継続録音し、OpenAI `gpt-4o-transcribe-diarize` で話者分離文字起こししてローカル保存する CLI です。
+
+## できること
+
+- マイク音声の継続録音と話者分離文字起こし
+- 特定アプリケーションの音声だけを bundle ID 指定で取得して文字起こし
+- マイク音声とアプリ音声を同時に録り、時系列で統合した transcript を生成
+- 既知話者のサンプル音声を登録し、文字起こし時に添付して話者推定を補助
+- 無音状態を検知して自然な切れ目で文字起こしを区切り、長い録音でも扱いやすくする
+- 録音した WAV、capture ごとの transcript、統合済み transcript、metadata をローカルへ保存
+
+## 前提
+
+- OpenAI `gpt-4o-transcribe-diarize` を利用します
+- 既定の transcription language は `ja` です
+- `DIARIZE_LOG_TRANSCRIPTION_LANGUAGE` 環境変数で `ja`、`en`、`auto` に上書きできます
 
 ## Permissions
 

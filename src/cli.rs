@@ -1,4 +1,3 @@
-use crate::application::SpeakerCommand;
 use clap::{Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 use std::fmt;
@@ -11,7 +10,7 @@ pub enum CliAction {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
     },
-    Speaker(SpeakerCommand),
+    Speaker(SpeakerCliCommand),
     PrintOutput(String),
 }
 
@@ -25,6 +24,20 @@ pub enum AudioSource {
     Mixed {
         bundle_id: String,
         microphone_speaker: String,
+    },
+}
+
+/// speaker サブコマンドの CLI 入力です。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpeakerCliCommand {
+    Add {
+        speaker_name: String,
+        wav_path: PathBuf,
+        start_second: u64,
+    },
+    List,
+    Remove {
+        speaker_name: String,
     },
 }
 
@@ -220,14 +233,16 @@ impl SpeakerSubcommandArgs {
                 if !wav_path.is_absolute() {
                     return Err(CliArgumentError::RelativePathArgument { value: wav_path });
                 }
-                SpeakerCommand::Add {
+                SpeakerCliCommand::Add {
                     speaker_name,
                     wav_path,
                     start_second,
                 }
             }
-            SpeakerCommandArgs::List => SpeakerCommand::List,
-            SpeakerCommandArgs::Remove { speaker_name } => SpeakerCommand::Remove { speaker_name },
+            SpeakerCommandArgs::List => SpeakerCliCommand::List,
+            SpeakerCommandArgs::Remove { speaker_name } => {
+                SpeakerCliCommand::Remove { speaker_name }
+            }
         };
 
         Ok(CliAction::Speaker(command))
@@ -402,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    /// `speaker add` を受け取ると話者サンプル追加コマンドとして解釈する。
+    /// `speaker add` を受け取ると CLI 用の話者サンプル追加コマンドとして解釈する。
     fn parses_speaker_add_command() {
         let action = parse_cli_args([
             OsString::from("diarize-log"),
@@ -416,7 +431,7 @@ mod tests {
 
         assert_eq!(
             action,
-            CliAction::Speaker(SpeakerCommand::Add {
+            CliAction::Speaker(SpeakerCliCommand::Add {
                 speaker_name: "suzuki".to_string(),
                 wav_path: PathBuf::from("/tmp/source.wav"),
                 start_second: 4,
@@ -425,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    /// `speaker remove` を受け取ると話者サンプル削除コマンドとして解釈する。
+    /// `speaker remove` を受け取ると CLI 用の話者サンプル削除コマンドとして解釈する。
     fn parses_speaker_remove_command() {
         let action = parse_cli_args([
             OsString::from("diarize-log"),
@@ -437,14 +452,14 @@ mod tests {
 
         assert_eq!(
             action,
-            CliAction::Speaker(SpeakerCommand::Remove {
+            CliAction::Speaker(SpeakerCliCommand::Remove {
                 speaker_name: "suzuki".to_string(),
             })
         );
     }
 
     #[test]
-    /// `speaker list` を受け取ると話者サンプル一覧コマンドとして解釈する。
+    /// `speaker list` を受け取ると CLI 用の話者サンプル一覧コマンドとして解釈する。
     fn parses_speaker_list_command() {
         let action = parse_cli_args([
             OsString::from("diarize-log"),
@@ -453,7 +468,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(action, CliAction::Speaker(SpeakerCommand::List));
+        assert_eq!(action, CliAction::Speaker(SpeakerCliCommand::List));
     }
 
     #[test]

@@ -1,8 +1,9 @@
 mod commands;
 mod signal;
 
+use diarize_log::SpeakerCommand;
 use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
-use diarize_log::{CliAction, LineLogger, LogSource, parse_cli_args};
+use diarize_log::{CliAction, LineLogger, LogSource, SpeakerCliCommand, parse_cli_args};
 use std::ffi::OsString;
 use std::path::Path;
 use std::process::ExitCode;
@@ -60,14 +61,34 @@ where
                 &root_logger,
             )
         }
-        CliAction::Speaker(command) => commands::run_speaker_action(&runtime_config, command),
+        CliAction::Speaker(command) => {
+            commands::run_speaker_action(&runtime_config, map_speaker_command(command))
+        }
         CliAction::PrintOutput(_) => unreachable!("print output is handled before config load"),
+    }
+}
+
+fn map_speaker_command(command: SpeakerCliCommand) -> SpeakerCommand {
+    match command {
+        SpeakerCliCommand::Add {
+            speaker_name,
+            wav_path,
+            start_second,
+        } => SpeakerCommand::Add {
+            speaker_name,
+            wav_path,
+            start_second,
+        },
+        SpeakerCliCommand::List => SpeakerCommand::List,
+        SpeakerCliCommand::Remove { speaker_name } => SpeakerCommand::Remove { speaker_name },
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::map_speaker_command;
     use super::run;
+    use diarize_log::{SpeakerCliCommand, SpeakerCommand};
     use std::ffi::OsString;
     use std::process::ExitCode;
     use std::sync::{Mutex, OnceLock};
@@ -128,6 +149,48 @@ mod tests {
 
         restore_env_var("OPENAI_API_KEY", original);
         assert_eq!(exit_code, ExitCode::FAILURE);
+    }
+
+    #[test]
+    /// CLI 用の speaker add コマンドは use case 入力へ写像できる。
+    fn maps_speaker_add_cli_command_to_use_case_input() {
+        let command = map_speaker_command(SpeakerCliCommand::Add {
+            speaker_name: "suzuki".to_string(),
+            wav_path: "/tmp/source.wav".into(),
+            start_second: 4,
+        });
+
+        assert_eq!(
+            command,
+            SpeakerCommand::Add {
+                speaker_name: "suzuki".to_string(),
+                wav_path: "/tmp/source.wav".into(),
+                start_second: 4,
+            }
+        );
+    }
+
+    #[test]
+    /// CLI 用の speaker list コマンドは use case 入力へ写像できる。
+    fn maps_speaker_list_cli_command_to_use_case_input() {
+        let command = map_speaker_command(SpeakerCliCommand::List);
+
+        assert_eq!(command, SpeakerCommand::List);
+    }
+
+    #[test]
+    /// CLI 用の speaker remove コマンドは use case 入力へ写像できる。
+    fn maps_speaker_remove_cli_command_to_use_case_input() {
+        let command = map_speaker_command(SpeakerCliCommand::Remove {
+            speaker_name: "suzuki".to_string(),
+        });
+
+        assert_eq!(
+            command,
+            SpeakerCommand::Remove {
+                speaker_name: "suzuki".to_string(),
+            }
+        );
     }
 
     fn restore_env_var(name: &str, original: Option<std::ffi::OsString>) {

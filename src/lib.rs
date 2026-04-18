@@ -18,7 +18,7 @@ pub use application::{
     run_capture, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
     write_debug_transcript,
 };
-pub use cli::{AudioSource, CliAction, CliArgumentError, parse_cli_args};
+pub use cli::{AudioSource, CliAction, CliArgumentError, SpeakerCliCommand, parse_cli_args};
 pub use domain::{
     CaptureMerger, CapturePolicy, CaptureRange, CapturedTranscript, DiarizedTranscript,
     KnownSpeakerSample, MergeAuditEntry, MergeAuditOutcome, MergeBatch, MergeOverlapRangeSnapshot,

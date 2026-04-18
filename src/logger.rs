@@ -126,6 +126,18 @@ mod tests {
         }
     }
 
+    struct AlwaysFailWriter;
+
+    impl Write for AlwaysFailWriter {
+        fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+            Err(io::Error::other("simulated write failure"))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     /// info ログは level, source, component, message の順で共通書式にそろえる。
     fn writes_info_log_with_common_format() {
@@ -153,6 +165,54 @@ mod tests {
         logger.debug("sending request").unwrap();
 
         assert_eq!(buffer.contents(), "");
+    }
+
+    #[test]
+    /// debug 有効時は debug レベルでも共通書式でログを出力する。
+    fn writes_debug_log_with_common_format_when_debug_is_enabled() {
+        let buffer = SharedBuffer::new();
+        let logger = Logger::new(buffer.clone(), true)
+            .with_source(LogSource::Application)
+            .with_component("transcriber");
+
+        logger.debug("sending request").unwrap();
+
+        assert_eq!(
+            buffer.contents(),
+            "[debug] [application] [transcriber] sending request\n"
+        );
+    }
+
+    #[test]
+    /// debug 無効時は sink が壊れていても書き込みに行かず成功扱いで返す。
+    fn does_not_touch_sink_for_debug_log_when_debug_is_disabled() {
+        let logger = Logger::new(AlwaysFailWriter, false)
+            .with_source(LogSource::Application)
+            .with_component("transcriber");
+
+        logger.debug("sending request").unwrap();
+    }
+
+    #[test]
+    /// info ログの sink 書き込み失敗はそのまま呼び出し元へ返す。
+    fn returns_sink_error_when_info_log_write_fails() {
+        let logger = Logger::new(AlwaysFailWriter, false).with_source(LogSource::System);
+
+        let error = logger.info("recording started").unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::Other);
+        assert_eq!(error.to_string(), "simulated write failure");
+    }
+
+    #[test]
+    /// debug 有効時の sink 書き込み失敗はそのまま呼び出し元へ返す。
+    fn returns_sink_error_when_debug_log_write_fails() {
+        let logger = Logger::new(AlwaysFailWriter, true).with_source(LogSource::System);
+
+        let error = logger.debug("interrupt received").unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::Other);
+        assert_eq!(error.to_string(), "simulated write failure");
     }
 
     #[test]

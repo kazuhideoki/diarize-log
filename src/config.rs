@@ -1292,6 +1292,100 @@ mod tests {
     }
 
     #[test]
+    /// tail 側の必要無音長が通常時より長いと、無音分割ルールが逆転するので設定エラーにする。
+    fn returns_error_when_tail_silence_duration_exceeds_silence_duration() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=15\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=3\nDIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS=700\nDIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS=750\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+        let original_duration = std::env::var_os("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+        let original_capture_duration = std::env::var_os("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
+        let original_capture_overlap = std::env::var_os("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+        let original_capture_silence_min_duration =
+            std::env::var_os("DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS");
+        let original_capture_tail_silence_min_duration =
+            std::env::var_os("DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS");
+        let original_sample_duration =
+            std::env::var_os("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+        let original_merge_min_overlap_chars =
+            std::env::var_os("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+        let original_merge_alignment_ratio = std::env::var_os("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+        let original_merge_trigram_similarity =
+            std::env::var_os("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
+        let original_storage_root = std::env::var_os("DIARIZE_LOG_STORAGE_ROOT");
+        unsafe {
+            std::env::remove_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_CAPTURE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS");
+            std::env::remove_var("DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS");
+            std::env::remove_var("DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS");
+            std::env::remove_var("DIARIZE_LOG_MERGE_ALIGNMENT_RATIO");
+            std::env::remove_var("DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY");
+            std::env::remove_var("DIARIZE_LOG_STORAGE_ROOT");
+        }
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_var("DIARIZE_LOG_RECORDING_DURATION_SECONDS", original_duration);
+        restore_env_var(
+            "DIARIZE_LOG_CAPTURE_DURATION_SECONDS",
+            original_capture_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
+            original_capture_overlap,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+            original_capture_silence_min_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+            original_capture_tail_silence_min_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            original_sample_duration,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
+            original_merge_min_overlap_chars,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
+            original_merge_alignment_ratio,
+        );
+        restore_env_var(
+            "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",
+            original_merge_trigram_similarity,
+        );
+        restore_env_var("DIARIZE_LOG_STORAGE_ROOT", original_storage_root);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::InvalidTailSilenceDuration {
+                silence_name: "DIARIZE_LOG_CAPTURE_SILENCE_MIN_DURATION_MS",
+                tail_silence_name: "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
+                silence_duration_ms: 700,
+                tail_silence_duration_ms: 750,
+                tail_silence_source: ConfigSource::DotEnv,
+            }]
+        ));
+    }
+
+    #[test]
     /// 保存先に相対パスを指定すると設定エラーにする。
     fn returns_error_when_storage_root_is_relative_path() {
         let _guard = env_lock()

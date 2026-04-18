@@ -1045,10 +1045,18 @@ fn frame_count_to_duration(frame_count: u64, sample_rate: u32) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use super::{encode_wav, normalize_pcm_format, select_application_display_index};
-    use crate::domain::RecordedAudio;
+    use super::{
+        encode_wav, normalize_pcm_format, select_application_display_index,
+        wait_for_capture_boundary,
+    };
+    use crate::application::ports::{InterruptMonitor, RecorderError};
+    use crate::domain::{
+        CaptureBoundaryReason, CapturePolicy, RecordedAudio, SilenceRequestPolicy,
+    };
     use screencapturekit::cg::CGRect;
     use std::io::Cursor;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[test]
     /// PCM サンプル列を 16bit PCM の WAV バイト列へ変換する。
@@ -1115,5 +1123,69 @@ mod tests {
         );
 
         assert_eq!(display_index, Some(1));
+    }
+
+    #[test]
+    /// 無音分割は 50ms 窓ごとの連続無音が必要長に届くまで待ち、届いた時点で確定する。
+    fn waits_until_trailing_silence_reaches_required_duration() {
+        let sample_rate = 1_000;
+        let capture_policy = CapturePolicy {
+            recording_duration: Duration::from_secs(30),
+            capture_duration: Duration::from_secs(30),
+            capture_overlap: Duration::from_secs(0),
+        };
+        let silence_request_policy = SilenceRequestPolicy {
+            silence_threshold_dbfs: -42.0,
+            silence_min_duration: Duration::from_millis(700),
+            tail_silence_min_duration: Duration::from_millis(700),
+        };
+        let sample_buffer = Arc::new(Mutex::new(build_pcm_with_trailing_silence(24_700, 700)));
+        let mut available_frames = [24_650_u64, 24_700_u64].into_iter();
+
+        let boundary = wait_for_capture_boundary(
+            &sample_buffer,
+            1,
+            sample_rate,
+            || {
+                available_frames.next().ok_or_else(|| {
+                    RecorderError::CallbackStream(
+                        "test available frame sequence exhausted".to_string(),
+                    )
+                })
+            },
+            Duration::ZERO,
+            &capture_policy,
+            &silence_request_policy,
+            &NeverInterrupted,
+        )
+        .unwrap();
+
+        assert_eq!(
+            boundary,
+            crate::domain::CaptureBoundary {
+                duration: Duration::from_millis(24_700),
+                reason: CaptureBoundaryReason::Silence,
+            }
+        );
+    }
+
+    fn build_pcm_with_trailing_silence(
+        total_frames: usize,
+        trailing_silence_frames: usize,
+    ) -> Vec<i16> {
+        let audible_frames = total_frames
+            .checked_sub(trailing_silence_frames)
+            .expect("trailing silence must not exceed total frame count");
+        let mut samples = vec![12_000_i16; audible_frames];
+        samples.extend(vec![0_i16; trailing_silence_frames]);
+        samples
+    }
+
+    struct NeverInterrupted;
+
+    impl InterruptMonitor for NeverInterrupted {
+        fn is_interrupt_requested(&self) -> bool {
+            false
+        }
     }
 }

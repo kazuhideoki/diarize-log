@@ -1,8 +1,10 @@
 //! レイヤー間の依存方向を検査する簡易アーキテクチャテストです。
 //!
 //! このテストは `src/domain/**/*.rs`、`src/application/ports/**/*.rs`、
-//! `src/application/usecase/**/*.rs`
-//! を走査し、それぞれが禁止された外側レイヤーへ直接依存していないことを確認します。
+//! `src/application/usecase/**/*.rs` に加えて、
+//! `src/bootstrap/**/*.rs`、`src/cli.rs`、`src/lib.rs`、`src/main.rs`
+//! も走査し、それぞれが禁止された外側レイヤーや binary 固有都合へ
+//! 直接依存していないことを確認します。
 //! 該当パターンを含む行が見つかった場合は、ファイルパスと行番号を添えて失敗します。
 
 use std::fmt;
@@ -13,6 +15,10 @@ use std::path::{Path, PathBuf};
 const DOMAIN_DIRECTORY: &str = "src/domain";
 const APPLICATION_PORTS_DIRECTORY: &str = "src/application/ports";
 const APPLICATION_USECASE_DIRECTORY: &str = "src/application/usecase";
+const BOOTSTRAP_DIRECTORY: &str = "src/bootstrap";
+const CLI_FILE: &str = "src/cli.rs";
+const LIB_FILE: &str = "src/lib.rs";
+const MAIN_FILE: &str = "src/main.rs";
 const DOMAIN_FORBIDDEN_PATHS: [&str; 8] = [
     "crate::adapters",
     "crate::application",
@@ -41,22 +47,90 @@ const APPLICATION_FORBIDDEN_PATHS: [&str; 6] = [
     "super::super::super::cli",
     "super::super::super::config",
 ];
+const BOOTSTRAP_FORBIDDEN_PATHS: [&str; 10] = [
+    "crate::adapters",
+    "crate::application",
+    "crate::cli",
+    "crate::config",
+    "crate::domain",
+    "super::super::adapters",
+    "super::super::application",
+    "super::super::cli",
+    "super::super::config",
+    "super::super::domain",
+];
+const CLI_FORBIDDEN_PATHS: [&str; 10] = [
+    "crate::adapters",
+    "crate::application",
+    "crate::config",
+    "crate::domain",
+    "crate::bootstrap",
+    "super::adapters",
+    "super::application",
+    "super::config",
+    "super::domain",
+    "super::bootstrap",
+];
+const LIB_FORBIDDEN_TEXTS: [&str; 4] = [
+    "mod bootstrap;",
+    "pub mod bootstrap;",
+    "mod main;",
+    "pub mod main;",
+];
+const MAIN_FORBIDDEN_TEXTS: [&str; 9] = [
+    "mod adapters;",
+    "mod application;",
+    "mod cli;",
+    "mod config;",
+    "mod domain;",
+    "use diarize_log::",
+    "diarize_log::",
+    "crate::",
+    "super::",
+];
 
-const LAYER_RULES: [LayerDependencyRule<'_>; 3] = [
+const LAYER_RULES: [LayerDependencyRule<'_>; 7] = [
     LayerDependencyRule {
         layer_name: "domain",
-        directory: DOMAIN_DIRECTORY,
+        target_path: DOMAIN_DIRECTORY,
         forbidden_paths: &DOMAIN_FORBIDDEN_PATHS,
+        forbidden_texts: &[],
     },
     LayerDependencyRule {
         layer_name: "ports",
-        directory: APPLICATION_PORTS_DIRECTORY,
+        target_path: APPLICATION_PORTS_DIRECTORY,
         forbidden_paths: &PORTS_FORBIDDEN_PATHS,
+        forbidden_texts: &[],
     },
     LayerDependencyRule {
         layer_name: "application",
-        directory: APPLICATION_USECASE_DIRECTORY,
+        target_path: APPLICATION_USECASE_DIRECTORY,
         forbidden_paths: &APPLICATION_FORBIDDEN_PATHS,
+        forbidden_texts: &[],
+    },
+    LayerDependencyRule {
+        layer_name: "bootstrap",
+        target_path: BOOTSTRAP_DIRECTORY,
+        forbidden_paths: &BOOTSTRAP_FORBIDDEN_PATHS,
+        forbidden_texts: &[],
+    },
+    LayerDependencyRule {
+        layer_name: "cli",
+        target_path: CLI_FILE,
+        forbidden_paths: &CLI_FORBIDDEN_PATHS,
+        forbidden_texts: &[],
+    },
+    LayerDependencyRule {
+        layer_name: "lib",
+        target_path: LIB_FILE,
+        forbidden_paths: &[],
+        forbidden_texts: &LIB_FORBIDDEN_TEXTS,
+    },
+    LayerDependencyRule {
+        layer_name: "main",
+        target_path: MAIN_FILE,
+        forbidden_paths: &[],
+        forbidden_texts: &MAIN_FORBIDDEN_TEXTS,
     },
 ];
 
@@ -78,13 +152,36 @@ fn application_layer_depends_only_on_domain_and_ports_layers() {
     assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[2]).unwrap();
 }
 
+/// `bootstrap` 配下のコードが binary crate の外側都合に閉じ、library の内部モジュールを直接生やさないことを保証する。
+#[test]
+fn bootstrap_layer_depends_only_on_bootstrap_and_library_crate_boundary() {
+    assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[3]).unwrap();
+}
+
+/// `cli.rs` が内側レイヤーへ直接依存せず CLI 入力境界に閉じることを保証する。
+#[test]
+fn cli_file_does_not_depend_on_application_or_other_inner_layers() {
+    assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[4]).unwrap();
+}
+
+/// `lib.rs` が binary 側の `bootstrap` や `main` を取り込まないことを保証する。
+#[test]
+fn lib_root_does_not_depend_on_binary_entrypoints() {
+    assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[5]).unwrap();
+}
+
+/// `main.rs` が thin entrypoint として `bootstrap` 以外へ直接依存しないことを保証する。
+#[test]
+fn main_file_depends_only_on_bootstrap() {
+    assert_layer_has_no_forbidden_dependencies(&LAYER_RULES[6]).unwrap();
+}
+
 fn assert_layer_has_no_forbidden_dependencies(
     rule: &LayerDependencyRule<'_>,
 ) -> Result<(), LayerDependencyError> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let target_dir = manifest_dir.join(rule.directory);
     let mut rust_files = Vec::new();
-    collect_rust_files(&target_dir, &mut rust_files)?;
+    collect_target_rust_files(&manifest_dir.join(rule.target_path), &mut rust_files)?;
 
     let violations = rust_files
         .iter()
@@ -107,8 +204,9 @@ fn assert_layer_has_no_forbidden_dependencies(
 #[derive(Debug, Clone, Copy)]
 struct LayerDependencyRule<'a> {
     layer_name: &'static str,
-    directory: &'static str,
+    target_path: &'static str,
     forbidden_paths: &'a [&'a str],
+    forbidden_texts: &'a [&'a str],
 }
 
 #[derive(Debug)]
@@ -175,7 +273,29 @@ impl fmt::Display for DependencyViolation {
     }
 }
 
-fn collect_rust_files(
+fn collect_target_rust_files(
+    target: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), LayerDependencyError> {
+    let metadata = fs::metadata(target).map_err(|source| LayerDependencyError::ReadDirectory {
+        path: target.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.is_file() {
+        if target
+            .extension()
+            .is_some_and(|extension| extension == "rs")
+        {
+            files.push(target.to_path_buf());
+        }
+        return Ok(());
+    }
+
+    collect_rust_files_in_directory(target, files)
+}
+
+fn collect_rust_files_in_directory(
     directory: &Path,
     files: &mut Vec<PathBuf>,
 ) -> Result<(), LayerDependencyError> {
@@ -200,7 +320,7 @@ fn collect_rust_files(
                 })?;
 
         if file_type.is_dir() {
-            collect_rust_files(&path, files)?;
+            collect_rust_files_in_directory(&path, files)?;
             continue;
         }
 
@@ -229,7 +349,9 @@ fn find_forbidden_dependencies(
     let violations = source
         .lines()
         .enumerate()
-        .filter(|(_, line)| contains_forbidden_dependency(line, rule.forbidden_paths))
+        .filter(|(_, line)| {
+            contains_forbidden_dependency(line, rule.forbidden_paths, rule.forbidden_texts)
+        })
         .map(|(line_index, line)| DependencyViolation {
             path: relative_path.clone(),
             line_number: line_index + 1,
@@ -240,13 +362,19 @@ fn find_forbidden_dependencies(
     Ok(violations)
 }
 
-fn contains_forbidden_dependency(line: &str, forbidden_paths: &[&str]) -> bool {
+fn contains_forbidden_dependency(
+    line: &str,
+    forbidden_paths: &[&str],
+    forbidden_texts: &[&str],
+) -> bool {
     let normalized_line = line.replace(' ', "");
 
     forbidden_paths.iter().any(|forbidden_path| {
         contains_forbidden_path(&normalized_line, forbidden_path)
-            || contains_forbidden_grouped_crate_import(&normalized_line, forbidden_path)
-    })
+            || contains_forbidden_grouped_import(&normalized_line, forbidden_path)
+    }) || forbidden_texts
+        .iter()
+        .any(|forbidden_text| normalized_line.contains(&forbidden_text.replace(' ', "")))
 }
 
 fn contains_forbidden_path(line: &str, forbidden_path: &str) -> bool {
@@ -268,14 +396,15 @@ fn contains_forbidden_path(line: &str, forbidden_path: &str) -> bool {
     false
 }
 
-fn contains_forbidden_grouped_crate_import(line: &str, forbidden_path: &str) -> bool {
-    let Some(grouped_path) = forbidden_path.strip_prefix("crate::") else {
+fn contains_forbidden_grouped_import(line: &str, forbidden_path: &str) -> bool {
+    let Some((root_path, grouped_path)) = forbidden_path.rsplit_once("::") else {
         return false;
     };
+    let grouped_import_prefix = format!("{root_path}::{{");
     let mut search_start = 0;
 
-    while let Some(relative_index) = line[search_start..].find("crate::{") {
-        let content_start = search_start + relative_index + "crate::{".len();
+    while let Some(relative_index) = line[search_start..].find(&grouped_import_prefix) {
+        let content_start = search_start + relative_index + grouped_import_prefix.len();
 
         if let Some(content_end) = find_grouped_import_end(&line[content_start..]) {
             let grouped_content = &line[content_start..content_start + content_end];
@@ -348,7 +477,8 @@ impl SplitTopLevel for str {
 #[cfg(test)]
 mod tests {
     use super::{
-        APPLICATION_FORBIDDEN_PATHS, PORTS_FORBIDDEN_PATHS, contains_forbidden_dependency,
+        APPLICATION_FORBIDDEN_PATHS, MAIN_FORBIDDEN_TEXTS, PORTS_FORBIDDEN_PATHS,
+        contains_forbidden_dependency,
     };
 
     #[test]
@@ -357,6 +487,7 @@ mod tests {
         assert!(contains_forbidden_dependency(
             "use crate::{ application::ports::Recorder, adapters::CpalRecorder };",
             &APPLICATION_FORBIDDEN_PATHS,
+            &[],
         ));
     }
 
@@ -366,6 +497,7 @@ mod tests {
         assert!(!contains_forbidden_dependency(
             "use crate::application::ports::Recorder;",
             &PORTS_FORBIDDEN_PATHS,
+            &[],
         ));
     }
 
@@ -375,6 +507,17 @@ mod tests {
         assert!(contains_forbidden_dependency(
             "use crate::cli;",
             &APPLICATION_FORBIDDEN_PATHS,
+            &[],
+        ));
+    }
+
+    #[test]
+    /// 禁止文字列ルールでも thin entrypoint 違反を検出する。
+    fn detects_forbidden_text_dependency() {
+        assert!(contains_forbidden_dependency(
+            "use diarize_log::parse_cli_args;",
+            &[],
+            &MAIN_FORBIDDEN_TEXTS,
         ));
     }
 }

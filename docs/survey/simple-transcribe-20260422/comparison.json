@@ -1,0 +1,291 @@
+{
+  "created_at": "2026-04-22",
+  "audio_source_dir": "/Users/kazuhideoki/diarize-log-storage/storage/runs/20260421T150358_264+0900/audios",
+  "openai_simple_conditions": {
+    "endpoint": "https://api.openai.com/v1/audio/transcriptions",
+    "model": "gpt-4o-transcribe",
+    "language": "ja",
+    "response_format": "json"
+  },
+  "deepgram_simple_conditions": {
+    "endpoint": "https://api.deepgram.com/v1/listen",
+    "model": "nova-3",
+    "language": "ja",
+    "diarize": false,
+    "utterances": false,
+    "punctuate": true,
+    "smart_format": true
+  },
+  "reference_dirs": {
+    "openai_diarize": "/Users/kazuhideoki/diarize-log-storage/storage/runs/20260421T150358_264+0900/captures",
+    "deepgram_diarize": "/Users/kazuhideoki/diarize-log-storage/deepgram-survey/20260422T102700+0900/raw"
+  },
+  "retry_note_for_capture_000011": [
+    "language=ja, response_format=json -> はい、よろしくお願いします。ありがとうございました。",
+    "language omitted, response_format=json -> 見れますね。",
+    "language=ja, response_format=text -> 見れます。ありがとうございました。"
+  ],
+  "high_level_findings": [
+    "OpenAI simple was clearly better than OpenAI diarize on most captures, especially 000004, 000005, 000006, 000008, and 000010.",
+    "Deepgram simple and Deepgram diarize produced the same normalized transcript on all 11 captures and exactly the same transcript on 10 of 11 captures.",
+    "Between the two simple transcription modes, OpenAI looked better on most captures, while Deepgram was safer on capture-000011 and slightly cleaner on capture-000007.",
+    "OpenAI simple showed instability on capture-000011 by returning only short tail snippets across repeated retries."
+  ],
+  "deepgram_exact_same_count": 10,
+  "deepgram_normalized_same_count": 11,
+  "captures": [
+    {
+      "capture_id": "capture-000001",
+      "verdict": {
+        "winner": "OpenAI slight",
+        "openai_vs_diarize": "improved",
+        "deepgram_vs_diarize": "same",
+        "note": "Both simple transcripts are usable; OpenAI reads slightly cleaner."
+      },
+      "metrics": {
+        "openai_simple_chars": 528,
+        "openai_diarize_chars": 794,
+        "deepgram_simple_chars": 548,
+        "deepgram_diarize_chars": 548,
+        "openai_simple_ascii_ratio": 0.023,
+        "openai_diarize_ascii_ratio": 0.353
+      },
+      "texts": {
+        "openai_simple": "それを使う形ありなのかなと思ってて。なるほど。この件の引き継ぎの資料とか情報も探したんですけど、探しきれなかったものでも、それも兼ねて時間をいただきました。わかりました。なるほど。使えれば使いたいっていうことですね。そうですね、市民と交渉しました。同じように矢印側はゲストチャージングで。そうですね、こうなるかと思います。また村上さんの案件なんですね。アマゾンとストツカテックグランドのやつ。Amazonから話持ちかけてきたんですか?どうだったかな。細かい点は忘れたんですけども。昼間は一般向け、お客さん向けで、夜はその空いたスペースをうまく使うみたいな。そんな感じですよね。これも同じような感じなんですかね。そうですね。思ったよりそんな問題ない感じですかね。そうですね。山田テックグランドの特通は特に問題は起きなかったかな。割と私のイメージはシステム的には割と簡易的に対応して、これでとりあえず目的達成できるからいいよねぐらいなノリだったんですよね。割と位置付けも実証実験ぐらいな感じだったじゃないですか。ただ思いのほかそんな問題もないなって今思いました。問題があったとしてもそれは矢印側とかYASOB側で、そのプロキシサーバー自体の問題って時間になって",
+        "openai_diarize": "それを使う 形ありなのかなと思って て. なるほど はい. この件の引き継ぎの 資料とか情報も探したんですけど 探し切れなかったものでもそれも兼 ねて時間を頂きました. わかりました 使いたければ使いたい 使えれば使いたいということですね\nMm, so desu ne. Nice one. Uh-huh. Shin-min to koyo sakushi you na ai. To onaji you ni, mojirushi-gawa, guesuto chargin de. So desu ne, sou naru ka to omoimasu. Oh, mata Murakami-san no anke na Mm. su ne.\n朝のAmazonと 戸塚テックグランド のやつ 元まあなんか なんでしたっけ なんかあれですよねえー Amazonから話持ちかけてきたんでしたっ け どうだったかなちょっと 細かい点は忘れたんです けども 昼間一般向けお客さん向 けで夜は\nその空いたスペ ースをうまく使うみたいな そんな 今日 感じですよね も これもおおも同じような感じなんですかね そうですね 思ったよりそんな問題 ない感じですかね\nそうですね、 あの山田テックランド そうそうそう とか、特に問題は起きなかった かな? なんか割と私のイメージではなんか システム的には割とこう簡易的に対応 してでまあこれでとり あえず目的達成できるからいいよねぐらい なノリだったんですねで その割と位置付け実証実験 ぐらいな感じだったじゃないですか割と なのでいいんじゃないぐらいの 感じだったんですけど\nただ 思いのほかそんな問題 もないなって今思いましたそう いえば問題があったとしてもそれはブジリ 市側とかYASOB側でそのプロ キシサーバー自体の問題って一 晩時間になって",
+        "deepgram_simple": "それを使う形ありなのかなと思ってて。なるほど。この件の引き継ぎの資料とか情報も探したんですけど、探しきれなかったもので、それも兼ねて時間をいただきました。わかりました。なるほど使えたければ使いたいということ。使えれば使いたいということですね。そうですね。市民と紅葉さんのせいと。同じように無印側ゲストチャージングでですね、こうなるかと思います。また村上さんの案件なんですね。amazonと使っていくランドのやつもとまあなんかなんでしたっけなんかですよねアマゾンから話持ちかけてきたんでした細かい点は忘れたんですけども昼間は一般向けお客さん向けで夜はの空いたスペースをうまく使うみたいなそんな感じですねこれも同じような感じなんですかね思ったよりそんな問題ない感じですかねですねあの山田テックランド、特に問題は起きなかったかな割と私のイメージはなかシステム的には割と簡易的に対応して、まあこれでとりあえず目的達成できるからいいよねぐらいなノリだったんですね割と位置づけ実証実験ぐらいな感じだったじゃなですかなのでいいんじゃないくらいの感じだったんですけどもただ思いのほかそんな問題もないなって思いました問題があったとしてもそれは無印側とかバイアス方備側でそのプロキシサーバー自体の問題って時間になって",
+        "deepgram_diarize": "それを使う形ありなのかなと思ってて。なるほど。この件の引き継ぎの資料とか情報も探したんですけど、探しきれなかったもので、それも兼ねて時間をいただきました。わかりました。なるほど使えたければ使いたいということ。使えれば使いたいということですね。そうですね。市民と紅葉さんのせいと。同じように無印側ゲストチャージングでですね、こうなるかと思います。また村上さんの案件なんですね。amazonと使っていくランドのやつもとまあなんかなんでしたっけなんかですよねアマゾンから話持ちかけてきたんでした細かい点は忘れたんですけども昼間は一般向けお客さん向けで夜はの空いたスペースをうまく使うみたいなそんな感じですねこれも同じような感じなんですかね思ったよりそんな問題ない感じですかねですねあの山田テックランド、特に問題は起きなかったかな割と私のイメージはなかシステム的には割と簡易的に対応して、まあこれでとりあえず目的達成できるからいいよねぐらいなノリだったんですね割と位置づけ実証実験ぐらいな感じだったじゃなですかなのでいいんじゃないくらいの感じだったんですけどもただ思いのほかそんな問題もないなって思いました問題があったとしてもそれは無印側とかバイアス方備側でそのプロキシサーバー自体の問題って時間になって"
+      }
+    },
+    {
+      "capture_id": "capture-000002",
+      "verdict": {
+        "winner": "Tie",
+        "openai_vs_diarize": "improved",
+        "deepgram_vs_diarize": "same",
+        "note": "Both simple transcripts are usable and close."
+      },
+      "metrics": {
+        "openai_simple_chars": 597,
+        "openai_diarize_chars": 739,
+        "deepgram_simple_chars": 485,
+        "deepgram_diarize_chars": 485,
+        "openai_simple_ascii_ratio": 0.018,
+        "openai_diarize_ascii_ratio": 0.206
+      },
+      "texts": {
+        "openai_simple": "切り替わらなかったとか、バグが起きて通信が途絶えたってなかったですよね。なんで、2点近くやってそんな問題がないので、目的も達成しているので、私は普通に使っても良さそうだなという感じは。実績的に。そもそも山田テックランドどれだけ使われたんだって話ですけど。そうですね。ただ、問題は起きてないので。問題は起きてないという意味で。ただ、例えばGCNでプレイしてて冗長性がないんですよね、クラウドランみたいな。なんでそこなんかバグって落ちたらそのまま再起動するとか限らないですし、分かんないみたいなのもあったりします。ただ2年間問題はなかったっていう感じですけど。別に何百台とか増えるわけじゃないですよね。数台ですよね。そうですね。であれば多分そんな問題に泣かろうっていう感じはします。なるほど。ちなみに山田テックランドとスカイプテンですけど、1年半で50件ぐらい。利用されたの。そうですね。ゲストチャージング側です。アマゾンとかって感じです。電気屋でBBで行って充電する人がそれぐらいってことか。そんなもんか。そうですね。一月あたりでも大したことないな。そうですね。アマゾンのほうはどうですかね。料金も別に普通だったんですか。運用はあんまり知らないですけども。そんなに高いイメージはないですよね。私もパッとは出てこないですけど。はいはい。そうなんだ。そもそも使ってたのかな。使ってますね。去年6月か。",
+        "openai_diarize": "切り替わらなかった とかなんかバグが 起きて全然叩いたってなかったですよ ね なので2点近くやって そんな問題がないので目的も達 成してるので私はまあ普通 に使ってもなんか良さそうだなっていう 感じは 了解です はいその実績的 に そもそも\nまだテックランド はい。 とつかもどれだけ使われたんだって話です けど そうですよね。はい。 ただまぁ,ん問題は起きて ない Yeah. ので 問題起きてないという意味で。ただ、 そう まあ例えばGCインデプロイしてて 冗長性がないんですよね、 クラウドランみたいに。 あぁはいはいはい GCインデ でそこなんか、 でない なんかバグって落ちたら\nなんかその ままもう一回再起動すると もう限らないですし わかんないみたいなのもあったりします まあただ2年間問題はなかった なるほど っていう話なんですけどね で well まぁ別に何百台とか増える わけじゃないんですからね 数台ですよね そうですね well であればなんか多分そんな 問題になかろうっていう感じ はします\nと使って ですけど 一年半で五 十件ぐらいなんですね あ、利用されたの? そうですねゲストチャージング 側です はいはいはいはい Amazonとかって感じですね なるほど まあ電気屋でB で行って充電する人がそれぐらいってことか そんなもんか、 持って そう 一周 ですね一月あたり でも大したことない\nSo that's uh Yeah. Amazon's a whole lot. 電気も別に普通だったんですか? 動員を あまり知らないんですけども そんなに高いイメージはないんですよ ね。私はパッと出てこない んですけど はいはい\nMm-hmm. 昨年度",
+        "deepgram_simple": "切り変わらなかったとか、バグが起きて通信叩いたっなかったですよね。二点近くやってそんな問題がないので、目的も達成しているの、私はまあ普通に使ってもなんか良さそうだなっていう感じで、実績的に。そもそも山田テックランドとつか、どれだけ使われたんだっ話ですけど。そうですよね。問題問題起きてないという意でただ例えばgceにデプロイしてて冗長性がないんですね、クラウドランみたいななんでそこをなんかバグって落ちたらなんかそのままもう一回再起動するとも限らないしわかんないみたいなのもあったりします。ただ2年間問題はなかったっていうのがあるんですけど、もう別に何百台とか増えるわけじゃないですもね数台ですよね。そうですねであればなんか多分そんな問題になかろうっいう感じはします。ちなみに山田テックランドと使ってるんですけど、1年半で50件ぐらい利用されたのそうですね、ゲストチャージング側です。電気屋でbbで行って充電するとかそれぐらいってことか。そんなもんか。料金も別に普通だったんですか運用はあまり知らなですけどもそんなに高いイメージはないですねもパッとは出てこないんですけど",
+        "deepgram_diarize": "切り変わらなかったとか、バグが起きて通信叩いたっなかったですよね。二点近くやってそんな問題がないので、目的も達成しているの、私はまあ普通に使ってもなんか良さそうだなっていう感じで、実績的に。そもそも山田テックランドとつか、どれだけ使われたんだっ話ですけど。そうですよね。問題問題起きてないという意でただ例えばgceにデプロイしてて冗長性がないんですね、クラウドランみたいななんでそこをなんかバグって落ちたらなんかそのままもう一回再起動するとも限らないしわかんないみたいなのもあったりします。ただ2年間問題はなかったっていうのがあるんですけど、もう別に何百台とか増えるわけじゃないですもね数台ですよね。そうですねであればなんか多分そんな問題になかろうっいう感じはします。ちなみに山田テックランドと使ってるんですけど、1年半で50件ぐらい利用されたのそうですね、ゲストチャージング側です。電気屋でbbで行って充電するとかそれぐらいってことか。そんなもんか。料金も別に普通だったんですか運用はあまり知らなですけどもそんなに高いイメージはないですねもパッとは出てこないんですけど"
+      }
+    },
+    {
+      "capture_id": "capture-000003",
+      "verdict": {
+        "winner": "OpenAI slight",
+        "openai_vs_diarize": "improved",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI keeps deployment terminology cleaner."
+      },
+      "metrics": {
+        "openai_simple_chars": 637,
+        "openai_diarize_chars": 751,
+        "deepgram_simple_chars": 548,
+        "deepgram_diarize_chars": 548,
+        "openai_simple_ascii_ratio": 0.228,
+        "openai_diarize_ascii_ratio": 0.262
+      },
+      "texts": {
+        "openai_simple": "一応懸念を言うとすれば、私が抜けるので、当時関わった人がいなくなるんです。もちろんかなりシンプルなもので、コード数も1000もない感じだったかな。なのでキャッチアップしようと思えばできる。GCに立っているシンプルなやつ、Let's Encryptとかだったかな、正面床は。そんなエンジニアが読んで、デブ環境もあるので、そこで触ったりしながらやれば、メンテナンスも最初は時間多少かかってもできなくはないかなと思っています。Your Stand Consoleの中にプロキシというディレクトリがあって、その中にあるのでしょうか。はい、OCPP ProxyというのがYour Stand Console内にあるんですよ。そうですね、500行くらいしかないです。デプロイの方法ってタグデプロイですか?スクリプトがあるんですよ。Push to OCPP Proxy DevとかProtonみたいなのがあって、その中でゴリゴリなんですよ。DockerとかG CloudのCLIがあって、それをやっているみたいな感じなので、そのGCP側で権限がある人なら、このスクリプトを打った時にデプロイできるみたいな感じになっています。エンドポイントはそのGCEが持っていて、GCEがFirestoreの設定を見て、動き先を変えるみたいな形でした。エンドポイントが書いてないな。エンドポイントは、Clear Standでドメインを管理しているプロジェクトがある。DNSプロジェクトっていうんですけど。",
+        "openai_diarize": "一応記念 をいうとすれば はい 腰が抜けるので当 時かかった人がいなくなるんですそれに 対して はい で もちろんかなりシンプル なものでコード数も1000もない 感じだったかな はい なのでキャッチアップしようと思えば できる GCに立ってるシンプルなやつ res encryptとかだった かな証明書は そんなこう\nまあエ ンジニアなら読んで で Mm. あのデブ環境もあるので Oh. そこで触ったりしながらやればまあ まあまあメンテナンスも あの最初時間多少かかってもでき なくはないかなとは思ってます はいなので ユアスタンドコンソールの中に プロキシっていうディレクトリがあ ってその中にあるんでしょうかね はい O_C_P_P_プロキシっていうの がユアスタンドコンソール内にあるんですよ\nOkay. Oh, yeah. あっそうですね500キロぐらいしかない デプロイの方法ってタグデ プロイス? えとのスクリプトがあるんですよ おおそうなんだ はい push to OCPB プロキシ ディベートとかプロドーみたいなの があってその中でゴリゴリなんですよ ドッカとか Gクラウド の CLIがあって はい それをこうやってるみたいな感じなんで\n通常 G_C_P_ 側で権限がある人 ならこのスクリプトを売ったときにデプロイ できるみたいな感じになってます エンドポイントはその G_C_E_ 持っていて G_C_E_ が Firestore の 設定を見て 売り先を変えるみたい な形でした エンドポイントは\nがですね. Mm. キアスタンドで はい. そういうドメインを管理しているプロジェクト が DNSプロジェクトって言うんですけど も. Oh. Hi hi hi hi hi.",
+        "deepgram_simple": "一応懸念を言うとすれば、私が抜けるので当時関わって人がいなくなります、それに対して。もちろんかなりシンプルなものでコード数も線もない感じだったかな。なのでキャッチアップしようと思えばできる。gceに立っているシンプルなやつ、レッツエンクリプトとかだったかな、証明書は。エンジニアなら読んで、デブ関係もあるので、そこで触ったりしながらやれば、メンテナンスも最初は時間多少かかってもできなくはないかなとは思っています。consoleのプロキシっていうディレクトリがあって、その中にあるでしょうか。はい、ocppプロキシっいうのが、console内にあるんですよ。そうですね500行ぐらいしかないですスクリプトがあるんですよプッシュトゥーをcpbプロキシデブとかプロドーみたいながあって、その中でゴリべリーなんですよ、dockerとかgクラウドのcliがあって、それをやってるみたい感じなのでgcp側で権限がある人ならこのスクリプトを打った時にデプロイできるみたいな感じになっいますエンドポイントはそのgcが持っていてgcがファイアンストーアの設定を見て、軒先を変えるような形でした。エンドポイントはエンドポイントはですねピアスタンドでいうドメインを管理してるプロジェクトがdnsプロジェクトと言んけど",
+        "deepgram_diarize": "一応懸念を言うとすれば、私が抜けるので当時関わって人がいなくなります、それに対して。もちろんかなりシンプルなものでコード数も線もない感じだったかな。なのでキャッチアップしようと思えばできる。gceに立っているシンプルなやつ、レッツエンクリプトとかだったかな、証明書は。エンジニアなら読んで、デブ関係もあるので、そこで触ったりしながらやれば、メンテナンスも最初は時間多少かかってもできなくはないかなとは思っています。consoleのプロキシっていうディレクトリがあって、その中にあるでしょうか。はい、ocppプロキシっいうのが、console内にあるんですよ。そうですね500行ぐらいしかないですスクリプトがあるんですよプッシュトゥーをcpbプロキシデブとかプロドーみたいながあって、その中でゴリべリーなんですよ、dockerとかgクラウドのcliがあって、それをやってるみたい感じなのでgcp側で権限がある人ならこのスクリプトを打った時にデプロイできるみたいな感じになっいますエンドポイントはそのgcが持っていてgcがファイアンストーアの設定を見て、軒先を変えるような形でした。エンドポイントはエンドポイントはですねピアスタンドでいうドメインを管理してるプロジェクトがdnsプロジェクトと言んけど"
+      }
+    },
+    {
+      "capture_id": "capture-000004",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved_large",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple fixes the English collapse seen in OpenAI diarize."
+      },
+      "metrics": {
+        "openai_simple_chars": 450,
+        "openai_diarize_chars": 773,
+        "deepgram_simple_chars": 352,
+        "deepgram_diarize_chars": 352,
+        "openai_simple_ascii_ratio": 0.271,
+        "openai_diarize_ascii_ratio": 0.582
+      },
+      "texts": {
+        "openai_simple": "ocpp proxy devとかocpp proxy prodoっていうドメインがあるんですね。Googleクラウドの。本番環境の方はocpp proxy prodoっていう。になってます。このプロジェクトで何を見たらわかりますか?これでDNSって入れてみてください。DNSか。クラウドDNS。そこのdevelop DNSかな。下の方にocpp proxy prodoの方がエンドポイントになります。そうですか。Firestoreでデータ管理してるんですね。その中の。これは関係ないか。すみません。忘れてください。ocpp proxy devっていうのあったんですけど。これはdevですか?それはdevの方ですね。プロドもあるはず。プロドがですね。私が見えないだけ。見えないだけですかね。タイムゲインがないっぽいです。プロドの方にデータベース。マスターデータを持つ感じですか?そうですね。何時から何時はこっちに繋いでくださいみたいなのと、受け付けるチャージポイントIDみたいな感じです。わかりました。",
+        "openai_diarize": "O_C_P_P_ proxy dev. or O_C_P_B_ proxy proto, these domain got it. It's got Google Chrome in it. Huh, it's Google Chrome. Mm-hmm. And uh it just on the home account it was on the O_C_P_B_ proxy proto, two. In that. Oh, so this project what do you think? Okay. Well then it the DNA is to get it here. Okay, DNA is. Uh. Okay.\nCloud VPN. そこのDevelop DNSかな? はい、その 下の方にOCVP Proxy あります あります ね。はい。そのプロドの方がその エンドポイントになります。\nそうなん だ はい。 へ ああそうですか ファイアベース まあそのファイアベース はい えっ違う ファイアストア はい で えっとデータ管理してるんですね でその中のえ\n関係ないかな あ すみません 忘れてください おい そんな感じではい acpp proxy dev っていうのがあったんですけど はい これは dev ですか あ それdevの方ですね あ はいはい dev devもあるはず prodoがですね私が見 えないだけなのか 見えないだけです うん体 見えないの 験 かもし が れない ないっぽいです そうですね devの方にデータ ベース\n早そうです マスタデータを持つ感じなんで そうですねえっと何 時から何時はこちらにつな げてくださいみたいなのと受 け付けるえっと何 でしょうチャージポイントID",
+        "deepgram_simple": "ocppプロキシデブとかocppプロキシプロドっていうドメインがあるんですねgoogleクラウド本番関係の方はocppプロキシ、プロドっいうことになっています。このプロジェクトで何を見たら分かりますか。それでdnsっ入れてみてくだい。dかな。下の方にocppプロキシありますね。そのprodeの方がそのエンドポイントになります。firefirestoreでデータ管理してるんですね。その中のいocppプロクシーデブっいうのはあったんですけど、これはデブですかデブの方。プロドもあるはず。プロドがですね、私が見えないだけだった。見えないだけですかねプロドの方にデータベース。マスターデータを持つ感じそうですね、何時から何時はこっちにつないでくださいみたいなのと受け付けるチャージポイントidみたいな感じです",
+        "deepgram_diarize": "ocppプロキシデブとかocppプロキシプロドっていうドメインがあるんですねgoogleクラウド本番関係の方はocppプロキシ、プロドっいうことになっています。このプロジェクトで何を見たら分かりますか。それでdnsっ入れてみてくだい。dかな。下の方にocppプロキシありますね。そのprodeの方がそのエンドポイントになります。firefirestoreでデータ管理してるんですね。その中のいocppプロクシーデブっいうのはあったんですけど、これはデブですかデブの方。プロドもあるはず。プロドがですね、私が見えないだけだった。見えないだけですかねプロドの方にデータベース。マスターデータを持つ感じそうですね、何時から何時はこっちにつないでくださいみたいなのと受け付けるチャージポイントidみたいな感じです"
+      }
+    },
+    {
+      "capture_id": "capture-000005",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved_large",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple recovers the domain discussion; OpenAI diarize is largely unusable."
+      },
+      "metrics": {
+        "openai_simple_chars": 418,
+        "openai_diarize_chars": 1401,
+        "deepgram_simple_chars": 317,
+        "deepgram_diarize_chars": 317,
+        "openai_simple_ascii_ratio": 0.026,
+        "openai_diarize_ascii_ratio": 0.855
+      },
+      "texts": {
+        "openai_simple": "デブの方だと、いろいろ書いてますね。はい。向き先。そうか、本番の方を見ないと。あれ、本番もこの形ですか?はい。スキーマー同じです。これは接続先か。はい。これをうまいこと整理しておけばOKですね。詳細な内容とか設定とかみたいなのは、リポジトリの中のリードミーとかドキュメントにあるので。USのコンソールのOCPPプロクシーのところのリードミーですか?そうです。なので読んだらだいたいできます。わかりました。それを設定して動くかどうか。全然関係ないですけどね。私はクリアにしてないです。わかりました。前提のところで少しだけ気になることなんですけど、どうしても無印とインストフォービーで分けなきゃいけない。無印の方だけで完結できないっていうのが繰り返しでできないっていう理由のほか何かあったりするんですか?営業的な側面でいうと、両方を使ってもらうっていうのが素晴らしい。データを動けて見れる方がいいんじゃないかなと思ってます。ユーザーはこれ。",
+        "openai_diarize": "Do the normal uh two, one, I thought you had to start. We got the net. I Ah, couldn't we a can't. conic conic It condenser? comes in. It sounds that come. It's good that. The dummy reader got territoriality. The charge point is that you know. That uh H_I_D_ they line up at and Hi. J_D_ So that's your and now they get nine. there are other heights. J_D_ I think. heights.\n向きすぎ? あ、そうか本番 の方を見ないと あれ?本番もこの形ですか? はい、スキーマ同じくなる あ、 です ね\nOkay. Hi. I'll put a little umake to the save and put it into okay. Hi. The s the Okay. fine uh the actual content and the settings are under the Okay. repository. Uh repository contents and repo name or or Hmm. fragment are under the repository. So the repository console won't I have R_C_P_P_ don't know. proxy in the middle of the repository, because of a So that's it. special issue.\nWell, but you m you'll know that, but by and large Oh well, the LEDs you don't. can Okay. develop. Gotcha. Okay. I got it. Hi. We will put in here. Who wants Hi. And it doesn't come in any. I wish my career could be like that. I don't know. Is it okay? Hi. Hey. Yeah. The intended no particular that. Hmm. And also secular kind of goes with scale on.\nそもそもどう しても無印とぼんやり した方がビデオをつけなきゃいけない って無印はここだけで完結でき ん ないっていうっていうのがなんか繰り 返し ん だけできないっていう理由 のほかなんかあったりするんですか? ん 営業的な側面でいうと情報 を使ってもらうっていうのが あっ 無印とすばらしいかな 素晴らしいかな そうですね 定番を分けて見れる方 が\nOh, Yeah. I don't know. It isn't goning to be. User, it",
+        "deepgram_simple": "デブの方とブだとねチェさんが作ったダミレータが大量にありますけどチャージポイントがこのhidで並んでていそうですね無印のhidが入ってますねい本方を見ないと。本番もこの形ですか。はい、スキーマ同じです。詳細な内容とか設定とかみたいなのはリポジトリの中のリードミーとかコメントにあるのでcppプロクシーのところがリードミーですかそうですね。。なので読んだら大丈夫できます。わかりました。無印の方だけで完結できない理由っていうのが繰り返し上げできないいう理由のほかかあったりするんですか影響的な側面で言うと両方を使ってもらうっていうのが無事でした。忙しいけどそうですねデータを分けて見れる方がいいんじゃないかなと思ってます。ユーザーはこれ",
+        "deepgram_diarize": "デブの方とブだとねチェさんが作ったダミレータが大量にありますけどチャージポイントがこのhidで並んでていそうですね無印のhidが入ってますねい本方を見ないと。本番もこの形ですか。はい、スキーマ同じです。詳細な内容とか設定とかみたいなのはリポジトリの中のリードミーとかコメントにあるのでcppプロクシーのところがリードミーですかそうですね。。なので読んだら大丈夫できます。わかりました。無印の方だけで完結できない理由っていうのが繰り返し上げできないいう理由のほかかあったりするんですか影響的な側面で言うと両方を使ってもらうっていうのが無事でした。忙しいけどそうですねデータを分けて見れる方がいいんじゃないかなと思ってます。ユーザーはこれ"
+      }
+    },
+    {
+      "capture_id": "capture-000006",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved_large",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple is much more coherent."
+      },
+      "metrics": {
+        "openai_simple_chars": 520,
+        "openai_diarize_chars": 1624,
+        "deepgram_simple_chars": 547,
+        "deepgram_diarize_chars": 547,
+        "openai_simple_ascii_ratio": 0.015,
+        "openai_diarize_ascii_ratio": 0.706
+      },
+      "texts": {
+        "openai_simple": "無印では実際の充電時間も取れないんですよね。あとは充電量もちょっとひと工夫必要なんですね。明細にはまだ出ないんですよ。その点がカバーしていれば無印一本もなくはなかったかなと。当時の背景を何も知らない私としては、当時急なリクエストに応えるためやむを得なく切り替えサーバーを使って両方使っているのかなって勝手に思っていたんですけど、そうじゃなくて意図的に無印と具合装備それぞれで使いたいというリクエストなんですかね。分けて使えればいいんですかね。課金しか受け付けないときは課金で、そうじゃないときは課金をなしとき。分けて満たすのであれば無印一本でもいけます。時間帯によってユーザーが違っていたユーザーグループが。そのユーザーグループだけがその時間帯に使えるみたいな感じになるといいってことなんですか。アマゾンでいうと昼間は不特定多数の2C向けサービスになっているじゃないですか。夜は2B文脈での業務に使う車両の充電。今回の件も似たような感じ。どちらも開発が進んでいて、前者は2C向けで後者は2B向けでどんどん進化させているじゃないですか。なので用途が違う。なのでその対象のユーザーがそういう属性であった方が良いんだろうなという感じはしています。",
+        "openai_diarize": "使用したバ ッテリー 矢印では実際の充電 時間も取れないんですよね あとは充電量もちょっと 一工夫必がないんですね 明細にはまだ出ないんですよ とか Yeah. その辺がカバーしていれば 矢印一本もなくはなかった かなと\nI thought it quite a little. Yep. The Oh. uh Mm. previous background, not knowing anything for us to share, was like previous you saw the cute uh request to be completed by the remote shut-down server. It was inevitable to turn off or turn on the remote shut-down server I thought it was inevitable to turn off or turn on the remote shut-down server to keep the two remote shut-down servers in sync with each other. I thought it was inevitable to turn off or turn on the remote shut-down server to keep the two remote shut -down servers in sync with each other. I thought it was inevitable to turn off or turn on the remote shut-down server to keep the two remote shut-down servers in sync with each other. I thought it was inevitable to turn off or turn on the remote shut-down server to keep the two remote shut-down servers in sync with each other. Next we have to calculate the data of this card and then uh control it to kind of fit it in the card. I thought it was a good idea. So I Oh. thought it was a good idea.\nそうじゃなくて 意図的に 見印とハイ装備 それぞれで使いたいっていうリクエスト なんですかね今回は 各別で使え ればいいのであれば、 全然こう 課金しか受け付け ない時は課金で、そうじゃ ない時は課金を無しでっていう それが満たすのであれば無印 一本でもいけます。 ふんふんふんふん\n時間帯 によってユーザー が違っていてユーザーグループ が でそのユーザーグル プだけ がその時間帯に使えるみたい な感じになるといいっていうことなんですよ Hmm. その Amazon の売り出す理由 と Hi. 昼間はえーと不特定 多数の GPS 向けサービスにな ってるじゃないですか Hmm. で夜はえー対ビジネス向けの\na Mm. 業務に使う車両 の充電 Mm. Mm. Mm. 今回の件も似たような感じ というのはそのどちらもまあ開発が進んでいて Mm. その前者2C向けです し後者2B向けでどんどん進化させて Mm. いってるじゃないですかなので用途が違う So that's なのでその対象のユーザー がそういう属性であった 方が\n宮井んだろう なっていう感じは してます そうです",
+        "deepgram_simple": "所要者はこれ。無印では実際の充電時間も取れないんですよね。あとは充電量もひと工夫必要なんですね迷彩にはまだ出ないんですよ。の辺がカバーしていれば無印一本もなくはなかったかなと当時の背景を何も知らない私としてはなんか当時急なリクエストに応えるためやむを得なく切り替えサーバー使って両方使っているのかなっ適宜思ってて次来る案件だけはこっちから片方で管理しようみたいなふうに何度かなっ勝手に思ってたんですけどもじゃなくて意図的に無印と装備それぞで使いたいっていうリクエストなんですかね、今回は。分けて使えればいいんですね課金しか受け付けない時は課金で、そうじゃない時は課金をなしたっていう。こうやって満たすっ時間帯によってユーザーが違っていてユーザーグループがそのユーザーグループだけがその時間帯に使えるみたいな感じになるといいっことなんですよのアマゾンのグラスで言うと昼間は不特定多数のtoc向けサービスになってるじゃなですか夜は2b文脈での業務に使う車両の充電今回の件も似たような感じというのはそのどちらもまあ開発が進んでての前者は2c向けでし後者は2b向けでどんどん進化させていってるじゃなですかなので用途が違うなのでその対象のユーザーがそういう属性であった方が良いんだろうなっいう感じしてます",
+        "deepgram_diarize": "所要者はこれ。無印では実際の充電時間も取れないんですよね。あとは充電量もひと工夫必要なんですね迷彩にはまだ出ないんですよ。の辺がカバーしていれば無印一本もなくはなかったかなと当時の背景を何も知らない私としてはなんか当時急なリクエストに応えるためやむを得なく切り替えサーバー使って両方使っているのかなっ適宜思ってて次来る案件だけはこっちから片方で管理しようみたいなふうに何度かなっ勝手に思ってたんですけどもじゃなくて意図的に無印と装備それぞで使いたいっていうリクエストなんですかね、今回は。分けて使えればいいんですね課金しか受け付けない時は課金で、そうじゃない時は課金をなしたっていう。こうやって満たすっ時間帯によってユーザーが違っていてユーザーグループがそのユーザーグループだけがその時間帯に使えるみたいな感じになるといいっことなんですよのアマゾンのグラスで言うと昼間は不特定多数のtoc向けサービスになってるじゃなですか夜は2b文脈での業務に使う車両の充電今回の件も似たような感じというのはそのどちらもまあ開発が進んでての前者は2c向けでし後者は2b向けでどんどん進化させていってるじゃなですかなので用途が違うなのでその対象のユーザーがそういう属性であった方が良いんだろうなっいう感じしてます"
+      }
+    },
+    {
+      "capture_id": "capture-000007",
+      "verdict": {
+        "winner": "Deepgram slight",
+        "openai_vs_diarize": "improved",
+        "deepgram_vs_diarize": "same",
+        "note": "Deepgram starts more naturally; OpenAI has a noisy opening phrase."
+      },
+      "metrics": {
+        "openai_simple_chars": 606,
+        "openai_diarize_chars": 958,
+        "deepgram_simple_chars": 506,
+        "deepgram_diarize_chars": 507,
+        "openai_simple_ascii_ratio": 0.028,
+        "openai_diarize_ascii_ratio": 0.358
+      },
+      "texts": {
+        "openai_simple": "将来の何でしょう、昨日スイカの恩恵を受けたりとか、それし、アクセルみたいなのになったりとか。そうですね。やるのかなって。この辺を加味した上で村上さんに回答しますね。無印の方が一元管理ができていいっていう見方もあるかもしれませんし。市役所でしたっけ?市役所とゴリゴリな2Bなイメージはないんですけども、その単語だけ聞いた時で。何かあるんですかね、2B的な部分で。市役所の車両を使うんですか?そうですね、社用車です。社用車。社用車というか、社用車が持っているというか。例えば、市役所ユーザーは課金をしない。それ以外の公開放して使う分には課金する場合はクーポンで何とかなるし。毎日さんのコードも2つ用意しておけば。そういうこともできますよね。時間帯によって特定のユーザーに対してこの時間はあなた使いますとかだとできないのか。できなくはないのか。毎日さんのコード分けて。いや、そんなことないか。ちょっともう分かんない。いろいろ喋りました。基本的に営業時間を分けるのであれば切り替えた方がいい。ゲストチャージングの無印も何時から何時まで。っていう風に決められますね。無印1本だとそこができない。営業時間って。営業時間ってもう1つで。運用で食うというか。YSOBはそれいけますからね。お疲れ様です。名古屋市役所の場合は具体的な時間で決まってたりするんですか?9時18時は。まだ聞いてないですね。知っているのかもしれないけど。",
+        "openai_diarize": "将来の何でしょう 機能追加の恩恵 を受けたりとか Mm-hmm. それしまっ外 せるみたいなのになったりとか そうですね するのかなって この辺も加味した上で 村上さんに回答しますね 無印の方が一元管理が できていいっていう見方もあるかもしれませんし\n普通のお 僕ではいいかな 市役所でしたっけ? はい 市役所とゴリゴリな 2Bなイメージはないんですけども その単語だけ聞いたときで ん なんかあるんですかね2B的な部分 で 市役所の車両を 使うんですか? そうですね社用車ですまあ車 用車というか はいはい 社用車が持っていると思うんで 例えば\nしかしユーザーは 課金をしない うん それから公開して使う分には 課金する場合はクーポ ンでなんとかなるし ていうかまぁ舞さんのコードも二つ用意 しておけば ああ とはいうこともできますよね なるほど なるほど 時間帯によって特定のユーザー に対してこの時間はあなた使います よとかだとでき ないのか\n全然でした。 いや、できなくはないのか。マインサウンドコード分 けて うん は? いや、そんなことないか。 ちょっともう分かんない。 まあ、いろいろしゃべりました。 人的に開業時間を分ける のであれば切り替えた方が いいという はい ゲストチャージングが無印も何時間何時間 っていう風に決められますね\n文字列一 本だと底 ができない 英用時間で の運 営業時間ってもうその一つで 営業時間 そうですよね確かに ああじゃあもう運用で配るというか YSOB はそもそもいけますよ お疲れ様です お疲れ様でーす そういう側面もあるのか ちょうどこの名古屋市役所の場合は\nBut that did not go according to the schedule. But it did. It got decided that it was gonna be nine to six, cause nine to six was I'm not a okay. uh I'm not a keen to know this. I'm not sure. I should then know that. I'm not sure. I'm not sure if it's",
+        "deepgram_simple": "の機能追加の恩恵を受けたりとかするし、アップセルみたいになったりとかと加味した上で村上さに回答しますね無印の方が一元管理ができていいっていう見方もあるかもしれまんし。市役所でしたっけ役所っていうとゴリゴリな2bなイメージはないんですけどもその単語だけ聞いた時になんかあるんですかね市市役所の車両を使うんですか社用。用を持っていと思うんですね。市役所ユーザーは課金をしない以の開放して使う分には課金する場合はクーポンでなんとかなるしいうか、マイスタンドコードも2つ用意しておけばそういうこともできますね時間帯によって特定のユーザーに対してこの時間はあなた使いますよとかだとできないのかできなくはないのかs&codeを分けていや、そんなこないかちょっともうわかんない。開業時間を分けるのであれば、切り替えた方がねゲストチャージが無印も何時から何時までっていうふに決められますね。無印1本だとそこができない営業時間て業時間でもその一つでそうですよね運用でカバーというかysobは複数いけますけどねお疲れ様です長谷市役の社の場合は具体的な時間でも決まってたんですか9時18時はまだ聞いてないですね知ってるのかもしれなけど",
+        "deepgram_diarize": "の機能追加の恩恵を受けたりとかするし、アップセルみたいになったりとかと加味した上で村上さに回答しますね。無印の方が一元管理ができていいっていう見方もあるかもしれまんし。市役所でしたっけ役所っていうとゴリゴリな2bなイメージはないんですけどもその単語だけ聞いた時になんかあるんですかね市市役所の車両を使うんですか社用。用を持っていと思うんですね。市役所ユーザーは課金をしない以の開放して使う分には課金する場合はクーポンでなんとかなるしいうか、マイスタンドコードも2つ用意しておけばそういうこともできますね時間帯によって特定のユーザーに対してこの時間はあなた使いますよとかだとできないのかできなくはないのかs&codeを分けていや、そんなこないかちょっともうわかんない。開業時間を分けるのであれば、切り替えた方がねゲストチャージが無印も何時から何時までっていうふに決められますね。無印1本だとそこができない営業時間て業時間でもその一つでそうですよね運用でカバーというかysobは複数いけますけどねお疲れ様です長谷市役の社の場合は具体的な時間でも決まってたんですか9時18時はまだ聞いてないですね知ってるのかもしれなけど"
+      }
+    },
+    {
+      "capture_id": "capture-000008",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved_large",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple turns an unusable diarize output into a coherent parking-hours discussion."
+      },
+      "metrics": {
+        "openai_simple_chars": 523,
+        "openai_diarize_chars": 1206,
+        "deepgram_simple_chars": 377,
+        "deepgram_diarize_chars": 377,
+        "openai_simple_ascii_ratio": 0.04,
+        "openai_diarize_ascii_ratio": 0.667
+      },
+      "texts": {
+        "openai_simple": "9時18時は一般で、18時から翌日は雇用者みたいなイメージなんですかね。なるほど。駐車スペースがそういうイメージになってるんですけど、イメージは駐車場の車一台分の駐車スペースが、9時18時は一般で、18時以降は雇用者だし、雇用者か。雇用者は5時とか6時で閉まるでしょうから、全然6時で閉め切っちゃえるのかもしれないけど。そうですね、そこが比較的大きいポイントかもしれませんね。営業時間を分けられる。知っていればですね。営業時間を分けてやりたいなら、むしろその機能を一つのサービスで実現した方が筋は良さそうな感じがしますね。例えば無印でどうですか。そうですね。それもそう。どう実現するのが筋がいいのかはあれだが、特定のユーザーとか特定の利用方法はこの時間だけ使える。本当にそれだけだったら。例えばその、本当に2B要素がそんなにないのであれば、その方が良さそうですよね。あとUXのとこですとね、社用車の人が毎回アプリを操作したいかというと、そうじゃないと思うので、予約入れっぱにする。それは管理画面で一括で繰り返ししてもらえたら。YS4Bはそうですね。無印の方も繰り返しやる人はいない。できないので、車道です。めちゃくちゃ面倒くさいです。そうなんだ。",
+        "openai_diarize": "Yeah, well, KG18 shall we update? KG18 shall we Mm. update? Mm. Mm. KG18 shall we update? Mm. KG18 shall we update? KG18 shall we update? image, I think. Mm. So that's good, is it? So it is. Hmm. Now? Yes. So it is. Huh. And if I don't know, some space that to your imagination that I did, but Hmm. imagery that I didn't.\n駐車場 一台分車 一台分の駐車スペース が はい. が 九時十八時 は一杯 そう じゃない ですね. し Mm-hmm. Mm-hmm. Mm-hmm. て Okay. 十八時以降は共用者だし雇用 者か そうですね. Okay. Okay. まぁ、市役所はね、五時とか六時 で閉まるでしょうから Mm-hmm. 全然 That's six. 六時で締め切っちゃえるのかもし れないけど\nそうですね そこが 比較的大きいポイントかもしれませんね 営業 時間を分けられる んーはいはいはい 強いて言えばですね 強いて言えばですが なんか影響時間を分けて やりたいならむしろその機能を一つのサービス で実現した方が筋 は良さそうな感じしますね 例えば無印でとかなん そうですね\nあと どう実現するのが自然かはあれだ わ I まあこう特定のユーザー とか特定の利用方法は この時間だけ使える. Mm-hmm. Mm-hmm. 本当にそれだけだったら、例えばその 本当に to be 要素が そんなにないのであれば Mm. その方がなんか 良さそうですよね.\n男です とね、所有者 の人が毎回アプリを操作したいか というと、そうじゃないと思うので はい. uh. ま予約入れっぱなしする, not on. Well, it so that one of the. can be done in the in cuts, to increase the dose. Wireless four by four is what is it? I don't know. Uh. Wireless four by four. Uh. Um, it's It's pretty. Mm. Mr Fujisawa four more kind of Uh. can be done using the shank. You cannot do it Oh. so I go directly. Oh.\nそれ No, がめちゃ eso. くちゃめんどくさい Si. Sonan da. 1分",
+        "deepgram_simple": "駐車スペースがいうイメージになってるですけど。駐車場一台と車一台分の駐車スペースが、9時18時は一般の車だし時以は雇用車。視力者はね5時とか6時で閉まるでしょうから、全然6時で閉め切っちゃえるのかもしれない比較的大きいポイントかもしれまん営業時間を分けられるていえばですね。営業時間分けてやりたいなら、むしろその機能を一つのサービスで実現した方が筋は良さそうな感じしますね無印でどう実現するのが筋がいいかはあれだが特定のユーザーとか特定の利用方法はこの時間だけ使える本当にそれだけだっら例えばその本当に2b要素がそんなないのであればその方が良さそうですよねuxのところですかね社用者の人が毎回アプリを操作したいかというとそうじゃないと思うので、予約入れっぱりする管理のある辺で一括で繰り返してもらったらys4bはそうですね無印の方も返しできないので手動で",
+        "deepgram_diarize": "駐車スペースがいうイメージになってるですけど。駐車場一台と車一台分の駐車スペースが、9時18時は一般の車だし時以は雇用車。視力者はね5時とか6時で閉まるでしょうから、全然6時で閉め切っちゃえるのかもしれない比較的大きいポイントかもしれまん営業時間を分けられるていえばですね。営業時間分けてやりたいなら、むしろその機能を一つのサービスで実現した方が筋は良さそうな感じしますね無印でどう実現するのが筋がいいかはあれだが特定のユーザーとか特定の利用方法はこの時間だけ使える本当にそれだけだっら例えばその本当に2b要素がそんなないのであればその方が良さそうですよねuxのところですかね社用者の人が毎回アプリを操作したいかというとそうじゃないと思うので、予約入れっぱりする管理のある辺で一括で繰り返してもらったらys4bはそうですね無印の方も返しできないので手動で"
+      }
+    },
+    {
+      "capture_id": "capture-000009",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple is more coherent; Deepgram keeps more lexical errors."
+      },
+      "metrics": {
+        "openai_simple_chars": 438,
+        "openai_diarize_chars": 801,
+        "deepgram_simple_chars": 352,
+        "deepgram_diarize_chars": 352,
+        "openai_simple_ascii_ratio": 0.037,
+        "openai_diarize_ascii_ratio": 0.365
+      },
+      "texts": {
+        "openai_simple": "西洋社は毎日決まった時間にっていうイメージに作るんですけど、日中帯ってお客さん用に開放しているイメージがあったんですけど、毎回登録するっていうシチュエーションはなかなか想像できなくて。無印一本でやろうとすると、それを入れないといけないということが大事なんですけど。実際は切り替えの時に1,2分時間が必要ですけど。なので18時までで17時55分までとかにしてましたね。はい、ということでこれは進めていこうかと思います。はい、わかりました。組むのはそうだな。大木さん最終出社いつでしたっけ?5月29日です。わかりました。何かあれば質問します。わかりました。まずは権限をもらわないとですね、本番関係は。だからさんが設定します?権限付与するからとかじゃあ。本当ですか、お願いします。これ充電器は何か決まってるんですか?これから?充付与。プラスマーカーの切り替えのイメージがすごく強くて、何かのアドレスを。でも高田さんは結構デブからステージングとか切り替えてるやつがある。あのイメージ。",
+        "openai_diarize": "なんか西洋者 は毎日 決まった時間にっていうイメージに 思いつくんですけど、えの道渋滞って なんかお客さん用に開放してる イメージがあったんですけど毎 回登録するっていうシチュエ ーションだとなんかクソ そうできなくて ホントにあの無印 1本でやろうとすると あ、 助け そういうことですね はい はい はい はい はい が入れないといけないということにな ってますね\n我々のビジネス それぞれに特化した サービスなので そうですね、 はい いや なんか私もそれがふに落ちて、もうそ よかった もそも isフォビ側では この注射スペースは9 時18時使えないもんだと思って うん 操作すれば別に違和感の話ではないと思 った そういう形で 実際は 切り替えの時に1、2分 時間が必要ですけど\nなので１８時までの１４ 時５５分までとかしてました ね はいではということで これは進めていこうかと思います はい分かりました 組むのはそうだな 大きさは 最終出社いつでしたっけ 5月の29です 分かりました 何か あれば質問\nはい、ました。 まずは権限をもらわないと ですね 本番環境の 高田さんが設定します? うーん 権限付与するかどうかじゃあ あ、ほんとですか? はい。 お願いします. これ急電機がどう うん。 何に使うか決まってるんですか? 何台ぐらい市役所で どうやったらこれから The future of your\nHow's it up there? W_ Ramen. Uh i but uh like uh like uh addressable. Uh-huh. Like uh like uh but Taka-san will kick the dev staging or like kick it again, but like uh kind of image is this?",
+        "deepgram_simple": "社長者は毎日決まった時間にってイメージにつくんですけど、日中大ってお客さん用に開墾してくるイメージがあったんですけど、毎回登録するっていうシチュエーションがちょっと想像できなくて無印一本でやろうとするとそういうこですねあとは奥さんが言ったように、それぞれに特化したサービスなのでですね。嫌なのが私もそれは腑に落ちて掃除がワイヤレスフォーム側ではこの落ちて作性は別に違和感があると。そういう形です。実際は切り替えの時に1、2分時間が必要ですけどなので18時まで17時55分までとかしてましたね。これではを進めていこうかと思います。はい、わかりました最終出社いいでしょうっけ。五月二十九です。何かあれば質問しますわかりまた。宝さんが設定します天井付与するのはちょっとあった。充電器の何ですかが決まってるんです",
+        "deepgram_diarize": "社長者は毎日決まった時間にってイメージにつくんですけど、日中大ってお客さん用に開墾してくるイメージがあったんですけど、毎回登録するっていうシチュエーションがちょっと想像できなくて無印一本でやろうとするとそういうこですねあとは奥さんが言ったように、それぞれに特化したサービスなのでですね。嫌なのが私もそれは腑に落ちて掃除がワイヤレスフォーム側ではこの落ちて作性は別に違和感があると。そういう形です。実際は切り替えの時に1、2分時間が必要ですけどなので18時まで17時55分までとかしてましたね。これではを進めていこうかと思います。はい、わかりました最終出社いいでしょうっけ。五月二十九です。何かあれば質問しますわかりまた。宝さんが設定します天井付与するのはちょっとあった。充電器の何ですかが決まってるんです"
+      }
+    },
+    {
+      "capture_id": "capture-000010",
+      "verdict": {
+        "winner": "OpenAI clear",
+        "openai_vs_diarize": "improved_large",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple is strongest on technical terms and dialogue flow."
+      },
+      "metrics": {
+        "openai_simple_chars": 589,
+        "openai_diarize_chars": 1328,
+        "deepgram_simple_chars": 455,
+        "deepgram_diarize_chars": 455,
+        "openai_simple_ascii_ratio": 0.027,
+        "openai_diarize_ascii_ratio": 0.747
+      },
+      "texts": {
+        "openai_simple": "無印から。これエンドポイント一つを指定します?それがプロキシのエンドポイントですね。高橋さんが自宅の配電機をデブとかステージングに切り替えるイメージと、今回の切り替えサーバーの切り替えのイメージって基本的には一緒ですか?基本的には一緒です。もうこれ一本に設定してしまうっていうイメージですね。時間帯に応じてフォワード先が変わるっていう。なるほど。パルサープラス取り付けたとしてもパルサープラスなりの管理画面は操作しないけど、こっち側は操作する?そうです。パルサープラスのOCPP接続先をこれにして、あとはファイアストアに設定を入れると設定に応じて時間帯で見先が変わる。なんとなくわかりました。高橋さん、OCPPプロキシプロドの本番環境、オーナーがすでに付与されているんですって。あれ?はい。なので探せば見れそうな感じがしましたね。ファイアベースですか?ファイアベースからもすべて表示っていう。それでプロキシはデブワール下の方に。他の…そっから見れないですね。そしたらファイアベースよりGCPからファイアストアを見た方が。プロジェクトのプロキシ。それで見つかるんじゃないですか。見つかりました。多分前に設定したことありますよね。なるほど。そうですか。ありがとうございます。ファイアストアで直接データを入れるみたいな。そういう運用になってます。そんなしょっちゅうあることないですね。",
+        "openai_diarize": "So it is kind of a I suppose. Toggle. I suppose. Toggle. This is an end point, you put the key to change. Hmm. So this is a proxy of the end point. Yeah. It does sound horrible. The feedback on how your phone get better or staging your kick. Kind of the image though, the kick. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Do not care. Do not care. Do not care. You\nmore play it equal needs to be set. Should I set it to a different value? Oh. Also, Okay, in time all right. timing to change. accordance with the sound, the volume is changed as well. Ah, I don't know. I don't know. I don't know. You tap the power supply for this one. If you attach it to the power supply, the power supply for the crab doesn't want to control it, so you control it for this one.\nそうですね。パルサ プラスの O_C_P_P_接続 先を仮にして うん. あとは Firestore Oh yeah. で設定を入れると Ah ha. 定定に応じて 時間帯で耳先が 変わる なんとなくなんとなく分かりました. 高さの O_C_P_P_ プロキシプロドの はい. 本番環境なんかオーナーが既 に増えされてて あれ? はいなので探せば見れ そうな感じがしました\nFire face to ファイアベースからもすべて表示 って上に それでフルキー はDevR下の方 に他 のそこ から見えないですねまあそしたらファイアベ ースよりGCPからファイアストアを見た 方が\nclient So, no project no proxy. はい、多分それで見つかるんじゃないですか あ、本当 見つかりました 見つかりました。 あったか 多分前に設定したことありますよね もしかして なるほど。 そうですか。 ありがとうございます ファイアストアで直接データを入れる みたいな\nそういう意味でもな っています. Yeah. はい. そんなしょっちゅうあることじゃないんでね. Mm-hmm.",
+        "deepgram_simple": "無印から遠い装備っいうのはエンドポイント一つを指定します。プロキシのエンドポイントですの一緒ですかね。もうこれ一本に設定してしまうっいうイメージですね。時間帯に応じてそのフォアーと先が変わるっこです例えばpulsplus取り付けたとしてもpularplus内の管理画面は操作しないけどこっち側は操作するそうですねパルサープラスのocpp接続先をこれにしてファイヤーストアに設定を入れると設定に応じて時間帯で見先が変わる高さん、cppproxyprodoの本番環境のオーナーが既に付与されていてなので探せば見れそうな感じがしました。ファイヤーベースからも全て表示って、上にでプロキシはデブアール、下の方にそこから見れないですね。まあそしたらファイアベースよりgcpからファイアストアを見た方が、その辺のプロジェクトもプロキシに。はいはい、それで見つかるんじゃなかなと思います。多分前に設定したこありますよね。ファイヤーストアに直接データを入れるみたいなそういう運用になっていますそんなしょっちゅうあるこないですね",
+        "deepgram_diarize": "無印から遠い装備っいうのはエンドポイント一つを指定します。プロキシのエンドポイントですの一緒ですかね。もうこれ一本に設定してしまうっいうイメージですね。時間帯に応じてそのフォアーと先が変わるっこです例えばpulsplus取り付けたとしてもpularplus内の管理画面は操作しないけどこっち側は操作するそうですねパルサープラスのocpp接続先をこれにしてファイヤーストアに設定を入れると設定に応じて時間帯で見先が変わる高さん、cppproxyprodoの本番環境のオーナーが既に付与されていてなので探せば見れそうな感じがしました。ファイヤーベースからも全て表示って、上にでプロキシはデブアール、下の方にそこから見れないですね。まあそしたらファイアベースよりgcpからファイアストアを見た方が、その辺のプロジェクトもプロキシに。はいはい、それで見つかるんじゃなかなと思います。多分前に設定したこありますよね。ファイヤーストアに直接データを入れるみたいなそういう運用になっていますそんなしょっちゅうあるこないですね"
+      }
+    },
+    {
+      "capture_id": "capture-000011",
+      "verdict": {
+        "winner": "Deepgram clear",
+        "openai_vs_diarize": "worse_unstable",
+        "deepgram_vs_diarize": "same",
+        "note": "OpenAI simple returned only short tail snippets and was unstable across retries."
+      },
+      "metrics": {
+        "openai_simple_chars": 7,
+        "openai_diarize_chars": 95,
+        "deepgram_simple_chars": 78,
+        "deepgram_diarize_chars": 78,
+        "openai_simple_ascii_ratio": 0.143,
+        "openai_diarize_ascii_ratio": 0.116
+      },
+      "texts": {
+        "openai_simple": "見れましたか?",
+        "openai_diarize": "ありがとうございました 開かれました 見れます はい よしこれで適当ですね はい ありがとうございました お願いいたします\nとりわけでは、つぼみ さんに何かしてもらうって ことはないのかな?",
+        "deepgram_simple": "ありがとうございました見れます。はい。お願いいたします。お疲れ様でした。お疲れ様でした。これに関しては坪井さに何かしてもらうっことはないのかなと思ってます。",
+        "deepgram_diarize": "ありがとうございました見れます。はい。お願いいたします。お疲れ様でした。お疲れ様でした。これに関しては坪井さに何かしてもらうっことはないのかなと思ってます。"
+      }
+    }
+  ]
+}

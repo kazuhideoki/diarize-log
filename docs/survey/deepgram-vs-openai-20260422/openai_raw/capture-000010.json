@@ -1,0 +1,366 @@
+{
+  "capture_start_ms": 1302624,
+  "text": "So it is kind of a I suppose. Toggle. I suppose. Toggle. This is an end point, you put the key to change. Hmm. So this is a proxy of the end point. Yeah. It does sound horrible. The feedback on how your phone get better or staging your kick. Kind of the image though, the kick. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Do not care. Do not care. Do not care. You\nmore play it equal needs to be set. Should I set it to a different value? Oh. Also, Okay, in time all right. timing to change. accordance with the sound, the volume is changed as well. Ah, I don't know. I don't know. I don't know. You tap the power supply for this one. If you attach it to the power supply, the power supply for the crab doesn't want to control it, so you control it for this one.\nそうですね。パルサ プラスの O_C_P_P_接続 先を仮にして うん. あとは Firestore Oh yeah. で設定を入れると Ah ha. 定定に応じて 時間帯で耳先が 変わる なんとなくなんとなく分かりました. 高さの O_C_P_P_ プロキシプロドの はい. 本番環境なんかオーナーが既 に増えされてて あれ? はいなので探せば見れ そうな感じがしました\nFire face to ファイアベースからもすべて表示 って上に それでフルキー はDevR下の方 に他 のそこ から見えないですねまあそしたらファイアベ ースよりGCPからファイアストアを見た 方が\nclient So, no project no proxy. はい、多分それで見つかるんじゃないですか あ、本当 見つかりました 見つかりました。 あったか 多分前に設定したことありますよね もしかして なるほど。 そうですか。 ありがとうございます ファイアストアで直接データを入れる みたいな\nそういう意味でもな っています. Yeah. はい. そんなしょっちゅうあることじゃないんでね. Mm-hmm.",
+  "segments": [
+    {
+      "speaker": "A",
+      "start_ms": 468,
+      "end_ms": 1468,
+      "text": " So it is kind of a"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 1618,
+      "end_ms": 1968,
+      "text": " I suppose."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 1968,
+      "end_ms": 2168,
+      "text": " Toggle."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 2168,
+      "end_ms": 2468,
+      "text": " I suppose."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 2468,
+      "end_ms": 2518,
+      "text": ""
+    },
+    {
+      "speaker": "A",
+      "start_ms": 4118,
+      "end_ms": 4468,
+      "text": " Toggle."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 5068,
+      "end_ms": 7118,
+      "text": " This is an end point, you put the key to change."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 7818,
+      "end_ms": 7968,
+      "text": " Hmm."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 8468,
+      "end_ms": 11318,
+      "text": " So this is a proxy of the end point."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 11668,
+      "end_ms": 11968,
+      "text": " Yeah."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 14618,
+      "end_ms": 25818,
+      "text": " It does sound horrible. The feedback on how your phone get better or staging your kick. Kind of the image though, the kick. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Kind of the image. Do not care. Do not care. Do not care. You"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 31028,
+      "end_ms": 33428,
+      "text": " more play it equal needs to be set."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 33478,
+      "end_ms": 33528,
+      "text": " Should"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 33678,
+      "end_ms": 33928,
+      "text": " I set it to a different value?"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 35478,
+      "end_ms": 35778,
+      "text": " Oh."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 38228,
+      "end_ms": 38278,
+      "text": " Also,"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 38278,
+      "end_ms": 38428,
+      "text": " Okay,"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 38428,
+      "end_ms": 38678,
+      "text": " in time"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 38678,
+      "end_ms": 38828,
+      "text": " all right."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 38828,
+      "end_ms": 42328,
+      "text": " timing to change. accordance with the sound, the volume is changed as well."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 42328,
+      "end_ms": 44978,
+      "text": " Ah, I don't know. I don't know. I don't"
+    },
+    {
+      "speaker": "@",
+      "start_ms": 44978,
+      "end_ms": 45028,
+      "text": " know."
+    },
+    {
+      "speaker": "A",
+      "start_ms": 45028,
+      "end_ms": 47778,
+      "text": " You tap the power supply for this one. If you attach it to the power supply,"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 47828,
+      "end_ms": 50978,
+      "text": " the power supply for the crab doesn't want to control it, so you control it for this one."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 51862,
+      "end_ms": 56862,
+      "text": " そうですね。パルサプラスの O_C_P_P_接続先を仮にして"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 57062,
+      "end_ms": 57362,
+      "text": " うん."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 57362,
+      "end_ms": 58362,
+      "text": " あとは Firestore"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 58362,
+      "end_ms": 58512,
+      "text": " Oh yeah."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 58512,
+      "end_ms": 59662,
+      "text": " で設定を入れると"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 59662,
+      "end_ms": 59912,
+      "text": " Ah ha."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 59912,
+      "end_ms": 64612,
+      "text": "定定に応じて時間帯で耳先が変わる"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 64612,
+      "end_ms": 66062,
+      "text": "なんとなくなんとなく分かりました."
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 67712,
+      "end_ms": 71212,
+      "text": " 高さの O_C_P_P_プロキシプロドの"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 71412,
+      "end_ms": 71512,
+      "text": " はい."
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 71512,
+      "end_ms": 74562,
+      "text": "本番環境なんかオーナーが既に増えされてて"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 75412,
+      "end_ms": 75512,
+      "text": " あれ?"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 75912,
+      "end_ms": 79062,
+      "text": " はいなので探せば見れそうな感じがしました"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 80340,
+      "end_ms": 81390,
+      "text": " Fire face to"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 83790,
+      "end_ms": 87640,
+      "text": "ファイアベースからもすべて表示って上に"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 90540,
+      "end_ms": 99690,
+      "text": "それでフルキーはDevR下の方に他のそこ"
+    },
+    {
+      "speaker": "A",
+      "start_ms": 101640,
+      "end_ms": 106640,
+      "text": "から見えないですねまあそしたらファイアベースよりGCPからファイアストアを見た方が"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 108692,
+      "end_ms": 108892,
+      "text": " client"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 108892,
+      "end_ms": 109192,
+      "text": " So,"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 109192,
+      "end_ms": 111692,
+      "text": " no project no proxy."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 112042,
+      "end_ms": 114392,
+      "text": " はい、多分それで見つかるんじゃないですか"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 114392,
+      "end_ms": 114642,
+      "text": " あ、本当"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 114642,
+      "end_ms": 114892,
+      "text": "見つかりました"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 114892,
+      "end_ms": 115442,
+      "text": "見つかりました。"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 115592,
+      "end_ms": 115842,
+      "text": "あったか"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 117192,
+      "end_ms": 119092,
+      "text": "多分前に設定したことありますよね"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 121092,
+      "end_ms": 121442,
+      "text": "もしかして"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 125342,
+      "end_ms": 125992,
+      "text": " なるほど。"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 126892,
+      "end_ms": 127642,
+      "text": "そうですか。"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 128242,
+      "end_ms": 128692,
+      "text": "ありがとうございます"
+    },
+    {
+      "speaker": "B",
+      "start_ms": 131842,
+      "end_ms": 134642,
+      "text": " ファイアストアで直接データを入れるみたいな"
+    },
+    {
+      "speaker": "C",
+      "start_ms": 135668,
+      "end_ms": 136768,
+      "text": " そういう意味でもなっています."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 137468,
+      "end_ms": 137618,
+      "text": " Yeah."
+    },
+    {
+      "speaker": "C",
+      "start_ms": 138268,
+      "end_ms": 138318,
+      "text": " はい."
+    },
+    {
+      "speaker": "C",
+      "start_ms": 139768,
+      "end_ms": 141168,
+      "text": " そんなしょっちゅうあることじゃないんでね."
+    },
+    {
+      "speaker": "B",
+      "start_ms": 141268,
+      "end_ms": 141618,
+      "text": " Mm-hmm."
+    }
+  ]
+}

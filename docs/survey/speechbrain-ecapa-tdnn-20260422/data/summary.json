@@ -1,0 +1,140 @@
+{
+  "model": "speechbrain/spkrec-ecapa-voxceleb",
+  "target_sample_rate": 16000,
+  "unknown_threshold": 0.5,
+  "min_margin": 0.15,
+  "reference_speakers": {
+    "oki": {
+      "path": "/Users/kazuhideoki/diarize-log-storage/storage/speakers/kazuhide_oki.wav",
+      "duration_sec": 6.0
+    },
+    "takahara": {
+      "path": "/Users/kazuhideoki/diarize-log-storage/storage/speakers/kosuke_takahara.wav",
+      "duration_sec": 6.0
+    },
+    "tsuboi": {
+      "path": "/Users/kazuhideoki/diarize-log-storage/storage/speakers/hibiki_tsuboi.wav",
+      "duration_sec": 6.0
+    }
+  },
+  "reference_similarity": {
+    "oki": {
+      "oki": 1.0,
+      "takahara": 0.259471,
+      "tsuboi": 0.363146
+    },
+    "takahara": {
+      "oki": 0.259471,
+      "takahara": 1.0,
+      "tsuboi": 0.357558
+    },
+    "tsuboi": {
+      "oki": 0.363146,
+      "takahara": 0.357558,
+      "tsuboi": 1.0
+    }
+  },
+  "captures": {
+    "capture-000002": {
+      "audio_path": "/Users/kazuhideoki/diarize-log-storage/storage/runs/20260421T150358_264+0900/audios/capture-000002.wav",
+      "diarization_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_speech_drain/docs/survey/deepgram-vs-openai-20260422/data/pyannote/capture-000002.json",
+      "audio_duration_sec": 145.472,
+      "segment_count": 88,
+      "pyannote_speakers": [
+        {
+          "pyannote_speaker": "SPEAKER_00",
+          "assigned_speaker": "oki",
+          "cluster_best_speaker": "oki",
+          "cluster_best_score": 0.667036,
+          "cluster_second_speaker": "tsuboi",
+          "cluster_second_score": 0.423738,
+          "cluster_margin": 0.243298,
+          "total_duration_sec": 61.86,
+          "segment_count": 42,
+          "scores": {
+            "oki": 0.667036,
+            "takahara": 0.225356,
+            "tsuboi": 0.423738
+          },
+          "unknown_reasons": []
+        },
+        {
+          "pyannote_speaker": "SPEAKER_01",
+          "assigned_speaker": "takahara",
+          "cluster_best_speaker": "takahara",
+          "cluster_best_score": 0.715708,
+          "cluster_second_speaker": "tsuboi",
+          "cluster_second_score": 0.362487,
+          "cluster_margin": 0.353221,
+          "total_duration_sec": 46.48,
+          "segment_count": 46,
+          "scores": {
+            "oki": 0.335713,
+            "takahara": 0.715708,
+            "tsuboi": 0.362487
+          },
+          "unknown_reasons": []
+        }
+      ]
+    },
+    "capture-000008": {
+      "audio_path": "/Users/kazuhideoki/diarize-log-storage/storage/runs/20260421T150358_264+0900/audios/capture-000008.wav",
+      "diarization_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_speech_drain/docs/survey/deepgram-vs-openai-20260422/data/pyannote/capture-000008.json",
+      "audio_duration_sec": 144.0,
+      "segment_count": 100,
+      "pyannote_speakers": [
+        {
+          "pyannote_speaker": "SPEAKER_00",
+          "assigned_speaker": "oki",
+          "cluster_best_speaker": "oki",
+          "cluster_best_score": 0.625461,
+          "cluster_second_speaker": "tsuboi",
+          "cluster_second_score": 0.405462,
+          "cluster_margin": 0.219999,
+          "total_duration_sec": 29.38,
+          "segment_count": 21,
+          "scores": {
+            "oki": 0.625461,
+            "takahara": 0.316808,
+            "tsuboi": 0.405462
+          },
+          "unknown_reasons": []
+        },
+        {
+          "pyannote_speaker": "SPEAKER_01",
+          "assigned_speaker": "takahara",
+          "cluster_best_speaker": "takahara",
+          "cluster_best_score": 0.611678,
+          "cluster_second_speaker": "tsuboi",
+          "cluster_second_score": 0.344542,
+          "cluster_margin": 0.267136,
+          "total_duration_sec": 43.22,
+          "segment_count": 53,
+          "scores": {
+            "oki": 0.304712,
+            "takahara": 0.611678,
+            "tsuboi": 0.344542
+          },
+          "unknown_reasons": []
+        },
+        {
+          "pyannote_speaker": "SPEAKER_02",
+          "assigned_speaker": "tsuboi",
+          "cluster_best_speaker": "tsuboi",
+          "cluster_best_score": 0.671467,
+          "cluster_second_speaker": "oki",
+          "cluster_second_score": 0.355076,
+          "cluster_margin": 0.316391,
+          "total_duration_sec": 36.64,
+          "segment_count": 26,
+          "scores": {
+            "oki": 0.355076,
+            "takahara": 0.346084,
+            "tsuboi": 0.671467
+          },
+          "unknown_reasons": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "model": "pyannote-community/speaker-diarization-community-1",
+  "results": [
+    {
+      "capture": "capture-000002",
+      "paid_reference_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_pyannote_oss/docs/survey/deepgram-vs-openai-20260422/data/pyannote/capture-000002.json",
+      "oss_result_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_pyannote_oss/docs/survey/pyannote-oss-20260422/raw/capture-000002.json",
+      "oss_stats": {
+        "speaker_count": 2,
+        "segment_count": 77,
+        "speech_total_seconds": 109.151,
+        "speech_union_seconds": 102.332,
+        "overlap_seconds": 6.819
+      },
+      "paid_stats": {
+        "speaker_count": 2,
+        "segment_count": 88,
+        "speech_total_seconds": 108.34,
+        "speech_union_seconds": 100.4,
+        "overlap_seconds": 7.94
+      },
+      "comparison": {
+        "speaker_count_delta": 0,
+        "segment_count_delta": -11,
+        "union_speech_intersection_seconds": 94.985,
+        "union_speech_union_seconds": 107.747,
+        "union_speech_iou": 0.8816,
+        "best_one_to_one_speaker_overlap_seconds": 88.894,
+        "speaker_mapping_by_overlap": [
+          {
+            "oss_speaker": "SPEAKER_00",
+            "paid_speaker": "SPEAKER_00",
+            "overlap_seconds": 53.677
+          },
+          {
+            "oss_speaker": "SPEAKER_01",
+            "paid_speaker": "SPEAKER_01",
+            "overlap_seconds": 35.217
+          }
+        ]
+      }
+    },
+    {
+      "capture": "capture-000008",
+      "paid_reference_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_pyannote_oss/docs/survey/deepgram-vs-openai-20260422/data/pyannote/capture-000008.json",
+      "oss_result_path": "/Users/kazuhideoki/.dev-flow/worktrees/diarize-log~_~survey_pyannote_oss/docs/survey/pyannote-oss-20260422/raw/capture-000008.json",
+      "oss_stats": {
+        "speaker_count": 2,
+        "segment_count": 68,
+        "speech_total_seconds": 123.691,
+        "speech_union_seconds": 115.103,
+        "overlap_seconds": 8.588
+      },
+      "paid_stats": {
+        "speaker_count": 3,
+        "segment_count": 100,
+        "speech_total_seconds": 109.24,
+        "speech_union_seconds": 102.04,
+        "overlap_seconds": 7.2
+      },
+      "comparison": {
+        "speaker_count_delta": -1,
+        "segment_count_delta": -32,
+        "union_speech_intersection_seconds": 100.294,
+        "union_speech_union_seconds": 116.849,
+        "union_speech_iou": 0.8583,
+        "best_one_to_one_speaker_overlap_seconds": 61.91,
+        "speaker_mapping_by_overlap": [
+          {
+            "oss_speaker": "SPEAKER_00",
+            "paid_speaker": "SPEAKER_00",
+            "overlap_seconds": 25.028
+          },
+          {
+            "oss_speaker": "SPEAKER_01",
+            "paid_speaker": "SPEAKER_01",
+            "overlap_seconds": 36.882
+          }
+        ]
+      }
+    }
+  ]
+}

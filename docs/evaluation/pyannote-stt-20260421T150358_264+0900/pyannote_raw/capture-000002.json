@@ -1,0 +1,3491 @@
+{
+  "jobId": "a80ce17b-8ed1-4940-a8ab-8cce824fa0bd",
+  "status": "succeeded",
+  "createdAt": "2026-04-26T09:18:17.827Z",
+  "updatedAt": "2026-04-26T09:18:29.106Z",
+  "output": {
+    "diarization": [
+      {
+        "speaker": "SPEAKER_00",
+        "start": 0.065,
+        "end": 4.905
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 4.885,
+        "end": 5.245
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 5.745,
+        "end": 6.365
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 8.645,
+        "end": 14.765
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 15.245,
+        "end": 17.665
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 17.225,
+        "end": 18.545
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 18.265,
+        "end": 18.725
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 19.045,
+        "end": 20.185
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 20.225,
+        "end": 20.645
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 20.865,
+        "end": 21.345
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 22.685,
+        "end": 23.865
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 24.685,
+        "end": 26.105
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 27.565,
+        "end": 29.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 29.365,
+        "end": 29.745
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 29.825,
+        "end": 32.305
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 32.305,
+        "end": 32.985
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 33.265,
+        "end": 33.585
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 36.085,
+        "end": 37.185
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 37.345,
+        "end": 38.825
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 38.165,
+        "end": 38.365
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 40.365,
+        "end": 44.825
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 45.545,
+        "end": 47.785
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 48.585,
+        "end": 49.965
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 49.185,
+        "end": 49.385
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 50.025,
+        "end": 52.765
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 50.585,
+        "end": 51.525
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 51.605,
+        "end": 52.065
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 52.765,
+        "end": 53.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 53.465,
+        "end": 56.085
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 56.845,
+        "end": 57.445
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 57.965,
+        "end": 58.025
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 58.025,
+        "end": 59.745
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 60.105,
+        "end": 62.825
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 61.845,
+        "end": 62.605
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 63.665,
+        "end": 64.025
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 63.865,
+        "end": 64.365
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 64.245,
+        "end": 67.285
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 66.905,
+        "end": 67.565
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 67.765,
+        "end": 68.605
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 69.045,
+        "end": 70.665
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 71.505,
+        "end": 73.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 73.325,
+        "end": 75.225
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 74.545,
+        "end": 74.805
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 75.085,
+        "end": 75.425
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 75.545,
+        "end": 76.545
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 76.605,
+        "end": 76.925
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 81.325,
+        "end": 82.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 82.305,
+        "end": 82.565
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 82.525,
+        "end": 83.165
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 83.885,
+        "end": 86.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 86.305,
+        "end": 86.605
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 87.045,
+        "end": 88.205
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 89.345,
+        "end": 90.205
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 91.025,
+        "end": 91.865
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 91.865,
+        "end": 92.345
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 92.305,
+        "end": 93.625
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 92.505,
+        "end": 93.125
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 93.545,
+        "end": 94.865
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 94.965,
+        "end": 95.845
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 95.905,
+        "end": 97.625
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 97.265,
+        "end": 97.865
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 98.345,
+        "end": 99.985
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 100.245,
+        "end": 103.105
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 103.165,
+        "end": 104.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 105.105,
+        "end": 106.985
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 106.225,
+        "end": 108.345
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 108.525,
+        "end": 110.045
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 110.105,
+        "end": 110.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 110.125,
+        "end": 110.965
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 110.965,
+        "end": 111.145
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 111.565,
+        "end": 112.905
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 113.625,
+        "end": 114.765
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 117.445,
+        "end": 118.505
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 119.345,
+        "end": 122.885
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 123.085,
+        "end": 125.065
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 124.905,
+        "end": 125.525
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 125.445,
+        "end": 125.505
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 125.525,
+        "end": 127.265
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 126.045,
+        "end": 126.725
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 127.905,
+        "end": 128.665
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 128.645,
+        "end": 129.185
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 130.165,
+        "end": 130.705
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 140.245,
+        "end": 141.565
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 141.705,
+        "end": 142.025
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 141.725,
+        "end": 142.005
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 142.145,
+        "end": 143.505
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 143.685,
+        "end": 145.345
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 144.145,
+        "end": 144.625
+      }
+    ],
+    "exclusiveDiarization": [
+      {
+        "speaker": "SPEAKER_00",
+        "start": 0.065,
+        "end": 4.885
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 4.885,
+        "end": 5.245
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 5.745,
+        "end": 6.365
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 8.645,
+        "end": 14.765
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 15.245,
+        "end": 17.605
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 17.605,
+        "end": 18.345
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 18.345,
+        "end": 18.725
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 19.045,
+        "end": 20.185
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 20.225,
+        "end": 20.645
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 20.865,
+        "end": 21.345
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 22.685,
+        "end": 23.865
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 24.685,
+        "end": 26.105
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 27.565,
+        "end": 29.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 29.365,
+        "end": 29.745
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 29.825,
+        "end": 32.305
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 32.305,
+        "end": 32.985
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 33.265,
+        "end": 33.585
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 36.085,
+        "end": 37.185
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 37.345,
+        "end": 38.825
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 40.365,
+        "end": 44.825
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 45.545,
+        "end": 47.785
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 48.585,
+        "end": 49.965
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 50.025,
+        "end": 52.765
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 52.765,
+        "end": 53.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 53.465,
+        "end": 56.085
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 56.845,
+        "end": 57.445
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 57.965,
+        "end": 58.025
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 58.025,
+        "end": 59.745
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 60.105,
+        "end": 62.525
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 62.525,
+        "end": 62.565
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 62.565,
+        "end": 62.825
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 63.665,
+        "end": 63.965
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 63.965,
+        "end": 64.305
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 64.305,
+        "end": 67.185
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 67.185,
+        "end": 67.565
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 67.765,
+        "end": 68.605
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 69.045,
+        "end": 70.665
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 71.505,
+        "end": 73.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 73.325,
+        "end": 75.165
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 75.165,
+        "end": 75.425
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 75.545,
+        "end": 76.545
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 76.605,
+        "end": 76.925
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 81.325,
+        "end": 82.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 82.305,
+        "end": 82.545
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 82.545,
+        "end": 83.165
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 83.885,
+        "end": 86.165
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 86.305,
+        "end": 86.605
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 87.045,
+        "end": 88.205
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 89.345,
+        "end": 90.205
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 91.025,
+        "end": 91.865
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 91.865,
+        "end": 92.325
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 92.325,
+        "end": 93.565
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 93.565,
+        "end": 94.865
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 94.965,
+        "end": 95.845
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 95.905,
+        "end": 97.305
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 97.305,
+        "end": 97.865
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 98.345,
+        "end": 99.985
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 100.245,
+        "end": 103.105
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 103.165,
+        "end": 104.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 105.105,
+        "end": 106.885
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 106.885,
+        "end": 108.345
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 108.525,
+        "end": 110.045
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 110.105,
+        "end": 110.125
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 110.125,
+        "end": 110.965
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 110.965,
+        "end": 111.145
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 111.565,
+        "end": 112.905
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 113.625,
+        "end": 114.765
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 117.445,
+        "end": 118.505
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 119.345,
+        "end": 122.885
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 123.085,
+        "end": 124.945
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 124.945,
+        "end": 125.525
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 125.525,
+        "end": 127.265
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 127.905,
+        "end": 128.645
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 128.645,
+        "end": 129.185
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "start": 130.165,
+        "end": 130.705
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 140.245,
+        "end": 141.565
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 141.705,
+        "end": 142.025
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 142.145,
+        "end": 143.505
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "start": 143.685,
+        "end": 145.345
+      }
+    ],
+    "wordLevelTranscription": [
+      {
+        "start": 0.065,
+        "end": 0.225,
+        "text": "切",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.225,
+        "end": 0.305,
+        "text": "り",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.305,
+        "end": 0.405,
+        "text": "替",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.405,
+        "end": 0.505,
+        "text": "わ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.505,
+        "end": 0.565,
+        "text": "ら",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.565,
+        "end": 0.685,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.685,
+        "end": 0.925,
+        "text": "かった",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 0.925,
+        "end": 1.4649999999999999,
+        "text": "とか",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 1.4649999999999999,
+        "end": 2.065,
+        "text": "バ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.065,
+        "end": 2.185,
+        "text": "グ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.185,
+        "end": 2.305,
+        "text": "が",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.305,
+        "end": 2.445,
+        "text": "起",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.445,
+        "end": 2.505,
+        "text": "き",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.505,
+        "end": 2.685,
+        "text": "て",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 2.685,
+        "end": 3.005,
+        "text": "通",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 3.005,
+        "end": 3.145,
+        "text": "信",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 3.145,
+        "end": 3.3449999999999998,
+        "text": "叩",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 3.3449999999999998,
+        "end": 3.485,
+        "text": "いた",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 3.485,
+        "end": 3.925,
+        "text": "って",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 3.925,
+        "end": 4.105,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 4.105,
+        "end": 4.365,
+        "text": "かった",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 4.365,
+        "end": 4.545000000000001,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 4.545000000000001,
+        "end": 4.805000000000001,
+        "text": "よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 4.885,
+        "end": 5.1049999999999995,
+        "text": "うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 5.48687523427049,
+        "end": 5.926875234270491,
+        "text": "なん",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 5.926875234270491,
+        "end": 6.186875234270491,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 8.28875046854098,
+        "end": 8.82875046854098,
+        "text": "2",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 8.82875046854098,
+        "end": 9.08875046854098,
+        "text": "点",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 9.08875046854098,
+        "end": 9.568750468540978,
+        "text": "近",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 9.568750468540978,
+        "end": 9.76875046854098,
+        "text": "く",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 9.76875046854098,
+        "end": 10.068750468540978,
+        "text": "やって",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 10.068750468540978,
+        "end": 10.50875046854098,
+        "text": "そんな",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 10.50875046854098,
+        "end": 10.948750468540977,
+        "text": "問題",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 10.948750468540977,
+        "end": 11.10875046854098,
+        "text": "が",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 11.10875046854098,
+        "end": 11.268750468540977,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 11.268750468540977,
+        "end": 11.60875046854098,
+        "text": "ので",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 11.60875046854098,
+        "end": 12.208750468540979,
+        "text": "目",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.208750468540979,
+        "end": 12.34875046854098,
+        "text": "的",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.34875046854098,
+        "end": 12.48875046854098,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.48875046854098,
+        "end": 12.628750468540977,
+        "text": "達",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.628750468540977,
+        "end": 12.80875046854098,
+        "text": "成",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.80875046854098,
+        "end": 12.98875046854098,
+        "text": "して",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 12.98875046854098,
+        "end": 13.088750468540978,
+        "text": "いる",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 13.088750468540978,
+        "end": 13.34875046854098,
+        "text": "ので",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 13.78875046854098,
+        "end": 14.14875046854098,
+        "text": "私",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 14.14875046854098,
+        "end": 14.32875046854098,
+        "text": "は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 14.32875046854098,
+        "end": 15.068750468540982,
+        "text": "普",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.370625702811468,
+        "end": 15.470625702811466,
+        "text": "通",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.470625702811466,
+        "end": 15.530625702811468,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.530625702811468,
+        "end": 15.670625702811469,
+        "text": "使",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.670625702811469,
+        "end": 15.850625702811469,
+        "text": "って",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.850625702811469,
+        "end": 15.95062570281147,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.95062570281147,
+        "end": 16.090625702811465,
+        "text": "良",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 16.090625702811465,
+        "end": 16.53062570281147,
+        "text": "さ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 16.53062570281147,
+        "end": 16.75062570281147,
+        "text": "そうだ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 16.75062570281147,
+        "end": 16.89062570281147,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 16.89062570281147,
+        "end": 17.150625702811467,
+        "text": "という",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 17.150625702811467,
+        "end": 17.410625702811465,
+        "text": "感じ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 17.38687523427049,
+        "end": 17.96687523427049,
+        "text": "了",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 17.410625702811465,
+        "end": 17.63062570281147,
+        "text": "は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 17.96687523427049,
+        "end": 18.326875234270492,
+        "text": "解",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 19.234376171352448,
+        "end": 19.594376171352447,
+        "text": "実",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 19.594376171352447,
+        "end": 19.954376171352447,
+        "text": "績",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 19.954376171352447,
+        "end": 20.494376171352446,
+        "text": "的",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 20.028750468540984,
+        "end": 20.468750468540982,
+        "text": "うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 20.99625140562293,
+        "end": 21.516251405622935,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 22.410625702811473,
+        "end": 23.070625702811473,
+        "text": "承",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 23.070625702811473,
+        "end": 23.250625702811472,
+        "text": "知",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 23.250625702811472,
+        "end": 23.730625702811473,
+        "text": "しました",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 24.372500937081963,
+        "end": 24.852500937081963,
+        "text": "まあ、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 25.09250093708196,
+        "end": 25.11250093708196,
+        "text": "そ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 25.11250093708196,
+        "end": 25.25250093708196,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 25.25250093708196,
+        "end": 25.352500937081963,
+        "text": "そ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 25.352500937081963,
+        "end": 25.572500937081962,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 26.854376171352452,
+        "end": 28.134376171352454,
+        "text": "山",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.134376171352454,
+        "end": 28.33437617135245,
+        "text": "田",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.33437617135245,
+        "end": 28.494376171352453,
+        "text": "テ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.494376171352453,
+        "end": 28.65437617135245,
+        "text": "ック",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.65437617135245,
+        "end": 28.79437617135245,
+        "text": "ラ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.79437617135245,
+        "end": 28.97437617135245,
+        "text": "ンド",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 28.97437617135245,
+        "end": 29.51437617135245,
+        "text": "ト",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 29.99625140562294,
+        "end": 30.116251405622943,
+        "text": "ツ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.116251405622943,
+        "end": 30.19625140562294,
+        "text": "カ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.19625140562294,
+        "end": 30.336251405622942,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.336251405622942,
+        "end": 30.516251405622942,
+        "text": "ど",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.516251405622942,
+        "end": 30.59625140562294,
+        "text": "れ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.59625140562294,
+        "end": 30.756251405622944,
+        "text": "だけ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.756251405622944,
+        "end": 30.99625140562294,
+        "text": "使",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 30.99625140562294,
+        "end": 31.13625140562294,
+        "text": "わ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 31.13625140562294,
+        "end": 31.296251405622943,
+        "text": "れた",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 31.296251405622943,
+        "end": 31.45625140562294,
+        "text": "んだ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 31.45625140562294,
+        "end": 31.59625140562294,
+        "text": "って",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 31.59625140562294,
+        "end": 31.856251405622938,
+        "text": "話",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 31.856251405622938,
+        "end": 32.13625140562294,
+        "text": "です",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 32.12000187416391,
+        "end": 32.48000187416391,
+        "text": "そう",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 32.13625140562294,
+        "end": 32.29625140562294,
+        "text": "けど",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 32.48000187416391,
+        "end": 32.62000187416391,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 32.62000187416391,
+        "end": 32.820001874163914,
+        "text": "よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 35.898126639893434,
+        "end": 36.29812663989344,
+        "text": "ただ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 36.29812663989344,
+        "end": 36.578126639893426,
+        "text": "まあ、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 37.36000187416392,
+        "end": 37.72000187416392,
+        "text": "問題",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 37.72000187416392,
+        "end": 37.90000187416392,
+        "text": "は",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 37.90000187416392,
+        "end": 38.10000187416392,
+        "text": "起",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 38.10000187416392,
+        "end": 38.16000187416392,
+        "text": "き",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 38.16000187416392,
+        "end": 38.280001874163915,
+        "text": "て",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 38.280001874163915,
+        "end": 38.44000187416392,
+        "text": "ない",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 38.44000187416392,
+        "end": 38.82000187416392,
+        "text": "ので",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 40.243752342704894,
+        "end": 40.603752342704894,
+        "text": "問題",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 40.603752342704894,
+        "end": 40.703752342704895,
+        "text": "が",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 40.703752342704895,
+        "end": 40.8037523427049,
+        "text": "起",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 40.8037523427049,
+        "end": 40.84375234270489,
+        "text": "き",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 40.84375234270489,
+        "end": 40.923752342704894,
+        "text": "て",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 40.923752342704894,
+        "end": 41.0837523427049,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.0837523427049,
+        "end": 41.283752342704894,
+        "text": "という",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.283752342704894,
+        "end": 41.32375234270489,
+        "text": "意",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.32375234270489,
+        "end": 41.40375234270489,
+        "text": "味",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.40375234270489,
+        "end": 41.54375234270489,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.54375234270489,
+        "end": 41.783752342704894,
+        "text": "ただ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 41.783752342704894,
+        "end": 42.883752342704895,
+        "text": "例えば",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 42.883752342704895,
+        "end": 43.46375234270489,
+        "text": "G",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 43.46375234270489,
+        "end": 43.86375234270489,
+        "text": "CE",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 43.86375234270489,
+        "end": 44.00375234270489,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.00375234270489,
+        "end": 44.103752342704894,
+        "text": "デ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.103752342704894,
+        "end": 44.18375234270489,
+        "text": "プ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.18375234270489,
+        "end": 44.26375234270489,
+        "text": "ロ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.26375234270489,
+        "end": 44.283752342704894,
+        "text": "イ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.283752342704894,
+        "end": 44.423752342704894,
+        "text": "して",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 44.423752342704894,
+        "end": 44.743752342704894,
+        "text": "いて",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 45.28562757697537,
+        "end": 45.845627576975374,
+        "text": "冗",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 45.845627576975374,
+        "end": 45.985627576975375,
+        "text": "長",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 45.985627576975375,
+        "end": 46.145627576975386,
+        "text": "性",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 46.145627576975386,
+        "end": 46.22562757697537,
+        "text": "が",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 46.22562757697537,
+        "end": 46.365627576975385,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 46.365627576975385,
+        "end": 46.72562757697537,
+        "text": "んです",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 46.72562757697537,
+        "end": 46.92562757697539,
+        "text": "よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 46.92562757697539,
+        "end": 47.04562757697538,
+        "text": "ク",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.04562757697538,
+        "end": 47.145627576975386,
+        "text": "ラ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.145627576975386,
+        "end": 47.18562757697538,
+        "text": "ウ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.18562757697538,
+        "end": 47.265627576975376,
+        "text": "ド",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.265627576975376,
+        "end": 47.38562757697538,
+        "text": "ラ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.38562757697538,
+        "end": 47.54562757697538,
+        "text": "ンプ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 47.54562757697538,
+        "end": 47.72562757697537,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 48.401877108434405,
+        "end": 48.8418771084344,
+        "text": "ああ、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 49.261877108434405,
+        "end": 49.44187710843441,
+        "text": "はい、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 49.60187710843441,
+        "end": 49.621877108434404,
+        "text": "はい、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 49.66187710843441,
+        "end": 49.88187710843441,
+        "text": "はい、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 49.78750281124587,
+        "end": 50.207502811245874,
+        "text": "なん",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 49.88187710843441,
+        "end": 50.2018771084344,
+        "text": "はい",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 50.207502811245874,
+        "end": 50.347502811245874,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 50.347502811245874,
+        "end": 50.52750281124587,
+        "text": "そ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 50.52750281124587,
+        "end": 50.68750281124588,
+        "text": "こ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 50.68750281124588,
+        "end": 50.847502811245874,
+        "text": "を",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 50.847502811245874,
+        "end": 51.66750281124588,
+        "text": "バ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 51.66750281124588,
+        "end": 51.94750281124587,
+        "text": "グ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 51.94750281124587,
+        "end": 52.06750281124587,
+        "text": "って",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 52.06750281124587,
+        "end": 52.207502811245874,
+        "text": "落",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 52.207502811245874,
+        "end": 52.28750281124587,
+        "text": "ち",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 52.28750281124587,
+        "end": 52.40750281124588,
+        "text": "た",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 52.40750281124588,
+        "end": 52.707502811245874,
+        "text": "ら",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 53.229378045516356,
+        "end": 54.189378045516364,
+        "text": "もう",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 54.189378045516364,
+        "end": 54.689378045516364,
+        "text": "一",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 54.689378045516364,
+        "end": 54.749378045516366,
+        "text": "回",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 54.749378045516366,
+        "end": 54.98937804551636,
+        "text": "再",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 54.98937804551636,
+        "end": 55.06937804551636,
+        "text": "起",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.06937804551636,
+        "end": 55.16937804551637,
+        "text": "動",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.16937804551637,
+        "end": 55.329378045516364,
+        "text": "する",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.329378045516364,
+        "end": 55.42937804551636,
+        "text": "と",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.42937804551636,
+        "end": 55.48937804551636,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.48937804551636,
+        "end": 55.66937804551637,
+        "text": "限",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.66937804551637,
+        "end": 55.78937804551636,
+        "text": "ら",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 55.78937804551636,
+        "end": 56.00937804551636,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 56.59125327978685,
+        "end": 57.031253279786846,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 57.031253279786846,
+        "end": 57.33125327978686,
+        "text": "し",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 57.733128514057356,
+        "end": 58.193128514057335,
+        "text": "分",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.193128514057335,
+        "end": 58.31312851405734,
+        "text": "か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.31312851405734,
+        "end": 58.37312851405734,
+        "text": "ん",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.37312851405734,
+        "end": 58.49312851405735,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.49312851405735,
+        "end": 58.713128514057345,
+        "text": "みたい",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.713128514057345,
+        "end": 58.853128514057346,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.853128514057346,
+        "end": 58.91312851405735,
+        "text": "の",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.91312851405735,
+        "end": 59.01312851405734,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 59.01312851405734,
+        "end": 59.15312851405734,
+        "text": "あ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 59.15312851405734,
+        "end": 59.31312851405734,
+        "text": "った",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 59.31312851405734,
+        "end": 59.453128514057354,
+        "text": "り",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 59.453128514057354,
+        "end": 59.61312851405735,
+        "text": "します",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 59.79500374832783,
+        "end": 60.35500374832783,
+        "text": "ただ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.35500374832783,
+        "end": 60.51500374832783,
+        "text": "2",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.51500374832783,
+        "end": 60.65500374832784,
+        "text": "年",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.65500374832784,
+        "end": 60.75500374832784,
+        "text": "間",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.75500374832784,
+        "end": 60.995003748327846,
+        "text": "問題",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.995003748327846,
+        "end": 61.11500374832784,
+        "text": "は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 61.11500374832784,
+        "end": 61.17500374832784,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 61.17500374832784,
+        "end": 61.65500374832784,
+        "text": "かった",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 64.63875421686883,
+        "end": 64.95875421686883,
+        "text": "別",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 64.95875421686883,
+        "end": 65.27875421686882,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.27875421686882,
+        "end": 65.39875421686882,
+        "text": "何",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.39875421686882,
+        "end": 65.51875421686883,
+        "text": "百",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.51875421686883,
+        "end": 65.69875421686882,
+        "text": "台",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.69875421686882,
+        "end": 65.81875421686883,
+        "text": "とか",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.81875421686883,
+        "end": 65.97875421686882,
+        "text": "増",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 65.97875421686882,
+        "end": 66.05875421686882,
+        "text": "える",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 66.05875421686882,
+        "end": 66.13875421686883,
+        "text": "わ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 66.13875421686883,
+        "end": 66.21875421686882,
+        "text": "け",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 66.21875421686882,
+        "end": 66.37875421686881,
+        "text": "じゃない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 66.37875421686881,
+        "end": 66.87875421686881,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 66.87875421686881,
+        "end": 67.05875421686882,
+        "text": "よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 67.46062945113931,
+        "end": 67.98062945113931,
+        "text": "数",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 67.98062945113931,
+        "end": 68.14062945113932,
+        "text": "台",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 68.14062945113932,
+        "end": 68.32062945113931,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 68.32062945113931,
+        "end": 68.56062945113932,
+        "text": "よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 68.91312851405735,
+        "end": 69.03312851405735,
+        "text": "そうですね",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 71.28250468540979,
+        "end": 71.6425046854098,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 71.6425046854098,
+        "end": 71.8225046854098,
+        "text": "あれ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 71.8225046854098,
+        "end": 72.0825046854098,
+        "text": "ば",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 72.0825046854098,
+        "end": 72.26250468540981,
+        "text": "多",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 72.26250468540981,
+        "end": 72.84250468540979,
+        "text": "分",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 72.8243799196803,
+        "end": 73.8243799196803,
+        "text": "そんな",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 73.8243799196803,
+        "end": 74.20437991968029,
+        "text": "問題",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 74.20437991968029,
+        "end": 74.3843799196803,
+        "text": "な",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 74.3843799196803,
+        "end": 74.52437991968029,
+        "text": "か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 74.52437991968029,
+        "end": 74.68437991968028,
+        "text": "ろう",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 74.68437991968028,
+        "end": 74.9843799196803,
+        "text": "という",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 75.18625515395078,
+        "end": 75.88625515395077,
+        "text": "感じ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 75.88625515395077,
+        "end": 76.04625515395078,
+        "text": "は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 76.04625515395078,
+        "end": 76.48625515395078,
+        "text": "します",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 81.09875421686883,
+        "end": 81.47875421686882,
+        "text": "ち",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 81.47875421686882,
+        "end": 81.61875421686884,
+        "text": "な",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 81.61875421686884,
+        "end": 81.73875421686883,
+        "text": "み",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 81.73875421686883,
+        "end": 82.01875421686883,
+        "text": "に",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 82.22062945113932,
+        "end": 82.76062945113932,
+        "text": "山",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 82.76062945113932,
+        "end": 83.02062945113931,
+        "text": "田",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 83.02062945113931,
+        "end": 83.48062945113932,
+        "text": "テ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.02250468540981,
+        "end": 84.1625046854098,
+        "text": "ック",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.1625046854098,
+        "end": 84.2825046854098,
+        "text": "ラ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.2825046854098,
+        "end": 84.40250468540981,
+        "text": "ンド",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.40250468540981,
+        "end": 84.5625046854098,
+        "text": "ト",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.5625046854098,
+        "end": 84.68250468540981,
+        "text": "ツ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.68250468540981,
+        "end": 84.8225046854098,
+        "text": "カ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 84.8225046854098,
+        "end": 85.12250468540981,
+        "text": "店",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 85.12250468540981,
+        "end": 85.68250468540981,
+        "text": "です",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 85.68250468540981,
+        "end": 85.9825046854098,
+        "text": "けど",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 86.68437991968028,
+        "end": 87.28437991968029,
+        "text": "1",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 87.28437991968029,
+        "end": 87.48437991968028,
+        "text": "年",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 87.48437991968028,
+        "end": 87.74437991968028,
+        "text": "半",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 87.74437991968028,
+        "end": 88.04437991968028,
+        "text": "で",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 89.00625515395078,
+        "end": 89.54625515395078,
+        "text": "50",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 89.54625515395078,
+        "end": 89.84625515395078,
+        "text": "件",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 89.84625515395078,
+        "end": 89.98625515395078,
+        "text": "ぐ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 89.98625515395078,
+        "end": 90.12625515395078,
+        "text": "らい",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 90.93188085676226,
+        "end": 91.25188085676228,
+        "text": "利",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 91.25188085676228,
+        "end": 91.39188085676227,
+        "text": "用",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 91.39188085676227,
+        "end": 91.51188085676228,
+        "text": "さ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 91.51188085676228,
+        "end": 91.65188085676226,
+        "text": "れた",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 91.60813038822127,
+        "end": 92.16813038822127,
+        "text": "そうですね、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 91.65188085676226,
+        "end": 92.07188085676228,
+        "text": "の",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 93.61000562249174,
+        "end": 93.75000562249176,
+        "text": "ゲ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 93.75000562249176,
+        "end": 93.89000562249174,
+        "text": "スト",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 93.89000562249174,
+        "end": 94.11000562249174,
+        "text": "チャ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.11000562249174,
+        "end": 94.27000562249174,
+        "text": "ージ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.27000562249174,
+        "end": 94.43000562249176,
+        "text": "ング",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.43000562249176,
+        "end": 94.63000562249175,
+        "text": "顔",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.63000562249175,
+        "end": 94.81000562249176,
+        "text": "です",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.83563132530327,
+        "end": 95.15563132530326,
+        "text": "なるほど",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 95.67188085676224,
+        "end": 96.11188085676224,
+        "text": "Am",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 96.11188085676224,
+        "end": 96.29188085676225,
+        "text": "azon",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 96.29188085676225,
+        "end": 96.43188085676223,
+        "text": "の",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 96.43188085676223,
+        "end": 96.63188085676224,
+        "text": "動画",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 96.63188085676224,
+        "end": 96.99188085676224,
+        "text": "って",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 96.99188085676224,
+        "end": 97.25188085676224,
+        "text": "感じ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 98.53938179384427,
+        "end": 98.87938179384427,
+        "text": "電",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 98.87938179384427,
+        "end": 99.21938179384428,
+        "text": "気",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 99.21938179384428,
+        "end": 99.41938179384427,
+        "text": "屋",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 99.41938179384427,
+        "end": 99.61938179384425,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 99.70125702811478,
+        "end": 100.64125702811478,
+        "text": "BB",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 100.64125702811478,
+        "end": 100.88125702811476,
+        "text": "で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 100.88125702811476,
+        "end": 101.02125702811477,
+        "text": "行",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.02125702811477,
+        "end": 101.16125702811476,
+        "text": "って",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.16125702811476,
+        "end": 101.42125702811475,
+        "text": "充",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.42125702811475,
+        "end": 101.56125702811477,
+        "text": "電",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.56125702811477,
+        "end": 101.82125702811476,
+        "text": "する",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.82125702811476,
+        "end": 101.94125702811476,
+        "text": "人",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 101.94125702811476,
+        "end": 102.08125702811478,
+        "text": "が",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.08125702811478,
+        "end": 102.28125702811477,
+        "text": "それ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.28125702811477,
+        "end": 102.40125702811477,
+        "text": "ぐ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.40125702811477,
+        "end": 102.48125702811475,
+        "text": "らい",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.48125702811475,
+        "end": 102.64125702811478,
+        "text": "って",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.64125702811478,
+        "end": 102.76125702811476,
+        "text": "こと",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 102.76125702811476,
+        "end": 103.02125702811477,
+        "text": "か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 104.84313226238525,
+        "end": 105.44313226238525,
+        "text": "そんな",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 105.44313226238525,
+        "end": 105.62313226238525,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 105.62313226238525,
+        "end": 105.70313226238527,
+        "text": "ん",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 105.70313226238527,
+        "end": 105.96313226238526,
+        "text": "か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 107.15563132530322,
+        "end": 107.55563132530322,
+        "text": "一",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 107.55563132530322,
+        "end": 107.91563132530324,
+        "text": "月",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 107.91563132530324,
+        "end": 108.71563132530322,
+        "text": "あ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 108.71750655957374,
+        "end": 108.81750655957373,
+        "text": "た",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 108.81750655957373,
+        "end": 108.89750655957374,
+        "text": "り",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 108.89750655957374,
+        "end": 109.05750655957374,
+        "text": "でも",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 109.05750655957374,
+        "end": 109.27750655957374,
+        "text": "大",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 109.27750655957374,
+        "end": 109.41750655957372,
+        "text": "した",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 109.41750655957372,
+        "end": 109.57750655957372,
+        "text": "こと",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 109.57750655957372,
+        "end": 109.75750655957373,
+        "text": "ない",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 109.75750655957373,
+        "end": 109.91750655957372,
+        "text": "な",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 110.04500749665574,
+        "end": 110.38500749665575,
+        "text": "そうですね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 111.8212570281147,
+        "end": 112.2212570281147,
+        "text": "Am",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 112.2212570281147,
+        "end": 112.58125702811472,
+        "text": "azon",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 112.58125702811472,
+        "end": 112.74125702811472,
+        "text": "か",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 112.74125702811472,
+        "end": 113.24125702811472,
+        "text": "Am",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 113.78313226238521,
+        "end": 114.0431322623852,
+        "text": "azon",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 114.0431322623852,
+        "end": 114.18313226238519,
+        "text": "の",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 114.18313226238519,
+        "end": 114.40313226238521,
+        "text": "方",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 114.40313226238521,
+        "end": 114.7031322623852,
+        "text": "は",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 117.2050074966557,
+        "end": 117.58500749665569,
+        "text": "ここ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 117.58500749665569,
+        "end": 118.00500749665571,
+        "text": "ですか",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 118.00500749665571,
+        "end": 118.36500749665569,
+        "text": "ね",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 119.14688273092624,
+        "end": 119.48688273092624,
+        "text": "料",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 119.48688273092624,
+        "end": 119.66688273092622,
+        "text": "金",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 119.66688273092622,
+        "end": 119.82688273092624,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 119.82688273092624,
+        "end": 120.00688273092625,
+        "text": "別",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.00688273092625,
+        "end": 120.10688273092624,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.10688273092624,
+        "end": 120.22688273092622,
+        "text": "普",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.22688273092622,
+        "end": 120.34688273092623,
+        "text": "通",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.34688273092623,
+        "end": 120.44688273092625,
+        "text": "だ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.44688273092625,
+        "end": 120.56688273092625,
+        "text": "った",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.56688273092625,
+        "end": 120.70688273092624,
+        "text": "んです",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.70688273092624,
+        "end": 120.88688273092625,
+        "text": "か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 120.88688273092625,
+        "end": 121.48688273092624,
+        "text": "運",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 121.48688273092624,
+        "end": 121.72688273092622,
+        "text": "用",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 121.72688273092622,
+        "end": 121.88688273092625,
+        "text": "は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 121.88688273092625,
+        "end": 121.90688273092623,
+        "text": "あ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 121.90688273092623,
+        "end": 121.98688273092624,
+        "text": "まり",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 121.98688273092624,
+        "end": 122.10688273092624,
+        "text": "知",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.10688273092624,
+        "end": 122.16688273092622,
+        "text": "ら",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.16688273092622,
+        "end": 122.30688273092623,
+        "text": "ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.30688273092623,
+        "end": 122.44688273092625,
+        "text": "です",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.44688273092625,
+        "end": 122.60688273092624,
+        "text": "けど",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.60688273092624,
+        "end": 123.00688273092625,
+        "text": "も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 122.7668827309262,
+        "end": 123.52688273092619,
+        "text": "そんな",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 123.52688273092619,
+        "end": 123.7668827309262,
+        "text": "に",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 123.7668827309262,
+        "end": 123.90688273092618,
+        "text": "高",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 123.90688273092618,
+        "end": 124.08688273092619,
+        "text": "い",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 124.08688273092619,
+        "end": 124.36688273092619,
+        "text": "イ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 124.36688273092619,
+        "end": 124.44688273092618,
+        "text": "メ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 124.44688273092618,
+        "end": 124.56688273092618,
+        "text": "ージ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 124.56688273092618,
+        "end": 124.7068827309262,
+        "text": "は",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 124.7068827309262,
+        "end": 124.86688273092619,
+        "text": "ない",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 125.70875796519667,
+        "end": 126.1087579651967,
+        "text": "私",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.1087579651967,
+        "end": 126.24875796519669,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.24875796519669,
+        "end": 126.46875796519669,
+        "text": "パ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.46875796519669,
+        "end": 126.62875796519668,
+        "text": "ッ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.62875796519668,
+        "end": 126.74875796519669,
+        "text": "と",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.74875796519669,
+        "end": 126.86875796519669,
+        "text": "は",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.86875796519669,
+        "end": 126.96875796519669,
+        "text": "出",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 126.96875796519669,
+        "end": 127.12875796519668,
+        "text": "て",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 127.12875796519668,
+        "end": 127.56875796519668,
+        "text": "こ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 128.0306331994672,
+        "end": 128.2506331994672,
+        "text": "ない",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 128.2506331994672,
+        "end": 128.5106331994672,
+        "text": "です",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 128.5106331994672,
+        "end": 128.8506331994672,
+        "text": "はい",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 128.5106331994672,
+        "end": 128.7106331994672,
+        "text": "が",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 128.8506331994672,
+        "end": 129.0706331994672,
+        "text": "はい",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 129.8725084337377,
+        "end": 130.3925084337377,
+        "text": "そう",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 130.3925084337377,
+        "end": 130.6125084337377,
+        "text": "なんだ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 140.13250843373768,
+        "end": 140.37250843373766,
+        "text": "そ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 140.37250843373766,
+        "end": 140.49250843373767,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 140.49250843373767,
+        "end": 140.57250843373768,
+        "text": "そ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 140.57250843373768,
+        "end": 140.6925084337377,
+        "text": "も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 140.6925084337377,
+        "end": 140.89250843373767,
+        "text": "使",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 140.89250843373767,
+        "end": 141.0925084337377,
+        "text": "って",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 141.0925084337377,
+        "end": 141.1925084337377,
+        "text": "た",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 141.1925084337377,
+        "end": 141.29250843373768,
+        "text": "の",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 141.29250843373768,
+        "end": 141.49250843373767,
+        "text": "かな",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 141.49250843373767,
+        "end": 141.95250843373768,
+        "text": "使",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 141.95250843373768,
+        "end": 142.3125084337377,
+        "text": "って",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 142.3125084337377,
+        "end": 142.73250843373768,
+        "text": "ます",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 142.73250843373768,
+        "end": 143.01250843373768,
+        "text": "ね、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 143.05250843373767,
+        "end": 143.37250843373766,
+        "text": "ちょっと",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 143.37250843373766,
+        "end": 143.8125084337377,
+        "text": "うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 143.99438366800817,
+        "end": 144.13438366800818,
+        "text": "うん",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 144.13438366800818,
+        "end": 144.37438366800816,
+        "text": "昨",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 144.37438366800816,
+        "end": 144.63438366800818,
+        "text": "年",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 144.63438366800818,
+        "end": 144.85438366800818,
+        "text": "6",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 144.85438366800818,
+        "end": 145.05438366800817,
+        "text": "月",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 145.05438366800817,
+        "end": 145.29438366800818,
+        "text": "か",
+        "speaker": "SPEAKER_01"
+      }
+    ],
+    "turnLevelTranscription": [
+      {
+        "start": 0.065,
+        "end": 4.885,
+        "text": "切 り 替 わ ら な かった とか バ グ が 起 き て 通 信 叩 いた って な かった です よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 4.885,
+        "end": 5.245,
+        "text": "うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 5.745,
+        "end": 6.365,
+        "text": "なん で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 8.645,
+        "end": 14.765,
+        "text": "2 点 近 く やって そんな 問題 が ない ので 目 的 も 達 成 して いる ので 私 は 普",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 15.245,
+        "end": 17.605,
+        "text": "通 に 使 って も 良 さ そうだ な という 感じ は",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 17.605,
+        "end": 18.345,
+        "text": "了 解",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 19.045,
+        "end": 20.185,
+        "text": "実 績 的",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 20.225,
+        "end": 20.645,
+        "text": "うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 20.865,
+        "end": 21.345,
+        "text": "に",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 22.685,
+        "end": 23.865,
+        "text": "承 知 しました",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 24.685,
+        "end": 26.105,
+        "text": "まあ、 そ も そ も",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 27.565,
+        "end": 29.165,
+        "text": "山 田 テ ック ラ ンド ト",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 29.825,
+        "end": 32.305,
+        "text": "ツ カ も ど れ だけ 使 わ れた んだ って 話 です けど",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 32.305,
+        "end": 32.985,
+        "text": "そう です よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 36.085,
+        "end": 37.185,
+        "text": "ただ まあ、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 37.345,
+        "end": 38.825,
+        "text": "問題 は 起 き て ない ので",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 40.365,
+        "end": 44.825,
+        "text": "問題 が 起 き て ない という 意 味 で ただ 例えば G CE に デ プ ロ イ して いて",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 45.545,
+        "end": 47.785,
+        "text": "冗 長 性 が ない んです よね ク ラ ウ ド ラ ンプ で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 48.585,
+        "end": 49.965,
+        "text": "ああ、 はい、 はい、 はい、 はい",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 50.025,
+        "end": 52.765,
+        "text": "なん で そ こ を バ グ って 落 ち た ら",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 53.465,
+        "end": 56.085,
+        "text": "もう 一 回 再 起 動 する と も 限 ら ない",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 56.845,
+        "end": 57.445,
+        "text": "です し",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 58.025,
+        "end": 59.745,
+        "text": "分 か ん ない みたい な の も あ った り します",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 60.105,
+        "end": 62.825,
+        "text": "ただ 2 年 間 問題 は な かった",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 64.305,
+        "end": 67.185,
+        "text": "別 に 何 百 台 とか 増 える わ け じゃない です よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 67.765,
+        "end": 68.605,
+        "text": "数 台 です よね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 69.045,
+        "end": 70.665,
+        "text": "そうですね",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 71.505,
+        "end": 73.165,
+        "text": "で あれ ば 多 分",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 73.325,
+        "end": 75.165,
+        "text": "そんな 問題 な か ろう という",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 75.545,
+        "end": 76.545,
+        "text": "感じ は します",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 81.325,
+        "end": 82.165,
+        "text": "ち な み に",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 82.545,
+        "end": 83.165,
+        "text": "山 田 テ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 83.885,
+        "end": 86.165,
+        "text": "ック ラ ンド ト ツ カ 店 です けど",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 87.045,
+        "end": 88.205,
+        "text": "1 年 半 で",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 89.345,
+        "end": 90.205,
+        "text": "50 件 ぐ らい",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 91.025,
+        "end": 91.865,
+        "text": "利 用 さ れた の",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 91.865,
+        "end": 92.325,
+        "text": "そうですね、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 93.565,
+        "end": 94.865,
+        "text": "ゲ スト チャ ージ ング 顔 です",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 94.965,
+        "end": 95.845,
+        "text": "なるほど",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 95.905,
+        "end": 97.305,
+        "text": "Am azon の 動画 って 感じ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 98.345,
+        "end": 99.985,
+        "text": "電 気 屋 で",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 100.245,
+        "end": 103.105,
+        "text": "BB で 行 って 充 電 する 人 が それ ぐ らい って こと か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 105.105,
+        "end": 106.885,
+        "text": "そんな も ん か",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 106.885,
+        "end": 108.345,
+        "text": "一 月 あ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 108.525,
+        "end": 110.125,
+        "text": "た り でも 大 した こと ない な",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 110.125,
+        "end": 110.965,
+        "text": "そうですね",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 111.565,
+        "end": 112.905,
+        "text": "Am azon か Am",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 113.625,
+        "end": 114.765,
+        "text": "azon の 方 は",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 117.445,
+        "end": 118.505,
+        "text": "ここ ですか ね",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 119.345,
+        "end": 122.885,
+        "text": "料 金 も 別 に 普 通 だ った んです か 運 用 は あ まり 知 ら ない です けど も",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 123.085,
+        "end": 124.945,
+        "text": "そんな に 高 い イ メ ージ は ない",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 125.525,
+        "end": 127.265,
+        "text": "私 も パ ッ と は 出 て こ",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 127.905,
+        "end": 128.645,
+        "text": "ない です が",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 128.645,
+        "end": 129.185,
+        "text": "はい はい",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 130.165,
+        "end": 130.705,
+        "text": "そう なんだ",
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start": 140.245,
+        "end": 143.505,
+        "text": "そ も そ も 使 って た の かな 使 って ます ね、 ちょっと うん、",
+        "speaker": "SPEAKER_01"
+      },
+      {
+        "start": 143.685,
+        "end": 145.345,
+        "text": "うん 昨 年 6 月 か",
+        "speaker": "SPEAKER_01"
+      }
+    ]
+  }
+}

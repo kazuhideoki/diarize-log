@@ -1,0 +1,150 @@
+{
+  "capture_start_ms": 1446624,
+  "text": "ビ ール ド ス フ ォ ー これ 見 れ ました っ け 入 れる よう な ですね お ー あー はい はい はい これ ありがとうございます わか りました 見 れ ます 見 れ ます ね はい よし これで でき そう です はい ありがとう お 願 いい た します お Thank you. 疲 れ 様 でした お 疲 れ 様 でした これ に 関 して は 坪 井 さん に 何 か して も ら う って こと は ない の かな と思 って ます ワ ビ ス フ ォ ービ ー 側 の なんか 出 た り で こう いう 感じ で 一 気 に 大 変 じゃ なく て 交 換 した い と思います はい お 願 いい た します ありがとうございました Y S フ ォ ービ ー 側 の 初 期 等 という か 以上 から 投 資 する の か",
+  "segments": [
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 965,
+      "end_ms": 1965,
+      "text": "ビ ール ド ス フ ォ ー"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 7785,
+      "end_ms": 8745,
+      "text": "これ 見 れ ました っ け"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 9925,
+      "end_ms": 11405,
+      "text": "入 れる よう な ですね"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 13565,
+      "end_ms": 16725,
+      "text": "お ー あー はい はい はい これ"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 17345,
+      "end_ms": 18865,
+      "text": "ありがとうございます わか りました"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 19025,
+      "end_ms": 20545,
+      "text": "見 れ ます 見 れ ます ね"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 23905,
+      "end_ms": 24325,
+      "text": "はい"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 24705,
+      "end_ms": 25965,
+      "text": "よし これで でき そう です"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 26565,
+      "end_ms": 26905,
+      "text": "はい"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 28965,
+      "end_ms": 30945,
+      "text": "ありがとう お 願 いい た します お"
+    },
+    {
+      "speaker": "SPEAKER_01",
+      "start_ms": 32205,
+      "end_ms": 32225,
+      "text": "Thank you."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 32225,
+      "end_ms": 33125,
+      "text": "疲 れ 様 でした お"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 33385,
+      "end_ms": 33985,
+      "text": "疲 れ 様 でした"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 38045,
+      "end_ms": 41465,
+      "text": "これ に 関 して は 坪 井 さん に 何 か して も ら う って こと は"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 41625,
+      "end_ms": 43165,
+      "text": "ない の かな と思 って ます"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 51925,
+      "end_ms": 53145,
+      "text": "ワ ビ ス フ ォ ービ ー 側"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 53365,
+      "end_ms": 54945,
+      "text": "の なんか 出 た り で"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 55345,
+      "end_ms": 56045,
+      "text": "こう いう"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 56265,
+      "end_ms": 60065,
+      "text": "感じ で 一 気 に 大 変 じゃ なく て 交 換 した い と思います はい"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 62105,
+      "end_ms": 62765,
+      "text": "お 願 いい た します"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 63245,
+      "end_ms": 64065,
+      "text": "ありがとうございました"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 64465,
+      "end_ms": 65525,
+      "text": "Y S フ"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 65705,
+      "end_ms": 68865,
+      "text": "ォ ービ ー 側 の 初 期 等 という か"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 69545,
+      "end_ms": 71105,
+      "text": "以上 から 投 資 する の か"
+    }
+  ]
+}

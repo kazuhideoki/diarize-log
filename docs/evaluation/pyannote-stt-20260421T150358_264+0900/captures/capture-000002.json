@@ -1,0 +1,348 @@
+{
+  "capture_start_ms": 146421,
+  "text": "切 り 替 わ ら な かった とか バ グ が 起 き て 通 信 叩 いた って な かった です よね うん、 なん で 2 点 近 く やって そんな 問題 が ない ので 目 的 も 達 成 して いる ので 私 は 普 通 に 使 って も 良 さ そうだ な という 感じ は 了 解 実 績 的 うん、 に 承 知 しました まあ、 そ も そ も 山 田 テ ック ラ ンド ト ツ カ も ど れ だけ 使 わ れた んだ って 話 です けど そう です よね ただ まあ、 問題 は 起 き て ない ので 問題 が 起 き て ない という 意 味 で ただ 例えば G CE に デ プ ロ イ して いて 冗 長 性 が ない んです よね ク ラ ウ ド ラ ンプ で ああ、 はい、 はい、 はい、 はい なん で そ こ を バ グ って 落 ち た ら もう 一 回 再 起 動 する と も 限 ら ない です し 分 か ん ない みたい な の も あ った り します ただ 2 年 間 問題 は な かった 別 に 何 百 台 とか 増 える わ け じゃない です よね 数 台 です よね そうですね で あれ ば 多 分 そんな 問題 な か ろう という 感じ は します ち な み に 山 田 テ ック ラ ンド ト ツ カ 店 です けど 1 年 半 で 50 件 ぐ らい 利 用 さ れた の そうですね、 ゲ スト チャ ージ ング 顔 です なるほど Am azon の 動画 って 感じ 電 気 屋 で BB で 行 って 充 電 する 人 が それ ぐ らい って こと か そんな も ん か 一 月 あ た り でも 大 した こと ない な そうですね Am azon か Am azon の 方 は ここ ですか ね 料 金 も 別 に 普 通 だ った んです か 運 用 は あ まり 知 ら ない です けど も そんな に 高 い イ メ ージ は ない 私 も パ ッ と は 出 て こ ない です が はい はい そう なんだ そ も そ も 使 って た の かな 使 って ます ね、 ちょっと うん、 うん 昨 年 6 月 か",
+  "segments": [
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 65,
+      "end_ms": 4885,
+      "text": "切 り 替 わ ら な かった とか バ グ が 起 き て 通 信 叩 いた って な かった です よね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 4885,
+      "end_ms": 5245,
+      "text": "うん、"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 5745,
+      "end_ms": 6365,
+      "text": "なん で"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 8645,
+      "end_ms": 14765,
+      "text": "2 点 近 く やって そんな 問題 が ない ので 目 的 も 達 成 して いる ので 私 は 普"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 15245,
+      "end_ms": 17605,
+      "text": "通 に 使 って も 良 さ そうだ な という 感じ は"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 17605,
+      "end_ms": 18345,
+      "text": "了 解"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 19045,
+      "end_ms": 20185,
+      "text": "実 績 的"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 20225,
+      "end_ms": 20645,
+      "text": "うん、"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 20865,
+      "end_ms": 21345,
+      "text": "に"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 22685,
+      "end_ms": 23865,
+      "text": "承 知 しました"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 24685,
+      "end_ms": 26105,
+      "text": "まあ、 そ も そ も"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 27565,
+      "end_ms": 29165,
+      "text": "山 田 テ ック ラ ンド ト"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 29825,
+      "end_ms": 32305,
+      "text": "ツ カ も ど れ だけ 使 わ れた んだ って 話 です けど"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 32305,
+      "end_ms": 32985,
+      "text": "そう です よね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 36085,
+      "end_ms": 37185,
+      "text": "ただ まあ、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 37345,
+      "end_ms": 38825,
+      "text": "問題 は 起 き て ない ので"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 40365,
+      "end_ms": 44825,
+      "text": "問題 が 起 き て ない という 意 味 で ただ 例えば G CE に デ プ ロ イ して いて"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 45545,
+      "end_ms": 47785,
+      "text": "冗 長 性 が ない んです よね ク ラ ウ ド ラ ンプ で"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 48585,
+      "end_ms": 49965,
+      "text": "ああ、 はい、 はい、 はい、 はい"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 50025,
+      "end_ms": 52765,
+      "text": "なん で そ こ を バ グ って 落 ち た ら"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 53465,
+      "end_ms": 56085,
+      "text": "もう 一 回 再 起 動 する と も 限 ら ない"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 56845,
+      "end_ms": 57445,
+      "text": "です し"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 58025,
+      "end_ms": 59745,
+      "text": "分 か ん ない みたい な の も あ った り します"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 60105,
+      "end_ms": 62825,
+      "text": "ただ 2 年 間 問題 は な かった"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 64305,
+      "end_ms": 67185,
+      "text": "別 に 何 百 台 とか 増 える わ け じゃない です よね"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 67765,
+      "end_ms": 68605,
+      "text": "数 台 です よね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 69045,
+      "end_ms": 70665,
+      "text": "そうですね"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 71505,
+      "end_ms": 73165,
+      "text": "で あれ ば 多 分"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 73325,
+      "end_ms": 75165,
+      "text": "そんな 問題 な か ろう という"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 75545,
+      "end_ms": 76545,
+      "text": "感じ は します"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 81325,
+      "end_ms": 82165,
+      "text": "ち な み に"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 82545,
+      "end_ms": 83165,
+      "text": "山 田 テ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 83885,
+      "end_ms": 86165,
+      "text": "ック ラ ンド ト ツ カ 店 です けど"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 87045,
+      "end_ms": 88205,
+      "text": "1 年 半 で"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 89345,
+      "end_ms": 90205,
+      "text": "50 件 ぐ らい"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 91025,
+      "end_ms": 91865,
+      "text": "利 用 さ れた の"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 91865,
+      "end_ms": 92325,
+      "text": "そうですね、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 93565,
+      "end_ms": 94865,
+      "text": "ゲ スト チャ ージ ング 顔 です"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 94965,
+      "end_ms": 95845,
+      "text": "なるほど"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 95905,
+      "end_ms": 97305,
+      "text": "Am azon の 動画 って 感じ"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 98345,
+      "end_ms": 99985,
+      "text": "電 気 屋 で"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 100245,
+      "end_ms": 103105,
+      "text": "BB で 行 って 充 電 する 人 が それ ぐ らい って こと か"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 105105,
+      "end_ms": 106885,
+      "text": "そんな も ん か"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 106885,
+      "end_ms": 108345,
+      "text": "一 月 あ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 108525,
+      "end_ms": 110125,
+      "text": "た り でも 大 した こと ない な"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 110125,
+      "end_ms": 110965,
+      "text": "そうですね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 111565,
+      "end_ms": 112905,
+      "text": "Am azon か Am"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 113625,
+      "end_ms": 114765,
+      "text": "azon の 方 は"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 117445,
+      "end_ms": 118505,
+      "text": "ここ ですか ね"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 119345,
+      "end_ms": 122885,
+      "text": "料 金 も 別 に 普 通 だ った んです か 運 用 は あ まり 知 ら ない です けど も"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 123085,
+      "end_ms": 124945,
+      "text": "そんな に 高 い イ メ ージ は ない"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 125525,
+      "end_ms": 127265,
+      "text": "私 も パ ッ と は 出 て こ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 127905,
+      "end_ms": 128645,
+      "text": "ない です が"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 128645,
+      "end_ms": 129185,
+      "text": "はい はい"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 130165,
+      "end_ms": 130705,
+      "text": "そう なんだ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 140245,
+      "end_ms": 143505,
+      "text": "そ も そ も 使 って た の かな 使 って ます ね、 ちょっと うん、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 143685,
+      "end_ms": 145345,
+      "text": "うん 昨 年 6 月 か"
+    }
+  ]
+}

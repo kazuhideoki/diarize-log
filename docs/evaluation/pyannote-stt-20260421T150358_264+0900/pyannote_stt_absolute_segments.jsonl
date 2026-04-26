@@ -1,0 +1,536 @@
+{"speaker": "kosuke_takahara", "start_ms": 685, "end_ms": 3045, "text": "それ を 使 う 形 あり な の かな と思 って て"}
+{"speaker": "kosuke_takahara", "start_ms": 5965, "end_ms": 11425, "text": "この 件 の 引 き 継 ぎ の 資 料 とか 情 報 も 探 した んです けど 探 し き れ な かった も ので それ"}
+{"speaker": "kosuke_takahara", "start_ms": 11585, "end_ms": 12305, "text": "も 兼 ね て"}
+{"speaker": "kosuke_takahara", "start_ms": 13065, "end_ms": 14225, "text": "時間 を いただ き ました"}
+{"speaker": "kazuhide_oki", "start_ms": 22105, "end_ms": 24125, "text": "使 え れ ば 使 いた い って"}
+{"speaker": "kazuhide_oki", "start_ms": 25385, "end_ms": 27425, "text": "いうこと ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 29705, "end_ms": 30785, "text": "そうですね"}
+{"speaker": "kazuhide_oki", "start_ms": 34225, "end_ms": 35785, "text": "同"}
+{"speaker": "kazuhide_oki", "start_ms": 40245, "end_ms": 42925, "text": "じ ように 無 印 側 は ゲ スト チャ ージ ング で"}
+{"speaker": "kosuke_takahara", "start_ms": 44085, "end_ms": 46045, "text": "そうですね こう なる か と思います"}
+{"speaker": "kosuke_takahara", "start_ms": 51925, "end_ms": 54165, "text": "また 村 上 さん の 案 件 なん ですね"}
+{"speaker": "kazuhide_oki", "start_ms": 54525, "end_ms": 54825, "text": "Am"}
+{"speaker": "kazuhide_oki", "start_ms": 64605, "end_ms": 67505, "text": "azon と ト ツ カ テ ック ラ ンド の や つ"}
+{"speaker": "kazuhide_oki", "start_ms": 73885, "end_ms": 74905, "text": "何 でした っ け"}
+{"speaker": "kazuhide_oki", "start_ms": 76165, "end_ms": 76985, "text": "Am"}
+{"speaker": "kazuhide_oki", "start_ms": 77805, "end_ms": 81725, "text": "azon から 話 持 ち か けて きた んで した っ け"}
+{"speaker": "kosuke_takahara", "start_ms": 82085, "end_ms": 82965, "text": "どう だ った かな そう"}
+{"speaker": "kazuhide_oki", "start_ms": 83425, "end_ms": 84845, "text": "ちょっと 細 か い 点 は"}
+{"speaker": "kosuke_takahara", "start_ms": 84845, "end_ms": 85465, "text": "やって ない"}
+{"speaker": "kazuhide_oki", "start_ms": 85465, "end_ms": 86565, "text": "忘 れた んです けど も"}
+{"speaker": "kazuhide_oki", "start_ms": 88745, "end_ms": 92025, "text": "昼 間 は 一 般 向 け お 客 さん 向 け で 夜 は"}
+{"speaker": "kazuhide_oki", "start_ms": 93505, "end_ms": 96365, "text": "空 いた ス ペ ー ス を う ま く 使 う みたい な そんな 感じ ですね これ"}
+{"speaker": "kazuhide_oki", "start_ms": 96825, "end_ms": 98785, "text": "も 同 じ よう な 感じ なん ですか ね"}
+{"speaker": "kosuke_takahara", "start_ms": 99045, "end_ms": 99665, "text": "そうですね"}
+{"speaker": "kazuhide_oki", "start_ms": 103025, "end_ms": 104745, "text": "思 った よ り そんな 問題"}
+{"speaker": "kazuhide_oki", "start_ms": 106045, "end_ms": 106485, "text": "ない"}
+{"speaker": "kazuhide_oki", "start_ms": 106945, "end_ms": 107805, "text": "感じ ですか ね"}
+{"speaker": "kosuke_takahara", "start_ms": 108985, "end_ms": 110885, "text": "そうですね 山 田 テ ック ラ ンド"}
+{"speaker": "kosuke_takahara", "start_ms": 111465, "end_ms": 114345, "text": "は 特 に 問題 は 起 き な かった かな"}
+{"speaker": "kazuhide_oki", "start_ms": 114945, "end_ms": 120265, "text": "割 と 私 の イ メ ージ は シ ス テ ム 的 には 割 と 簡 易 的 に 対 応 して"}
+{"speaker": "kosuke_takahara", "start_ms": 120265, "end_ms": 120605, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 120685, "end_ms": 124245, "text": "これで と り あ え ず 目 的 達 成 でき る から いい よね ぐ らい の ノ リ"}
+{"speaker": "kosuke_takahara", "start_ms": 124245, "end_ms": 124545, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 125065, "end_ms": 130185, "text": "だ った んです 割 と 位 置 づ け 実 証 実 験 ぐ らい な 感じ だ った じゃない ですか"}
+{"speaker": "kazuhide_oki", "start_ms": 131185, "end_ms": 137925, "text": "なので いい ん じゃない ぐ らい の 感じ だ った んです けど も ただ 思 い の ほ か そんな 問題 も ない な って 今 思 いました"}
+{"speaker": "kosuke_takahara", "start_ms": 137925, "end_ms": 138285, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 138285, "end_ms": 144425, "text": "問題 が あ った と して も それは 無 印 側 とか Y S 4 B 側 で プ ロ キ シ サ ーバ ー 自 体 の 問題 って"}
+{"speaker": "kosuke_takahara", "start_ms": 141945, "end_ms": 142065, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 144685, "end_ms": 145845, "text": "例えば 時間 にな って 結 構 の マ ス ボ も 抜 型 だ った んです けど も ご 視 聴 ありがとうございました"}
+{"speaker": "kazuhide_oki", "start_ms": 146486, "end_ms": 151306, "text": "切 り 替 わ ら な かった とか バ グ が 起 き て 通 信 叩 いた って な かった です よね"}
+{"speaker": "kosuke_takahara", "start_ms": 151306, "end_ms": 151666, "text": "うん、"}
+{"speaker": "kazuhide_oki", "start_ms": 152166, "end_ms": 152786, "text": "なん で"}
+{"speaker": "kazuhide_oki", "start_ms": 155066, "end_ms": 161186, "text": "2 点 近 く やって そんな 問題 が ない ので 目 的 も 達 成 して いる ので 私 は 普"}
+{"speaker": "kazuhide_oki", "start_ms": 161666, "end_ms": 164026, "text": "通 に 使 って も 良 さ そうだ な という 感じ は"}
+{"speaker": "kosuke_takahara", "start_ms": 164026, "end_ms": 164766, "text": "了 解"}
+{"speaker": "kazuhide_oki", "start_ms": 165466, "end_ms": 166606, "text": "実 績 的"}
+{"speaker": "kosuke_takahara", "start_ms": 166646, "end_ms": 167066, "text": "うん、"}
+{"speaker": "kazuhide_oki", "start_ms": 167286, "end_ms": 167766, "text": "に"}
+{"speaker": "kosuke_takahara", "start_ms": 169106, "end_ms": 170286, "text": "承 知 しました"}
+{"speaker": "kosuke_takahara", "start_ms": 171106, "end_ms": 172526, "text": "まあ、 そ も そ も"}
+{"speaker": "kosuke_takahara", "start_ms": 173986, "end_ms": 175586, "text": "山 田 テ ック ラ ンド ト"}
+{"speaker": "kosuke_takahara", "start_ms": 176246, "end_ms": 178726, "text": "ツ カ も ど れ だけ 使 わ れた んだ って 話 です けど"}
+{"speaker": "kazuhide_oki", "start_ms": 178726, "end_ms": 179406, "text": "そう です よね"}
+{"speaker": "kosuke_takahara", "start_ms": 182506, "end_ms": 183606, "text": "ただ まあ、"}
+{"speaker": "kosuke_takahara", "start_ms": 183766, "end_ms": 185246, "text": "問題 は 起 き て ない ので"}
+{"speaker": "kazuhide_oki", "start_ms": 186786, "end_ms": 191246, "text": "問題 が 起 き て ない という 意 味 で ただ 例えば G CE に デ プ ロ イ して いて"}
+{"speaker": "kazuhide_oki", "start_ms": 191966, "end_ms": 194206, "text": "冗 長 性 が ない んです よね ク ラ ウ ド ラ ンプ で"}
+{"speaker": "kosuke_takahara", "start_ms": 195006, "end_ms": 196386, "text": "ああ、 はい、 はい、 はい、 はい"}
+{"speaker": "kazuhide_oki", "start_ms": 196446, "end_ms": 199186, "text": "なん で そ こ を バ グ って 落 ち た ら"}
+{"speaker": "kazuhide_oki", "start_ms": 199886, "end_ms": 202506, "text": "もう 一 回 再 起 動 する と も 限 ら ない"}
+{"speaker": "kazuhide_oki", "start_ms": 203266, "end_ms": 203866, "text": "です し"}
+{"speaker": "kazuhide_oki", "start_ms": 204446, "end_ms": 206166, "text": "分 か ん ない みたい な の も あ った り します"}
+{"speaker": "kazuhide_oki", "start_ms": 206526, "end_ms": 209246, "text": "ただ 2 年 間 問題 は な かった"}
+{"speaker": "kazuhide_oki", "start_ms": 210726, "end_ms": 213606, "text": "別 に 何 百 台 とか 増 える わ け じゃない です よね"}
+{"speaker": "kazuhide_oki", "start_ms": 214186, "end_ms": 215026, "text": "数 台 です よね"}
+{"speaker": "kosuke_takahara", "start_ms": 215466, "end_ms": 217086, "text": "そうですね"}
+{"speaker": "kazuhide_oki", "start_ms": 217926, "end_ms": 219586, "text": "で あれ ば 多 分"}
+{"speaker": "kazuhide_oki", "start_ms": 219746, "end_ms": 221586, "text": "そんな 問題 な か ろう という"}
+{"speaker": "kazuhide_oki", "start_ms": 221966, "end_ms": 222966, "text": "感じ は します"}
+{"speaker": "kosuke_takahara", "start_ms": 227746, "end_ms": 228586, "text": "ち な み に"}
+{"speaker": "kosuke_takahara", "start_ms": 228966, "end_ms": 229586, "text": "山 田 テ"}
+{"speaker": "kosuke_takahara", "start_ms": 230306, "end_ms": 232586, "text": "ック ラ ンド ト ツ カ 店 です けど"}
+{"speaker": "kosuke_takahara", "start_ms": 233466, "end_ms": 234626, "text": "1 年 半 で"}
+{"speaker": "kosuke_takahara", "start_ms": 235766, "end_ms": 236626, "text": "50 件 ぐ らい"}
+{"speaker": "kazuhide_oki", "start_ms": 237446, "end_ms": 238286, "text": "利 用 さ れた の"}
+{"speaker": "kosuke_takahara", "start_ms": 238286, "end_ms": 238746, "text": "そうですね、"}
+{"speaker": "kosuke_takahara", "start_ms": 239986, "end_ms": 241286, "text": "ゲ スト チャ ージ ング 顔 です"}
+{"speaker": "kazuhide_oki", "start_ms": 241386, "end_ms": 242266, "text": "なるほど"}
+{"speaker": "kosuke_takahara", "start_ms": 242326, "end_ms": 243726, "text": "Am azon の 動画 って 感じ"}
+{"speaker": "kazuhide_oki", "start_ms": 244766, "end_ms": 246406, "text": "電 気 屋 で"}
+{"speaker": "kazuhide_oki", "start_ms": 246666, "end_ms": 249526, "text": "BB で 行 って 充 電 する 人 が それ ぐ らい って こと か"}
+{"speaker": "kazuhide_oki", "start_ms": 251526, "end_ms": 253306, "text": "そんな も ん か"}
+{"speaker": "kosuke_takahara", "start_ms": 253306, "end_ms": 254766, "text": "一 月 あ"}
+{"speaker": "kosuke_takahara", "start_ms": 254946, "end_ms": 256546, "text": "た り でも 大 した こと ない な"}
+{"speaker": "kazuhide_oki", "start_ms": 256546, "end_ms": 257386, "text": "そうですね"}
+{"speaker": "kosuke_takahara", "start_ms": 257986, "end_ms": 259326, "text": "Am azon か Am"}
+{"speaker": "kosuke_takahara", "start_ms": 260046, "end_ms": 261186, "text": "azon の 方 は"}
+{"speaker": "kosuke_takahara", "start_ms": 263866, "end_ms": 264926, "text": "ここ ですか ね"}
+{"speaker": "kazuhide_oki", "start_ms": 265766, "end_ms": 269306, "text": "料 金 も 別 に 普 通 だ った んです か 運 用 は あ まり 知 ら ない です けど も"}
+{"speaker": "kosuke_takahara", "start_ms": 269506, "end_ms": 271366, "text": "そんな に 高 い イ メ ージ は ない"}
+{"speaker": "kosuke_takahara", "start_ms": 271946, "end_ms": 273686, "text": "私 も パ ッ と は 出 て こ"}
+{"speaker": "kosuke_takahara", "start_ms": 274326, "end_ms": 275066, "text": "ない です が"}
+{"speaker": "kazuhide_oki", "start_ms": 275066, "end_ms": 275606, "text": "はい はい"}
+{"speaker": "kazuhide_oki", "start_ms": 276586, "end_ms": 277126, "text": "そう なんだ"}
+{"speaker": "kosuke_takahara", "start_ms": 286666, "end_ms": 289926, "text": "そ も そ も 使 って た の かな 使 って ます ね、 ちょっと うん、"}
+{"speaker": "kosuke_takahara", "start_ms": 290106, "end_ms": 291766, "text": "うん 昨 年 6 月 か"}
+{"speaker": "kazuhide_oki", "start_ms": 295218, "end_ms": 297038, "text": "一 応 懸 念 を 言 う と す れ ば"}
+{"speaker": "kosuke_takahara", "start_ms": 297038, "end_ms": 297298, "text": "はい"}
+{"speaker": "kazuhide_oki", "start_ms": 297738, "end_ms": 299038, "text": "私 が 抜 ける ので"}
+{"speaker": "kosuke_takahara", "start_ms": 299038, "end_ms": 299398, "text": "うん はい"}
+{"speaker": "kazuhide_oki", "start_ms": 299418, "end_ms": 301998, "text": "当 時 関 わ った 人 が い なく なる んです よ それ に 対 して"}
+{"speaker": "kazuhide_oki", "start_ms": 302498, "end_ms": 306758, "text": "も ち ろ ん かな り シ ンプ ル な も ので コ ード 数 も 1000 も ない"}
+{"speaker": "kosuke_takahara", "start_ms": 306938, "end_ms": 307478, "text": "う ーん"}
+{"speaker": "kazuhide_oki", "start_ms": 307518, "end_ms": 308678, "text": "感じ だ った かな"}
+{"speaker": "kazuhide_oki", "start_ms": 308858, "end_ms": 311278, "text": "なので キ ャ ッ チ ア ップ し よう と思 えば でき る"}
+{"speaker": "kosuke_takahara", "start_ms": 311298, "end_ms": 312018, "text": "うん うん うん"}
+{"speaker": "kazuhide_oki", "start_ms": 312018, "end_ms": 314518, "text": "G CE に 立 って いる シ ンプ ル な や つ"}
+{"speaker": "kazuhide_oki", "start_ms": 314978, "end_ms": 317298, "text": "Let 's Enc ry pt とか だ った かな 証 明 書 は"}
+{"speaker": "kosuke_takahara", "start_ms": 317298, "end_ms": 317618, "text": "はい"}
+{"speaker": "kazuhide_oki", "start_ms": 319938, "end_ms": 323798, "text": "エ ン ジ ニ ア なら 読 んで De v 関 係 も ある ので そ"}
+{"speaker": "kosuke_takahara", "start_ms": 323798, "end_ms": 324338, "text": "お ー"}
+{"speaker": "kazuhide_oki", "start_ms": 324338, "end_ms": 326558, "text": "こ で 触 った り し な が ら や れ ば まあ まあ まあ"}
+{"speaker": "kosuke_takahara", "start_ms": 326558, "end_ms": 326858, "text": "はい"}
+{"speaker": "kazuhide_oki", "start_ms": 327158, "end_ms": 331578, "text": "メ ンテ ナ ン ス も 最 初 は 時間 多少 か か って も でき なく は ない かな と は"}
+{"speaker": "kazuhide_oki", "start_ms": 332158, "end_ms": 332758, "text": "思 って ます"}
+{"speaker": "kosuke_takahara", "start_ms": 334278, "end_ms": 340238, "text": "ヨ ア ス タ ンド コ ン ソ ール の 中 に プ ロ ク シ ー っていう デ ィ レ ク ト リ が あ って その 中 に ある ので しょう か"}
+{"speaker": "kazuhide_oki", "start_ms": 340438, "end_ms": 344938, "text": "はい OC PP プ ロ キ シ っていう の が イ ヤ ス タ ンド コ ン ソ ール 内 に ある んです よ"}
+{"speaker": "kosuke_takahara", "start_ms": 344938, "end_ms": 345158, "text": "はい はい"}
+{"speaker": "kosuke_takahara", "start_ms": 345998, "end_ms": 346298, "text": "じゃあ"}
+{"speaker": "kazuhide_oki", "start_ms": 352738, "end_ms": 354898, "text": "そうですね 500 行 ぐ らい しか ない です"}
+{"speaker": "kosuke_takahara", "start_ms": 354898, "end_ms": 357818, "text": "へ ー デ プ ロ イ の 方 法 って タ グ デ"}
+{"speaker": "kosuke_takahara", "start_ms": 358338, "end_ms": 358898, "text": "プ ロ イ?"}
+{"speaker": "kazuhide_oki", "start_ms": 359238, "end_ms": 360618, "text": "ス ク リ プ ト が ある んです よ"}
+{"speaker": "kosuke_takahara", "start_ms": 360618, "end_ms": 361518, "text": "お ー そう なんだ"}
+{"speaker": "kazuhide_oki", "start_ms": 361518, "end_ms": 362758, "text": "P ush To"}
+{"speaker": "kosuke_takahara", "start_ms": 363278, "end_ms": 363398, "text": "へ"}
+{"speaker": "kazuhide_oki", "start_ms": 363398, "end_ms": 366418, "text": "OC PP プ ロ キ シ De v とか Pro Do みたい な の が あ って"}
+{"speaker": "kazuhide_oki", "start_ms": 366678, "end_ms": 369158, "text": "その 中 で ゴ リ ゴ リ なん でしょう D ock er とか G"}
+{"speaker": "kosuke_takahara", "start_ms": 369338, "end_ms": 369918, "text": "ー"}
+{"speaker": "kazuhide_oki", "start_ms": 369918, "end_ms": 372038, "text": "cloud の CL I が あ って"}
+{"speaker": "kosuke_takahara", "start_ms": 372038, "end_ms": 372418, "text": "そう なんだ"}
+{"speaker": "kazuhide_oki", "start_ms": 372498, "end_ms": 374898, "text": "それ を こう やって る みたい な 感じ なので"}
+{"speaker": "kazuhide_oki", "start_ms": 375418, "end_ms": 380318, "text": "その G CP 側 で 権 限 が ある 人 なら この ス ク リ プ ト を 打 った 時 に デ プ ロ イ でき る みたい な"}
+{"speaker": "kosuke_takahara", "start_ms": 380318, "end_ms": 380958, "text": "うん エ"}
+{"speaker": "kazuhide_oki", "start_ms": 381238, "end_ms": 382098, "text": "感じ にな って ます"}
+{"speaker": "kosuke_takahara", "start_ms": 385338, "end_ms": 387518, "text": "ンド ポ イ ント は その G CE が"}
+{"speaker": "kosuke_takahara", "start_ms": 387798, "end_ms": 388618, "text": "持 って いて"}
+{"speaker": "kazuhide_oki", "start_ms": 388938, "end_ms": 389358, "text": "はい"}
+{"speaker": "kosuke_takahara", "start_ms": 390078, "end_ms": 390978, "text": "G CE が"}
+{"speaker": "kosuke_takahara", "start_ms": 391278, "end_ms": 392498, "text": "フ ァ イ ア スト ア の"}
+{"speaker": "kosuke_takahara", "start_ms": 392758, "end_ms": 393718, "text": "設 定 を 見て"}
+{"speaker": "kosuke_takahara", "start_ms": 394798, "end_ms": 397478, "text": "見 向 き 先 を 変 える みたい な 形 でした"}
+{"speaker": "kazuhide_oki", "start_ms": 397838, "end_ms": 399638, "text": "エ ンド ポ イ ント は"}
+{"speaker": "kazuhide_oki", "start_ms": 401578, "end_ms": 402278, "text": "エ"}
+{"speaker": "kazuhide_oki", "start_ms": 402818, "end_ms": 403978, "text": "ンド ポ イ ント が 書"}
+{"speaker": "kazuhide_oki", "start_ms": 404598, "end_ms": 405698, "text": "いて ない エ"}
+{"speaker": "kazuhide_oki", "start_ms": 417518, "end_ms": 418758, "text": "ンド ポ イ ント は ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 418758, "end_ms": 418978, "text": "ほ い"}
+{"speaker": "kazuhide_oki", "start_ms": 419678, "end_ms": 419938, "text": "イ"}
+{"speaker": "kazuhide_oki", "start_ms": 421758, "end_ms": 422718, "text": "ヤ ス タ ンド で"}
+{"speaker": "kazuhide_oki", "start_ms": 424278, "end_ms": 425778, "text": "ド メ イ ン を 管 理 して る プ ロ ジ ェ ク ト が"}
+{"speaker": "kazuhide_oki", "start_ms": 426098, "end_ms": 428058, "text": "D NS プ ロ ジ ェ ク ト って 言 うん です けど も"}
+{"speaker": "kosuke_takahara", "start_ms": 428058, "end_ms": 428838, "text": "おお ほ い"}
+{"speaker": "kosuke_takahara", "start_ms": 429118, "end_ms": 430018, "text": "ほ い ほ い ほ い ほ い ほ い"}
+{"speaker": "kazuhide_oki", "start_ms": 431258, "end_ms": 431998, "text": "そ こ に そ こ に イ ヤ ス タ ンド で"}
+{"speaker": "kazuhide_oki", "start_ms": 438058, "end_ms": 439158, "text": "oc pp pro"}
+{"speaker": "kazuhide_oki", "start_ms": 439578, "end_ms": 440378, "text": "xy dev"}
+{"speaker": "kazuhide_oki", "start_ms": 440958, "end_ms": 443898, "text": "とか oc pp pro xy pro d っていう ド メ イ ン が ある ん ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 444538, "end_ms": 444678, "text": "あ、"}
+{"speaker": "kosuke_takahara", "start_ms": 445058, "end_ms": 446738, "text": "こ っち か Google Cloud の"}
+{"speaker": "kazuhide_oki", "start_ms": 446758, "end_ms": 447918, "text": "Go ogle Cloud の 方"}
+{"speaker": "kazuhide_oki", "start_ms": 449518, "end_ms": 453798, "text": "で その 本 番 関 係 の 方 は oc pp pro xy pro d にな"}
+{"speaker": "kosuke_takahara", "start_ms": 453798, "end_ms": 454178, "text": "もう これ"}
+{"speaker": "kazuhide_oki", "start_ms": 456698, "end_ms": 457478, "text": "って ます"}
+{"speaker": "kosuke_takahara", "start_ms": 458098, "end_ms": 461378, "text": "す い ません この プ ロ ジ ェ ク ト で 何 を 見 た ら わか ります か"}
+{"speaker": "kazuhide_oki", "start_ms": 461378, "end_ms": 463418, "text": "それで D NS って 入 れて み て ください"}
+{"speaker": "kosuke_takahara", "start_ms": 463418, "end_ms": 464018, "text": "言 え ない ですか"}
+{"speaker": "kazuhide_oki", "start_ms": 464118, "end_ms": 464438, "text": "はい"}
+{"speaker": "kosuke_takahara", "start_ms": 466598, "end_ms": 467578, "text": "ク ラ ウ ド に 言 え ない"}
+{"speaker": "kosuke_takahara", "start_ms": 472578, "end_ms": 472858, "text": "これ に"}
+{"speaker": "kazuhide_oki", "start_ms": 475218, "end_ms": 478398, "text": "そ この develop ed ns かな"}
+{"speaker": "kosuke_takahara", "start_ms": 481178, "end_ms": 481518, "text": "入 って きます"}
+{"speaker": "kazuhide_oki", "start_ms": 481978, "end_ms": 484458, "text": "下 の 方 に oc pp pro xy あります"}
+{"speaker": "kazuhide_oki", "start_ms": 487278, "end_ms": 487878, "text": "ね"}
+{"speaker": "kazuhide_oki", "start_ms": 488138, "end_ms": 489998, "text": "その pro d の 方 が"}
+{"speaker": "kazuhide_oki", "start_ms": 490418, "end_ms": 491558, "text": "その エ ンド ポ イ ント にな ります"}
+{"speaker": "kosuke_takahara", "start_ms": 492138, "end_ms": 493038, "text": "そう なんだ"}
+{"speaker": "kosuke_takahara", "start_ms": 493718, "end_ms": 494758, "text": "へ え"}
+{"speaker": "kosuke_takahara", "start_ms": 497418, "end_ms": 498438, "text": "ああ そう です"}
+{"speaker": "kazuhide_oki", "start_ms": 506058, "end_ms": 506938, "text": "フ ァ イ ア ベ ー"}
+{"speaker": "kazuhide_oki", "start_ms": 508018, "end_ms": 509618, "text": "ス フ"}
+{"speaker": "kosuke_takahara", "start_ms": 509658, "end_ms": 509938, "text": "はい"}
+{"speaker": "kazuhide_oki", "start_ms": 510078, "end_ms": 511378, "text": "ァ イ ア スト ア で"}
+{"speaker": "kosuke_takahara", "start_ms": 511378, "end_ms": 511618, "text": "はい"}
+{"speaker": "kazuhide_oki", "start_ms": 511618, "end_ms": 513758, "text": "デ ー タ 管 理 して る ん ですね"}
+{"speaker": "kazuhide_oki", "start_ms": 515298, "end_ms": 517438, "text": "その 中 の"}
+{"speaker": "kazuhide_oki", "start_ms": 522338, "end_ms": 524678, "text": "これ か"}
+{"speaker": "kazuhide_oki", "start_ms": 525278, "end_ms": 525978, "text": "ど"}
+{"speaker": "kazuhide_oki", "start_ms": 526838, "end_ms": 527158, "text": "れ"}
+{"speaker": "kazuhide_oki", "start_ms": 529998, "end_ms": 530698, "text": "にな る んだ"}
+{"speaker": "kazuhide_oki", "start_ms": 531358, "end_ms": 535138, "text": "ろう コ ロ ナ 関 係 ない か す み ません 忘 れて ください"}
+{"speaker": "kosuke_takahara", "start_ms": 536998, "end_ms": 540898, "text": "OC PP Pro xy Dev っていう の が あ った んです けど"}
+{"speaker": "kazuhide_oki", "start_ms": 540958, "end_ms": 541378, "text": "はい"}
+{"speaker": "kosuke_takahara", "start_ms": 543298, "end_ms": 544758, "text": "これは De v ですか"}
+{"speaker": "kazuhide_oki", "start_ms": 544758, "end_ms": 545558, "text": "それ デ ブ の 方"}
+{"speaker": "kosuke_takahara", "start_ms": 545558, "end_ms": 546378, "text": "ああ はい はい"}
+{"speaker": "kazuhide_oki", "start_ms": 546378, "end_ms": 547458, "text": "pro d も ある は ず"}
+{"speaker": "kosuke_takahara", "start_ms": 547458, "end_ms": 548998, "text": "それ とか ですね 私 が"}
+{"speaker": "kosuke_takahara", "start_ms": 549378, "end_ms": 550118, "text": "見 え ない だけ"}
+{"speaker": "kazuhide_oki", "start_ms": 550118, "end_ms": 551278, "text": "見 ない だけ"}
+{"speaker": "kosuke_takahara", "start_ms": 552758, "end_ms": 554538, "text": "経 験 が ない っぽ い ですね"}
+{"speaker": "kazuhide_oki", "start_ms": 554718, "end_ms": 557938, "text": "フ ァ イ ア"}
+{"speaker": "kazuhide_oki", "start_ms": 559618, "end_ms": 560278, "text": "スト ア ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 560278, "end_ms": 562238, "text": "マ ス タ ーデ ー タ を 持 つ 感じ"}
+{"speaker": "kazuhide_oki", "start_ms": 563238, "end_ms": 571738, "text": "そうですね 何 時 から 何 時 は こ っち に つ ない で ください みたい な の と 受 け 付 ける チャ"}
+{"speaker": "kazuhide_oki", "start_ms": 572778, "end_ms": 574498, "text": "ージ ポ イ ント ID みたい"}
+{"speaker": "kosuke_takahara", "start_ms": 574518, "end_ms": 574838, "text": "わか"}
+{"speaker": "kazuhide_oki", "start_ms": 577258, "end_ms": 577998, "text": "な 感じ です ww ホ ール ス プ レ ゼ 補"}
+{"speaker": "kosuke_takahara", "start_ms": 579238, "end_ms": 579738, "text": "りました"}
+{"speaker": "kosuke_takahara", "start_ms": 581019, "end_ms": 581919, "text": "DE V の 方 だ"}
+{"speaker": "kosuke_takahara", "start_ms": 582339, "end_ms": 582939, "text": "と、"}
+{"speaker": "kosuke_takahara", "start_ms": 583899, "end_ms": 585239, "text": "ID です"}
+{"speaker": "UNKNOWN", "start_ms": 590279, "end_ms": 591039, "text": "これ だ と"}
+{"speaker": "kosuke_takahara", "start_ms": 591259, "end_ms": 593399, "text": "うん、 こんな 感じ で"}
+{"speaker": "UNKNOWN", "start_ms": 593399, "end_ms": 594179, "text": "作 った ダ"}
+{"speaker": "UNKNOWN", "start_ms": 595719, "end_ms": 597059, "text": "ミ デ ー タ が 対 応 にな ります けど"}
+{"speaker": "kosuke_takahara", "start_ms": 598099, "end_ms": 600159, "text": "チャ ージ ポ イ ンツ が この"}
+{"speaker": "kosuke_takahara", "start_ms": 600499, "end_ms": 603159, "text": "H ID で 並 んで て"}
+{"speaker": "UNKNOWN", "start_ms": 604399, "end_ms": 605579, "text": "はい、 そう です はい、"}
+{"speaker": "kosuke_takahara", "start_ms": 605579, "end_ms": 607199, "text": "中 に 入 る と H ID です"}
+{"speaker": "UNKNOWN", "start_ms": 610659, "end_ms": 611079, "text": "そう です"}
+{"speaker": "kosuke_takahara", "start_ms": 611899, "end_ms": 615219, "text": "向 き 先、 あ、 そう か 本 番 の 方 を 見 ない と"}
+{"speaker": "kosuke_takahara", "start_ms": 617299, "end_ms": 619279, "text": "あれ、 本 番 も この 形 ですか?"}
+{"speaker": "kazuhide_oki", "start_ms": 620179, "end_ms": 621859, "text": "はい ス キ ー マ を ない"}
+{"speaker": "kosuke_takahara", "start_ms": 621859, "end_ms": 622479, "text": "なるほど です"}
+{"speaker": "kosuke_takahara", "start_ms": 629779, "end_ms": 631339, "text": "プ ロ スト 1、 プ ロ スト 2 あー、"}
+{"speaker": "kosuke_takahara", "start_ms": 633899, "end_ms": 637659, "text": "これ が 接 続 先 か あ、 そう です"}
+{"speaker": "kosuke_takahara", "start_ms": 642379, "end_ms": 645839, "text": "これ を う ま い こと 整 備 して お け ば OK ですね"}
+{"speaker": "kazuhide_oki", "start_ms": 649199, "end_ms": 652799, "text": "詳 細 な 内 容 とか 設 定 とか みたい な のは"}
+{"speaker": "kosuke_takahara", "start_ms": 652799, "end_ms": 653119, "text": "う"}
+{"speaker": "kazuhide_oki", "start_ms": 653459, "end_ms": 654779, "text": "リ ポ ジ ト リ の 中 の"}
+{"speaker": "kazuhide_oki", "start_ms": 655639, "end_ms": 656739, "text": "リ ード ミ とか"}
+{"speaker": "kosuke_takahara", "start_ms": 656739, "end_ms": 657099, "text": "ーん、"}
+{"speaker": "kazuhide_oki", "start_ms": 657099, "end_ms": 658259, "text": "サ グ メ ント に ある ので"}
+{"speaker": "kosuke_takahara", "start_ms": 659319, "end_ms": 661039, "text": "その US S & コ ン ソ ール の"}
+{"speaker": "kosuke_takahara", "start_ms": 661959, "end_ms": 663079, "text": "C PP プ"}
+{"speaker": "kosuke_takahara", "start_ms": 663599, "end_ms": 665199, "text": "ロ ク シ ー の ところ の リ ード ビ ー ですか?"}
+{"speaker": "kazuhide_oki", "start_ms": 665279, "end_ms": 665859, "text": "そうですね"}
+{"speaker": "kosuke_takahara", "start_ms": 665859, "end_ms": 666239, "text": "わか"}
+{"speaker": "kazuhide_oki", "start_ms": 666919, "end_ms": 669659, "text": "なので 読 んだ ら 大 体 で きます"}
+{"speaker": "kosuke_takahara", "start_ms": 669719, "end_ms": 670419, "text": "りました それ"}
+{"speaker": "kosuke_takahara", "start_ms": 671039, "end_ms": 673239, "text": "を 設 定 して 動 く か どう か"}
+{"speaker": "kosuke_takahara", "start_ms": 677979, "end_ms": 678499, "text": "あれ?"}
+{"speaker": "kosuke_takahara", "start_ms": 679619, "end_ms": 681539, "text": "私 は ク リ ア にな って わか りました"}
+{"speaker": "kosuke_takahara", "start_ms": 682119, "end_ms": 682459, "text": "はい"}
+{"speaker": "hibiki_tsuboi", "start_ms": 682879, "end_ms": 683259, "text": "っていう"}
+{"speaker": "kosuke_takahara", "start_ms": 683259, "end_ms": 684059, "text": "はい はい"}
+{"speaker": "hibiki_tsuboi", "start_ms": 684719, "end_ms": 688319, "text": "前 提 の ところ で 少 し だけ 気 にな る と思 うん です けど"}
+{"speaker": "kosuke_takahara", "start_ms": 686219, "end_ms": 686299, "text": "うん"}
+{"speaker": "hibiki_tsuboi", "start_ms": 688719, "end_ms": 692339, "text": "どう して も 無 印 と 1 S 4 B で い け な き ゃ"}
+{"speaker": "hibiki_tsuboi", "start_ms": 692659, "end_ms": 696179, "text": "い け ない 無 印 の 方 だけ で 完 結 でき ない 理 由 っていう の が"}
+{"speaker": "kosuke_takahara", "start_ms": 696199, "end_ms": 696619, "text": "影"}
+{"speaker": "hibiki_tsuboi", "start_ms": 696619, "end_ms": 698199, "text": "繰 り 返 し や め でき ない"}
+{"speaker": "hibiki_tsuboi", "start_ms": 699019, "end_ms": 701339, "text": "っていう 理 由 の ほ か 何 か あ った り する んです か"}
+{"speaker": "kosuke_takahara", "start_ms": 706739, "end_ms": 710379, "text": "響 的 な 側 面 で 言 う と 両 方 を 使 って も ら う"}
+{"speaker": "kosuke_takahara", "start_ms": 710739, "end_ms": 711559, "text": "っていう の が"}
+{"speaker": "kosuke_takahara", "start_ms": 712299, "end_ms": 712459, "text": "あ、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 712819, "end_ms": 713439, "text": "無 印 と は"}
+{"speaker": "kosuke_takahara", "start_ms": 713439, "end_ms": 716639, "text": "忙 しい かな そうですね デ ー タ を 分 けて み れる 方 が"}
+{"speaker": "hibiki_tsuboi", "start_ms": 717299, "end_ms": 718959, "text": "なるほど"}
+{"speaker": "kosuke_takahara", "start_ms": 718979, "end_ms": 720759, "text": "いい ん じゃない かな と思 って ます"}
+{"speaker": "kosuke_takahara", "start_ms": 720999, "end_ms": 721959, "text": "ユ ー ザ ー は これ"}
+{"speaker": "kosuke_takahara", "start_ms": 722999, "end_ms": 723319, "text": "あの これ を 作 り たい の に どう ぞ"}
+{"speaker": "kosuke_takahara", "start_ms": 723919, "end_ms": 725019, "text": "社 用 車 は これ"}
+{"speaker": "kosuke_takahara", "start_ms": 726579, "end_ms": 730159, "text": "無 印 では 実 際 の 充 電 時間 も 取 れない んです よ"}
+{"speaker": "kosuke_takahara", "start_ms": 731139, "end_ms": 735799, "text": "あと は 充 電 量 も ちょっと 一 工 夫 必 要 なん ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 736619, "end_ms": 738599, "text": "迷 彩 には まだ 出 ない んです よ"}
+{"speaker": "kosuke_takahara", "start_ms": 742139, "end_ms": 742479, "text": "とか"}
+{"speaker": "kosuke_takahara", "start_ms": 743759, "end_ms": 750359, "text": "その 点 が カ バ ー でき て い れ ば 無 印 1 本 も なく は な かった かな と思 うん です そう いう 感じ だ"}
+{"speaker": "hibiki_tsuboi", "start_ms": 752059, "end_ms": 756199, "text": "当 時 の 背 景 を 何 も 知 ら ない 私 と して は 当 時"}
+{"speaker": "hibiki_tsuboi", "start_ms": 756479, "end_ms": 765919, "text": "急 な リ ク エ スト に 応 える ため や む を 得 なく 切 り 替 え サ ーバ ー を 使 って 両 方 を 使 って いる の かな って でき る と思 って いて"}
+{"speaker": "hibiki_tsuboi", "start_ms": 768439, "end_ms": 775039, "text": "次 来 る ア ル ケ の 時 は ど っち か の 方 で 管 理 し よう みたい な 風 に 何 度 かな って 勝 手 に 思 って いた んです けど"}
+{"speaker": "hibiki_tsuboi", "start_ms": 777279, "end_ms": 778999, "text": "そう じゃ なく て 意 図 的 に"}
+{"speaker": "hibiki_tsuboi", "start_ms": 779439, "end_ms": 780239, "text": "無 印 と"}
+{"speaker": "hibiki_tsuboi", "start_ms": 780779, "end_ms": 785179, "text": "装 備 それ ぞ れ で 使 いた い という リ ク エ スト なん ですか ね"}
+{"speaker": "kosuke_takahara", "start_ms": 786419, "end_ms": 786899, "text": "わ"}
+{"speaker": "kosuke_takahara", "start_ms": 787059, "end_ms": 791579, "text": "け で 使 え れ ば いい んです よね"}
+{"speaker": "kosuke_takahara", "start_ms": 792779, "end_ms": 799399, "text": "課 金 しか 受 け 付 け ない と き は 課 金 で そう じゃない と き は 課 金 は な し だ こう"}
+{"speaker": "kosuke_takahara", "start_ms": 800539, "end_ms": 803699, "text": "やって 満 た す ので あれ ば 無 印 1 本 でも い け ます"}
+{"speaker": "kazuhide_oki", "start_ms": 805099, "end_ms": 807419, "text": "時間 帯 に よ って ユ ー ザ ー"}
+{"speaker": "kazuhide_oki", "start_ms": 807739, "end_ms": 809619, "text": "が 違 って いて ユ ー ザ ー グ ル ープ が"}
+{"speaker": "kazuhide_oki", "start_ms": 810679, "end_ms": 811939, "text": "その ユ ー ザ ー グ ル ープ"}
+{"speaker": "kazuhide_oki", "start_ms": 813319, "end_ms": 816459, "text": "だけ が その 時間 帯 に 使 える みたい な"}
+{"speaker": "kazuhide_oki", "start_ms": 817019, "end_ms": 818279, "text": "感じ にな る と いい って こと なんです よ"}
+{"speaker": "kosuke_takahara", "start_ms": 820559, "end_ms": 821339, "text": "うん はい"}
+{"speaker": "kazuhide_oki", "start_ms": 821779, "end_ms": 823779, "text": "Am azon の や つ で いう と"}
+{"speaker": "kazuhide_oki", "start_ms": 824479, "end_ms": 828839, "text": "昼 間 は 不 特 定 多 数 の 2 C 向 け サ ービ ス にな って いる じゃない ですか"}
+{"speaker": "kosuke_takahara", "start_ms": 828899, "end_ms": 829319, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 830119, "end_ms": 832919, "text": "夜 は 2 B 文 脈 で の"}
+{"speaker": "kazuhide_oki", "start_ms": 833559, "end_ms": 834659, "text": "業 務 に"}
+{"speaker": "kazuhide_oki", "start_ms": 835339, "end_ms": 836779, "text": "使 う 車 両 の 充 電"}
+{"speaker": "kosuke_takahara", "start_ms": 837239, "end_ms": 837599, "text": "うん"}
+{"speaker": "kosuke_takahara", "start_ms": 838179, "end_ms": 838539, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 839439, "end_ms": 841359, "text": "今回 の 件 も 似 た よう な 感じ"}
+{"speaker": "kazuhide_oki", "start_ms": 843339, "end_ms": 845619, "text": "という のは ど ちら も 開 発 が 進 んで いて"}
+{"speaker": "kosuke_takahara", "start_ms": 845619, "end_ms": 846039, "text": "そう"}
+{"speaker": "kazuhide_oki", "start_ms": 847279, "end_ms": 852879, "text": "前 者 は 2 C 向 け で して 後 者 は 2 B 向 け で ど ん ど ん 進 化 さ せて い って なので 用 途 が 違う"}
+{"speaker": "kosuke_takahara", "start_ms": 853819, "end_ms": 854839, "text": "です"}
+{"speaker": "kazuhide_oki", "start_ms": 855159, "end_ms": 860119, "text": "なので その 対 象 の ユ ー ザ ー が そう いう 属 性 で あ った 方 が"}
+{"speaker": "kazuhide_oki", "start_ms": 860539, "end_ms": 861919, "text": "良 い んだ ろう な という 感じ は"}
+{"speaker": "kazuhide_oki", "start_ms": 863179, "end_ms": 863779, "text": "して います"}
+{"speaker": "kosuke_takahara", "start_ms": 864019, "end_ms": 865319, "text": "そう です"}
+{"speaker": "kazuhide_oki", "start_ms": 867919, "end_ms": 869319, "text": "将 来 の 何 でしょう、 機 能 追"}
+{"speaker": "kazuhide_oki", "start_ms": 869679, "end_ms": 871339, "text": "加 の 恩 恵 を 受 け た り とか"}
+{"speaker": "kazuhide_oki", "start_ms": 871979, "end_ms": 872999, "text": "も する し、"}
+{"speaker": "kazuhide_oki", "start_ms": 874279, "end_ms": 876259, "text": "ア プ セ ル みたい な の にな った り とか"}
+{"speaker": "kosuke_takahara", "start_ms": 877199, "end_ms": 878419, "text": "そうですね"}
+{"speaker": "kazuhide_oki", "start_ms": 880179, "end_ms": 880839, "text": "する の かな。"}
+{"speaker": "kosuke_takahara", "start_ms": 884939, "end_ms": 886399, "text": "この 辺 も 加 味 した 上 で"}
+{"speaker": "kosuke_takahara", "start_ms": 887659, "end_ms": 889039, "text": "村 上 さん に 回 答 します"}
+{"speaker": "kosuke_takahara", "start_ms": 890539, "end_ms": 894699, "text": "無 印 の 方 が 一 元 管 理 が でき て いい っていう 見 方 も ある か もし れ ません し"}
+{"speaker": "kosuke_takahara", "start_ms": 896539, "end_ms": 897259, "text": "分 けて も いい か も"}
+{"speaker": "kazuhide_oki", "start_ms": 897259, "end_ms": 898519, "text": "それ 市 役 所 でした っ け。"}
+{"speaker": "kazuhide_oki", "start_ms": 899779, "end_ms": 900639, "text": "市 役 所 って"}
+{"speaker": "kazuhide_oki", "start_ms": 901119, "end_ms": 904299, "text": "ゴ リ ゴ リ な 2 B な イ メ ージ は ない んです けど も、"}
+{"speaker": "kazuhide_oki", "start_ms": 905059, "end_ms": 906459, "text": "その 単 語 だけ 聞 いた と き に。"}
+{"speaker": "kazuhide_oki", "start_ms": 907059, "end_ms": 909699, "text": "何 か ある んです か ね、 2 B 的 な 文 脈。"}
+{"speaker": "kazuhide_oki", "start_ms": 910359, "end_ms": 912379, "text": "市 役 所 の 車 両 を 使 うん ですか。"}
+{"speaker": "kosuke_takahara", "start_ms": 913159, "end_ms": 914479, "text": "そうですね 車 用 車 です"}
+{"speaker": "kazuhide_oki", "start_ms": 914479, "end_ms": 915039, "text": "車 両 車。"}
+{"speaker": "kosuke_takahara", "start_ms": 915039, "end_ms": 916239, "text": "車 用 車 という か"}
+{"speaker": "kosuke_takahara", "start_ms": 917099, "end_ms": 918519, "text": "市 役 所 が 持 って いる 車 です"}
+{"speaker": "kazuhide_oki", "start_ms": 920519, "end_ms": 921379, "text": "例えば"}
+{"speaker": "kazuhide_oki", "start_ms": 922279, "end_ms": 924319, "text": "市 役 所 ユ ー ザ ー は 課 金 を し ない。"}
+{"speaker": "kazuhide_oki", "start_ms": 925259, "end_ms": 929139, "text": "それ 以 外 の 子 を 開 放 して 使 う 分 には 課 金 する 場 合 は、"}
+{"speaker": "kazuhide_oki", "start_ms": 929799, "end_ms": 931299, "text": "ク ーポ ン で なん と かな る し、"}
+{"speaker": "kosuke_takahara", "start_ms": 932579, "end_ms": 935919, "text": "という か マ イ ス タ ンド コ ード も 2 つ 用 意 して お け ば"}
+{"speaker": "kazuhide_oki", "start_ms": 936039, "end_ms": 937579, "text": "そう いうこと も で きます。"}
+{"speaker": "kosuke_takahara", "start_ms": 937579, "end_ms": 938079, "text": "し ません"}
+{"speaker": "kazuhide_oki", "start_ms": 940039, "end_ms": 943559, "text": "時間 帯 に よ って 特 定 の ユ ー ザ ー に 対 して、 この 時間 は"}
+{"speaker": "kazuhide_oki", "start_ms": 943779, "end_ms": 945559, "text": "あ なた 使 います よ とか だ と"}
+{"speaker": "kazuhide_oki", "start_ms": 946699, "end_ms": 947439, "text": "でき ない の か。"}
+{"speaker": "kazuhide_oki", "start_ms": 950159, "end_ms": 952679, "text": "でき なく は ない の か。 マ イ ス タ ンド ホ ール を 開 けて。"}
+{"speaker": "kazuhide_oki", "start_ms": 955119, "end_ms": 956059, "text": "いや、 そんな こと ない か。"}
+{"speaker": "kazuhide_oki", "start_ms": 956839, "end_ms": 958459, "text": "ちょっと もう、 分 か ん ない。"}
+{"speaker": "kazuhide_oki", "start_ms": 960759, "end_ms": 961619, "text": "い ろ い ろ 喋 る。"}
+{"speaker": "kosuke_takahara", "start_ms": 961619, "end_ms": 964619, "text": "逆 に 営 業 時間 を 分 ける ので あれ ば"}
+{"speaker": "kosuke_takahara", "start_ms": 965079, "end_ms": 966259, "text": "切 り 替 え た 方 が いい"}
+{"speaker": "kosuke_takahara", "start_ms": 966979, "end_ms": 967199, "text": "です"}
+{"speaker": "kosuke_takahara", "start_ms": 969799, "end_ms": 972039, "text": "ゲ スト チャ ージ ング は 無 印 も 何 時 から 何 時 まで"}
+{"speaker": "kazuhide_oki", "start_ms": 972319, "end_ms": 973019, "text": "営"}
+{"speaker": "kosuke_takahara", "start_ms": 973679, "end_ms": 975099, "text": "という ふ う に 決 め ら れ ます"}
+{"speaker": "kosuke_takahara", "start_ms": 976599, "end_ms": 979619, "text": "無 印 1 本 だ と そ こ が でき ない"}
+{"speaker": "kosuke_takahara", "start_ms": 980899, "end_ms": 982879, "text": "営 業 時間 って"}
+{"speaker": "kazuhide_oki", "start_ms": 984759, "end_ms": 987739, "text": "業 時間 でも 人 の 一 つ で。 そう です よね、 確 か に。"}
+{"speaker": "kosuke_takahara", "start_ms": 987739, "end_ms": 988739, "text": "じゃあ もう"}
+{"speaker": "kosuke_takahara", "start_ms": 989039, "end_ms": 992659, "text": "運 用 で 買 う という か Y S 4 B は 複 数 い け ます から ね"}
+{"speaker": "kosuke_takahara", "start_ms": 994219, "end_ms": 995319, "text": "お 疲 れ 様 です"}
+{"speaker": "kazuhide_oki", "start_ms": 995319, "end_ms": 996079, "text": "お 疲 れ 様 です。"}
+{"speaker": "kosuke_takahara", "start_ms": 996239, "end_ms": 997439, "text": "そう いう 局 面 も ある か"}
+{"speaker": "kosuke_takahara", "start_ms": 999139, "end_ms": 1001579, "text": "ちょっと この 名 古 屋 市 役 所 の 場 合 は"}
+{"speaker": "kosuke_takahara", "start_ms": 1001919, "end_ms": 1004039, "text": "具 体 的 な 時間 で"}
+{"speaker": "kazuhide_oki", "start_ms": 1004279, "end_ms": 1004299, "text": "ご 視 聴"}
+{"speaker": "kosuke_takahara", "start_ms": 1004299, "end_ms": 1008079, "text": "決 ま って た り する んです か 9 時 18 時 は 一 般 受 け ます"}
+{"speaker": "kazuhide_oki", "start_ms": 1005759, "end_ms": 1005799, "text": "ありがとうございました。"}
+{"speaker": "kosuke_takahara", "start_ms": 1008639, "end_ms": 1012279, "text": "まだ 聞 いて ない ですね 知 って いる の か もし れない 知 って いる の か もし れない"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1015781, "end_ms": 1022741, "text": "9 時 18 時 は 一 般 で 18 時 から 翌 時 は 公 用 車 みたい な イ メ ージ ですか ね"}
+{"speaker": "kosuke_takahara", "start_ms": 1020361, "end_ms": 1020481, "text": "うん、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1023141, "end_ms": 1024061, "text": "そう です"}
+{"speaker": "kazuhide_oki", "start_ms": 1024001, "end_ms": 1024641, "text": "なるほど"}
+{"speaker": "kosuke_takahara", "start_ms": 1026941, "end_ms": 1027201, "text": "うん、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1027901, "end_ms": 1033541, "text": "駐 車 ス ペ ー ス が そう いう イ メ ージ にな って いる んです けど"}
+{"speaker": "kosuke_takahara", "start_ms": 1034201, "end_ms": 1034481, "text": "うん、"}
+{"speaker": "kosuke_takahara", "start_ms": 1034781, "end_ms": 1035081, "text": "はい、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1035201, "end_ms": 1035921, "text": "イ メ ージ は"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1036201, "end_ms": 1041121, "text": "出 ます か ね 駐 車 場 1 台 分、 車 1 台 分 の 駐"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1041521, "end_ms": 1043321, "text": "車 ス ペ ー ス が"}
+{"speaker": "kosuke_takahara", "start_ms": 1043321, "end_ms": 1043601, "text": "はい、"}
+{"speaker": "kosuke_takahara", "start_ms": 1044101, "end_ms": 1044401, "text": "はい、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1044541, "end_ms": 1047481, "text": "9 時 18 時 は 一 般 的 だ し"}
+{"speaker": "kosuke_takahara", "start_ms": 1047481, "end_ms": 1048081, "text": "うん、"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1048081, "end_ms": 1050861, "text": "18 時 後 は 雇 用 車 から"}
+{"speaker": "kosuke_takahara", "start_ms": 1051121, "end_ms": 1051981, "text": "そうですね"}
+{"speaker": "kosuke_takahara", "start_ms": 1054741, "end_ms": 1058261, "text": "まあ、 市 役 所 は ね、 5 時 とか 6 時 で 閉 ま る でしょう から"}
+{"speaker": "kosuke_takahara", "start_ms": 1058701, "end_ms": 1059321, "text": "全 然、"}
+{"speaker": "kosuke_takahara", "start_ms": 1060621, "end_ms": 1063021, "text": "6 時 で 締 め 切 っちゃ える の か もし れない けど"}
+{"speaker": "kosuke_takahara", "start_ms": 1069081, "end_ms": 1070501, "text": "そうですね、 そ こ が 比較"}
+{"speaker": "kosuke_takahara", "start_ms": 1072761, "end_ms": 1076441, "text": "的 大 き い ポ イ ント か もし れ ません ね 営 業 時間 を 分 け ら れる、"}
+{"speaker": "kosuke_takahara", "start_ms": 1080441, "end_ms": 1081321, "text": "強 いて 言 えば ですね"}
+{"speaker": "kazuhide_oki", "start_ms": 1081441, "end_ms": 1082601, "text": "確 か なんか"}
+{"speaker": "kazuhide_oki", "start_ms": 1082961, "end_ms": 1088501, "text": "営 業 時間 分 けて や り たい なら む し ろ その 機 能 を 一 つ の サ ービ ス で 実 現 した 方 が"}
+{"speaker": "kazuhide_oki", "start_ms": 1089581, "end_ms": 1091401, "text": "筋 は 良 さ そう な 感じ します ね"}
+{"speaker": "kosuke_takahara", "start_ms": 1092961, "end_ms": 1094901, "text": "例えば 無 印 で、"}
+{"speaker": "kazuhide_oki", "start_ms": 1094901, "end_ms": 1096141, "text": "そうですね"}
+{"speaker": "kosuke_takahara", "start_ms": 1097481, "end_ms": 1098281, "text": "それは そう、"}
+{"speaker": "kosuke_takahara", "start_ms": 1098981, "end_ms": 1099861, "text": "ちょっと、"}
+{"speaker": "kazuhide_oki", "start_ms": 1102301, "end_ms": 1110321, "text": "どう 実 現 する の が 筋 が 良 い か は あれ だ が 特 定 の ユ ー ザ ー とか 特 定 の 利 用 方 法 は この 時間 だけ 使 える"}
+{"speaker": "kosuke_takahara", "start_ms": 1110401, "end_ms": 1110841, "text": "うん、"}
+{"speaker": "kosuke_takahara", "start_ms": 1111421, "end_ms": 1112101, "text": "うん"}
+{"speaker": "kazuhide_oki", "start_ms": 1112201, "end_ms": 1114441, "text": "本当 に それ だけ だ った ら 例えば その 本当"}
+{"speaker": "kazuhide_oki", "start_ms": 1115221, "end_ms": 1117801, "text": "に 2 B 要 素 が そんな に ない ので あれ ば"}
+{"speaker": "kosuke_takahara", "start_ms": 1117821, "end_ms": 1118141, "text": "うん、"}
+{"speaker": "kazuhide_oki", "start_ms": 1119041, "end_ms": 1120481, "text": "その 方 が 良 さ"}
+{"speaker": "kazuhide_oki", "start_ms": 1121741, "end_ms": 1122761, "text": "そう です よね"}
+{"speaker": "kosuke_takahara", "start_ms": 1123261, "end_ms": 1123921, "text": "うん、"}
+{"speaker": "kosuke_takahara", "start_ms": 1125861, "end_ms": 1126521, "text": "あと は U X"}
+{"speaker": "kosuke_takahara", "start_ms": 1126741, "end_ms": 1133901, "text": "の と こ ですか ね、 社 用 者 の 人 が 毎 回 ア プ リ を 操 作 した い か って 言 う と、 そう じゃない と思 う ので、"}
+{"speaker": "kazuhide_oki", "start_ms": 1134121, "end_ms": 1134301, "text": "ありがとうございました"}
+{"speaker": "kosuke_takahara", "start_ms": 1134741, "end_ms": 1136201, "text": "予 約 入 れ っぱ に する"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1138581, "end_ms": 1139441, "text": "それは"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1139741, "end_ms": 1140481, "text": "管 理 画 面 で"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1140841, "end_ms": 1141401, "text": "一 括 で"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1142221, "end_ms": 1143541, "text": "繰 り 返 し 通 路 して も ら える 繰"}
+{"speaker": "kosuke_takahara", "start_ms": 1144061, "end_ms": 1145401, "text": "Y S 4 B は そうですね"}
+{"speaker": "kosuke_takahara", "start_ms": 1146741, "end_ms": 1147041, "text": "はい、"}
+{"speaker": "kosuke_takahara", "start_ms": 1147221, "end_ms": 1148941, "text": "無 印 の 方 も"}
+{"speaker": "kosuke_takahara", "start_ms": 1149301, "end_ms": 1149661, "text": "でき"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1150201, "end_ms": 1151261, "text": "り 返 し 通 路 して"}
+{"speaker": "kosuke_takahara", "start_ms": 1151961, "end_ms": 1153701, "text": "ない ので、 手 動 です"}
+{"speaker": "kosuke_takahara", "start_ms": 1155281, "end_ms": 1157901, "text": "それは め ちゃ く ちゃ め ん ど く さい です そう なんだ"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1158501, "end_ms": 1164921, "text": "社 用 車 は 毎 日 決 ま った 時間 に という イ メ ージ に つ く んです けど 日 中 帯 って"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1165201, "end_ms": 1169001, "text": "お 客 さん 用 に 開 放 した よう な イ メ ージ が あ った んです けど"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1169741, "end_ms": 1172961, "text": "毎 回 登録 する っていう シ チ ュ エ ー ショ ン は ちょっと"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1173821, "end_ms": 1175201, "text": "想 像 でき なく て"}
+{"speaker": "kosuke_takahara", "start_ms": 1176641, "end_ms": 1180401, "text": "無 印 1 本 で や ろう と する と そう いうこと ですね 入"}
+{"speaker": "kosuke_takahara", "start_ms": 1180661, "end_ms": 1182241, "text": "れない と い"}
+{"speaker": "kosuke_takahara", "start_ms": 1182621, "end_ms": 1184301, "text": "け ない ということ です"}
+{"speaker": "UNKNOWN", "start_ms": 1184241, "end_ms": 1184621, "text": "はい"}
+{"speaker": "kosuke_takahara", "start_ms": 1191201, "end_ms": 1192821, "text": "あと は 大 木 さん が 言 った ように"}
+{"speaker": "kosuke_takahara", "start_ms": 1193281, "end_ms": 1194481, "text": "それ ぞ れ に 特 化 した"}
+{"speaker": "kosuke_takahara", "start_ms": 1194861, "end_ms": 1195541, "text": "サ ービ ス"}
+{"speaker": "kosuke_takahara", "start_ms": 1195861, "end_ms": 1196541, "text": "なので"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1197441, "end_ms": 1198021, "text": "そうですね"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1198281, "end_ms": 1202101, "text": "私 も それ が 踏 み 落 ち て そ も そ も Y S 4 B 側 では"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1202401, "end_ms": 1206021, "text": "この 駐 車 ス ペ ー ス は 9 時 18 時 使 え ない も んだ"}
+{"speaker": "kosuke_takahara", "start_ms": 1206041, "end_ms": 1206301, "text": "そう"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1206301, "end_ms": 1209301, "text": "でも 操 作 性 は 別 に 若 い 感じ だ な と思 って"}
+{"speaker": "kosuke_takahara", "start_ms": 1210841, "end_ms": 1211821, "text": "いう 形 です"}
+{"speaker": "kosuke_takahara", "start_ms": 1212281, "end_ms": 1213901, "text": "実 際 は 切 り 替 え の 時 に"}
+{"speaker": "kosuke_takahara", "start_ms": 1214741, "end_ms": 1215801, "text": "1, 2 分"}
+{"speaker": "kosuke_takahara", "start_ms": 1216341, "end_ms": 1217861, "text": "時間 が 必 要 です けど"}
+{"speaker": "kosuke_takahara", "start_ms": 1222981, "end_ms": 1227901, "text": "なので 18 時 まで で 17 時 55 分 まで とか して ました ね"}
+{"speaker": "kosuke_takahara", "start_ms": 1231841, "end_ms": 1233001, "text": "はい、 では"}
+{"speaker": "kosuke_takahara", "start_ms": 1233621, "end_ms": 1237501, "text": "ということで これは 進 めて い こう か と思います 組"}
+{"speaker": "UNKNOWN", "start_ms": 1237521, "end_ms": 1238501, "text": "分 か りました 5"}
+{"speaker": "kosuke_takahara", "start_ms": 1238501, "end_ms": 1242281, "text": "む のは そうだ な 大 木 さん 最 終 出 社 い っ せ でしょう か"}
+{"speaker": "UNKNOWN", "start_ms": 1242941, "end_ms": 1244001, "text": "月 29 日"}
+{"speaker": "kosuke_takahara", "start_ms": 1244181, "end_ms": 1245281, "text": "あ、 分 か りました"}
+{"speaker": "UNKNOWN", "start_ms": 1245281, "end_ms": 1245681, "text": "です"}
+{"speaker": "kosuke_takahara", "start_ms": 1246841, "end_ms": 1249341, "text": "何 か あれ ば 質 問 します"}
+{"speaker": "kosuke_takahara", "start_ms": 1252821, "end_ms": 1254601, "text": "まず は 権 限 を も ら わ ない と"}
+{"speaker": "kosuke_takahara", "start_ms": 1255021, "end_ms": 1256341, "text": "ですね 本 番 環 境"}
+{"speaker": "kazuhide_oki", "start_ms": 1259301, "end_ms": 1260781, "text": "高 田 さん が 設 定 します"}
+{"speaker": "kosuke_takahara", "start_ms": 1261201, "end_ms": 1261781, "text": "あ、"}
+{"speaker": "kazuhide_oki", "start_ms": 1261781, "end_ms": 1262981, "text": "金 銀 付 与 して お き ましょう か"}
+{"speaker": "kosuke_takahara", "start_ms": 1263021, "end_ms": 1263961, "text": "本当 ですか"}
+{"speaker": "kazuhide_oki", "start_ms": 1264021, "end_ms": 1264361, "text": "はい"}
+{"speaker": "kosuke_takahara", "start_ms": 1264741, "end_ms": 1265361, "text": "お願いします はい"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1266721, "end_ms": 1268241, "text": "これ 中 電 機 の"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1268461, "end_ms": 1271681, "text": "何 日 か が 決 ま ってる んです か 名 古 屋 市 役 所 で"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1273261, "end_ms": 1273961, "text": "どう だ ろう これ から"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1274941, "end_ms": 1275161, "text": "数"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1275401, "end_ms": 1275721, "text": "字"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1279181, "end_ms": 1281401, "text": "数 字 な 気 が する"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1284161, "end_ms": 1285521, "text": "私 は サ"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1285921, "end_ms": 1287021, "text": "ル ス タ ーフ ラ ス へ の"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1287541, "end_ms": 1288761, "text": "切"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1289181, "end_ms": 1291381, "text": "り 替 え の イ メ ージ が すご く 強 く て"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1292401, "end_ms": 1295141, "text": "何 か の ア"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1295441, "end_ms": 1296521, "text": "ド レ ス を"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1297481, "end_ms": 1301241, "text": "でも 高 田 さん は 結 構 デ ブ から ス テ ージ ング とか 切 り 替 え で る や つ から"}
+{"speaker": "hibiki_tsuboi", "start_ms": 1301541, "end_ms": 1302621, "text": "あの イ メ ージ ですか"}
+{"speaker": "UNKNOWN", "start_ms": 1303209, "end_ms": 1304069, "text": "無 印 から 大"}
+{"speaker": "UNKNOWN", "start_ms": 1304809, "end_ms": 1305709, "text": "谷 装 備 っていう のは"}
+{"speaker": "kosuke_takahara", "start_ms": 1307689, "end_ms": 1310329, "text": "エ ンド ポ イ ント 1 つ を 指 定 します。"}
+{"speaker": "kosuke_takahara", "start_ms": 1311109, "end_ms": 1312329, "text": "それ が プ ロ ク シ ー"}
+{"speaker": "kosuke_takahara", "start_ms": 1312869, "end_ms": 1314209, "text": "の エ ンド ポ イ ント です。"}
+{"speaker": "kosuke_takahara", "start_ms": 1317309, "end_ms": 1318429, "text": "高 橋 さん が 自"}
+{"speaker": "kosuke_takahara", "start_ms": 1319089, "end_ms": 1319769, "text": "宅 の"}
+{"speaker": "UNKNOWN", "start_ms": 1319529, "end_ms": 1320509, "text": "電 気 を"}
+{"speaker": "kosuke_takahara", "start_ms": 1320629, "end_ms": 1320909, "text": "V"}
+{"speaker": "UNKNOWN", "start_ms": 1320909, "end_ms": 1323749, "text": "デ ブ とか ス テ ージ ング に 切 り 替 える イ メ ージ と"}
+{"speaker": "UNKNOWN", "start_ms": 1324129, "end_ms": 1327169, "text": "今回 の 切 り 替 え サ ーブ の 切 り 替 え の イ メ ージ って"}
+{"speaker": "UNKNOWN", "start_ms": 1327369, "end_ms": 1328389, "text": "基本 的 には 一 緒 ですか"}
+{"speaker": "kosuke_takahara", "start_ms": 1329469, "end_ms": 1330089, "text": "P を"}
+{"speaker": "UNKNOWN", "start_ms": 1330189, "end_ms": 1330509, "text": "ね"}
+{"speaker": "kosuke_takahara", "start_ms": 1333869, "end_ms": 1336989, "text": "もう これ 1 本 に 設 定 して しま う という イ"}
+{"speaker": "kosuke_takahara", "start_ms": 1337289, "end_ms": 1337709, "text": "メ ージ です。"}
+{"speaker": "kosuke_takahara", "start_ms": 1340889, "end_ms": 1343249, "text": "あと は 時間 帯 に 応 じ て フ"}
+{"speaker": "kosuke_takahara", "start_ms": 1343769, "end_ms": 1347089, "text": "ォ ワ ード 先 が 変 わ る ということ です。 なるほど。"}
+{"speaker": "kosuke_takahara", "start_ms": 1347249, "end_ms": 1353709, "text": "じゃあ 例えば パ ル サ プ ラ ス を 取 り 付 け た と して も、 パ ル サ プ ラ ス 内 の 管 理 画 面 は 操 作 し ない けど、 こ っち 側 を 操 作 する。"}
+{"speaker": "kosuke_takahara", "start_ms": 1354569, "end_ms": 1359629, "text": "そうですね。 パ ル サ プ ラ ス の OC PP 接 続 先 を これ に して、"}
+{"speaker": "kosuke_takahara", "start_ms": 1360109, "end_ms": 1364889, "text": "あと は フ ァ イ ア スト ア に 設 定 を 入 れる と、 設 定 に 応 じ て"}
+{"speaker": "kosuke_takahara", "start_ms": 1365449, "end_ms": 1368929, "text": "時間 帯 で 動 き 先 が 変 わ る。 なん と なく、 なん と なく あり ました。"}
+{"speaker": "UNKNOWN", "start_ms": 1370889, "end_ms": 1371609, "text": "高 田 さん、"}
+{"speaker": "UNKNOWN", "start_ms": 1372189, "end_ms": 1373969, "text": "C PP プ ロ キ シ プ ロ ド の"}
+{"speaker": "kosuke_takahara", "start_ms": 1374069, "end_ms": 1374329, "text": "はい。"}
+{"speaker": "UNKNOWN", "start_ms": 1374329, "end_ms": 1377369, "text": "本 番 環 境 の オ ーナ ー が す で に 付 与 さ れて いた"}
+{"speaker": "kosuke_takahara", "start_ms": 1377949, "end_ms": 1378329, "text": "あれ?"}
+{"speaker": "UNKNOWN", "start_ms": 1379989, "end_ms": 1381949, "text": "なので 探 せ ば 見 れ そう な 感じ が しました"}
+{"speaker": "kosuke_takahara", "start_ms": 1383069, "end_ms": 1383969, "text": "フ ァ イ ア ベ ー ス"}
+{"speaker": "kosuke_takahara", "start_ms": 1385409, "end_ms": 1385869, "text": "ですか?"}
+{"speaker": "kosuke_takahara", "start_ms": 1386649, "end_ms": 1390629, "text": "フ ァ イ ア ベ ー ス から も 全 て 表示 って、 上 に、"}
+{"speaker": "kosuke_takahara", "start_ms": 1393529, "end_ms": 1394169, "text": "それで"}
+{"speaker": "UNKNOWN", "start_ms": 1395189, "end_ms": 1398429, "text": "プ ロ キ シ は デ ブ R、 下 の 方 に"}
+{"speaker": "kosuke_takahara", "start_ms": 1397669, "end_ms": 1397949, "text": "こう。"}
+{"speaker": "UNKNOWN", "start_ms": 1400389, "end_ms": 1401869, "text": "他 の そ"}
+{"speaker": "UNKNOWN", "start_ms": 1404109, "end_ms": 1405249, "text": "こ から 見 れない ですね"}
+{"speaker": "UNKNOWN", "start_ms": 1405449, "end_ms": 1409589, "text": "そ した ら Fire base よ り G CP から Fire store を 見 た 方 が"}
+{"speaker": "kosuke_takahara", "start_ms": 1409709, "end_ms": 1411089, "text": "ああ、"}
+{"speaker": "kosuke_takahara", "start_ms": 1411469, "end_ms": 1413389, "text": "その 辺 り の プ ロ ジ ェ ク ト も"}
+{"speaker": "kosuke_takahara", "start_ms": 1413969, "end_ms": 1414689, "text": "プ ロ ク シ ー。"}
+{"speaker": "UNKNOWN", "start_ms": 1414829, "end_ms": 1417169, "text": "多 分 それで 見 つ か る ん じゃない ですか ね"}
+{"speaker": "kosuke_takahara", "start_ms": 1417169, "end_ms": 1418429, "text": "本当 だ ね。 なるほど。"}
+{"speaker": "UNKNOWN", "start_ms": 1418429, "end_ms": 1418749, "text": "多"}
+{"speaker": "UNKNOWN", "start_ms": 1419949, "end_ms": 1421909, "text": "分 前 に 設 定 した こと あります よね"}
+{"speaker": "kosuke_takahara", "start_ms": 1429729, "end_ms": 1430429, "text": "そう ですか。"}
+{"speaker": "kosuke_takahara", "start_ms": 1430849, "end_ms": 1431369, "text": "ありがとうございます。 はい。"}
+{"speaker": "UNKNOWN", "start_ms": 1434589, "end_ms": 1437469, "text": "Fire store で 直接 デ ー タ を 入 れる みたい な"}
+{"speaker": "UNKNOWN", "start_ms": 1438449, "end_ms": 1439589, "text": "そう いう 運 用 にな って ます"}
+{"speaker": "UNKNOWN", "start_ms": 1442349, "end_ms": 1443909, "text": "そんな しょ っち ゅ う こと じゃない ですね"}
+{"speaker": "kosuke_takahara", "start_ms": 1443909, "end_ms": 1444409, "text": "はい。 はい。"}
+{"speaker": "UNKNOWN", "start_ms": 1447589, "end_ms": 1448589, "text": "ビ ール ド ス フ ォ ー"}
+{"speaker": "UNKNOWN", "start_ms": 1454409, "end_ms": 1455369, "text": "これ 見 れ ました っ け"}
+{"speaker": "UNKNOWN", "start_ms": 1456549, "end_ms": 1458029, "text": "入 れる よう な ですね"}
+{"speaker": "UNKNOWN", "start_ms": 1460189, "end_ms": 1463349, "text": "お ー あー はい はい はい これ"}
+{"speaker": "UNKNOWN", "start_ms": 1463969, "end_ms": 1465489, "text": "ありがとうございます わか りました"}
+{"speaker": "UNKNOWN", "start_ms": 1465649, "end_ms": 1467169, "text": "見 れ ます 見 れ ます ね"}
+{"speaker": "UNKNOWN", "start_ms": 1470529, "end_ms": 1470949, "text": "はい"}
+{"speaker": "UNKNOWN", "start_ms": 1471329, "end_ms": 1472589, "text": "よし これで でき そう です"}
+{"speaker": "UNKNOWN", "start_ms": 1473189, "end_ms": 1473529, "text": "はい"}
+{"speaker": "UNKNOWN", "start_ms": 1475589, "end_ms": 1477569, "text": "ありがとう お 願 いい た します お"}
+{"speaker": "SPEAKER_01", "start_ms": 1478829, "end_ms": 1478849, "text": "Thank you."}
+{"speaker": "UNKNOWN", "start_ms": 1478849, "end_ms": 1479749, "text": "疲 れ 様 でした お"}
+{"speaker": "UNKNOWN", "start_ms": 1480009, "end_ms": 1480609, "text": "疲 れ 様 でした"}
+{"speaker": "UNKNOWN", "start_ms": 1484669, "end_ms": 1488089, "text": "これ に 関 して は 坪 井 さん に 何 か して も ら う って こと は"}
+{"speaker": "UNKNOWN", "start_ms": 1488249, "end_ms": 1489789, "text": "ない の かな と思 って ます"}
+{"speaker": "UNKNOWN", "start_ms": 1498549, "end_ms": 1499769, "text": "ワ ビ ス フ ォ ービ ー 側"}
+{"speaker": "UNKNOWN", "start_ms": 1499989, "end_ms": 1501569, "text": "の なんか 出 た り で"}
+{"speaker": "UNKNOWN", "start_ms": 1501969, "end_ms": 1502669, "text": "こう いう"}
+{"speaker": "UNKNOWN", "start_ms": 1502889, "end_ms": 1506689, "text": "感じ で 一 気 に 大 変 じゃ なく て 交 換 した い と思います はい"}
+{"speaker": "UNKNOWN", "start_ms": 1508729, "end_ms": 1509389, "text": "お 願 いい た します"}
+{"speaker": "UNKNOWN", "start_ms": 1509869, "end_ms": 1510689, "text": "ありがとうございました"}
+{"speaker": "UNKNOWN", "start_ms": 1511089, "end_ms": 1512149, "text": "Y S フ"}
+{"speaker": "UNKNOWN", "start_ms": 1512329, "end_ms": 1515489, "text": "ォ ービ ー 側 の 初 期 等 という か"}
+{"speaker": "UNKNOWN", "start_ms": 1516169, "end_ms": 1517729, "text": "以上 から 投 資 する の か"}

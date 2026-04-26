@@ -1,0 +1,306 @@
+{
+  "capture_start_ms": 1302624,
+  "text": "無 印 から 大 谷 装 備 っていう のは エ ンド ポ イ ント 1 つ を 指 定 します。 それ が プ ロ ク シ ー の エ ンド ポ イ ント です。 高 橋 さん が 自 宅 の 電 気 を V デ ブ とか ス テ ージ ング に 切 り 替 える イ メ ージ と 今回 の 切 り 替 え サ ーブ の 切 り 替 え の イ メ ージ って 基本 的 には 一 緒 ですか P を ね もう これ 1 本 に 設 定 して しま う という イ メ ージ です。 あと は 時間 帯 に 応 じ て フ ォ ワ ード 先 が 変 わ る ということ です。 なるほど。 じゃあ 例えば パ ル サ プ ラ ス を 取 り 付 け た と して も、 パ ル サ プ ラ ス 内 の 管 理 画 面 は 操 作 し ない けど、 こ っち 側 を 操 作 する。 そうですね。 パ ル サ プ ラ ス の OC PP 接 続 先 を これ に して、 あと は フ ァ イ ア スト ア に 設 定 を 入 れる と、 設 定 に 応 じ て 時間 帯 で 動 き 先 が 変 わ る。 なん と なく、 なん と なく あり ました。 高 田 さん、 C PP プ ロ キ シ プ ロ ド の はい。 本 番 環 境 の オ ーナ ー が す で に 付 与 さ れて いた あれ? なので 探 せ ば 見 れ そう な 感じ が しました フ ァ イ ア ベ ー ス ですか? フ ァ イ ア ベ ー ス から も 全 て 表示 って、 上 に、 それで プ ロ キ シ は デ ブ R、 下 の 方 に こう。 他 の そ こ から 見 れない ですね そ した ら Fire base よ り G CP から Fire store を 見 た 方 が ああ、 その 辺 り の プ ロ ジ ェ ク ト も プ ロ ク シ ー。 多 分 それで 見 つ か る ん じゃない ですか ね 本当 だ ね。 なるほど。 多 分 前 に 設 定 した こと あります よね そう ですか。 ありがとうございます。 はい。 Fire store で 直接 デ ー タ を 入 れる みたい な そう いう 運 用 にな って ます そんな しょ っち ゅ う こと じゃない ですね はい。 はい。",
+  "segments": [
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 585,
+      "end_ms": 1445,
+      "text": "無 印 から 大"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 2185,
+      "end_ms": 3085,
+      "text": "谷 装 備 っていう のは"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 5065,
+      "end_ms": 7705,
+      "text": "エ ンド ポ イ ント 1 つ を 指 定 します。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 8485,
+      "end_ms": 9705,
+      "text": "それ が プ ロ ク シ ー"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 10245,
+      "end_ms": 11585,
+      "text": "の エ ンド ポ イ ント です。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 14685,
+      "end_ms": 15805,
+      "text": "高 橋 さん が 自"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 16465,
+      "end_ms": 17145,
+      "text": "宅 の"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 16905,
+      "end_ms": 17885,
+      "text": "電 気 を"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 18005,
+      "end_ms": 18285,
+      "text": "V"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 18285,
+      "end_ms": 21125,
+      "text": "デ ブ とか ス テ ージ ング に 切 り 替 える イ メ ージ と"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 21505,
+      "end_ms": 24545,
+      "text": "今回 の 切 り 替 え サ ーブ の 切 り 替 え の イ メ ージ って"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 24745,
+      "end_ms": 25765,
+      "text": "基本 的 には 一 緒 ですか"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 26845,
+      "end_ms": 27465,
+      "text": "P を"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 27565,
+      "end_ms": 27885,
+      "text": "ね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 31245,
+      "end_ms": 34365,
+      "text": "もう これ 1 本 に 設 定 して しま う という イ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 34665,
+      "end_ms": 35085,
+      "text": "メ ージ です。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 38265,
+      "end_ms": 40625,
+      "text": "あと は 時間 帯 に 応 じ て フ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 41145,
+      "end_ms": 44465,
+      "text": "ォ ワ ード 先 が 変 わ る ということ です。 なるほど。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 44625,
+      "end_ms": 51085,
+      "text": "じゃあ 例えば パ ル サ プ ラ ス を 取 り 付 け た と して も、 パ ル サ プ ラ ス 内 の 管 理 画 面 は 操 作 し ない けど、 こ っち 側 を 操 作 する。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 51945,
+      "end_ms": 57005,
+      "text": "そうですね。 パ ル サ プ ラ ス の OC PP 接 続 先 を これ に して、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 57485,
+      "end_ms": 62265,
+      "text": "あと は フ ァ イ ア スト ア に 設 定 を 入 れる と、 設 定 に 応 じ て"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 62825,
+      "end_ms": 66305,
+      "text": "時間 帯 で 動 き 先 が 変 わ る。 なん と なく、 なん と なく あり ました。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 68265,
+      "end_ms": 68985,
+      "text": "高 田 さん、"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 69565,
+      "end_ms": 71345,
+      "text": "C PP プ ロ キ シ プ ロ ド の"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 71445,
+      "end_ms": 71705,
+      "text": "はい。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 71705,
+      "end_ms": 74745,
+      "text": "本 番 環 境 の オ ーナ ー が す で に 付 与 さ れて いた"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 75325,
+      "end_ms": 75705,
+      "text": "あれ?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 77365,
+      "end_ms": 79325,
+      "text": "なので 探 せ ば 見 れ そう な 感じ が しました"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 80445,
+      "end_ms": 81345,
+      "text": "フ ァ イ ア ベ ー ス"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 82785,
+      "end_ms": 83245,
+      "text": "ですか?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 84025,
+      "end_ms": 88005,
+      "text": "フ ァ イ ア ベ ー ス から も 全 て 表示 って、 上 に、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 90905,
+      "end_ms": 91545,
+      "text": "それで"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 92565,
+      "end_ms": 95805,
+      "text": "プ ロ キ シ は デ ブ R、 下 の 方 に"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 95045,
+      "end_ms": 95325,
+      "text": "こう。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 97765,
+      "end_ms": 99245,
+      "text": "他 の そ"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 101485,
+      "end_ms": 102625,
+      "text": "こ から 見 れない ですね"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 102825,
+      "end_ms": 106965,
+      "text": "そ した ら Fire base よ り G CP から Fire store を 見 た 方 が"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 107085,
+      "end_ms": 108465,
+      "text": "ああ、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 108845,
+      "end_ms": 110765,
+      "text": "その 辺 り の プ ロ ジ ェ ク ト も"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 111345,
+      "end_ms": 112065,
+      "text": "プ ロ ク シ ー。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 112205,
+      "end_ms": 114545,
+      "text": "多 分 それで 見 つ か る ん じゃない ですか ね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 114545,
+      "end_ms": 115805,
+      "text": "本当 だ ね。 なるほど。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 115805,
+      "end_ms": 116125,
+      "text": "多"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 117325,
+      "end_ms": 119285,
+      "text": "分 前 に 設 定 した こと あります よね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 127105,
+      "end_ms": 127805,
+      "text": "そう ですか。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 128225,
+      "end_ms": 128745,
+      "text": "ありがとうございます。 はい。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 131965,
+      "end_ms": 134845,
+      "text": "Fire store で 直接 デ ー タ を 入 れる みたい な"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 135825,
+      "end_ms": 136965,
+      "text": "そう いう 運 用 にな って ます"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 139725,
+      "end_ms": 141285,
+      "text": "そんな しょ っち ゅ う こと じゃない ですね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 141285,
+      "end_ms": 141785,
+      "text": "はい。 はい。"
+    }
+  ]
+}

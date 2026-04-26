@@ -1,0 +1,318 @@
+{
+  "capture_start_ms": 1158496,
+  "text": "社 用 車 は 毎 日 決 ま った 時間 に という イ メ ージ に つ く んです けど 日 中 帯 って お 客 さん 用 に 開 放 した よう な イ メ ージ が あ った んです けど 毎 回 登録 する っていう シ チ ュ エ ー ショ ン は ちょっと 想 像 でき なく て 無 印 1 本 で や ろう と する と そう いうこと ですね 入 れない と い け ない ということ です はい あと は 大 木 さん が 言 った ように それ ぞ れ に 特 化 した サ ービ ス なので そうですね 私 も それ が 踏 み 落 ち て そ も そ も Y S 4 B 側 では この 駐 車 ス ペ ー ス は 9 時 18 時 使 え ない も んだ そう でも 操 作 性 は 別 に 若 い 感じ だ な と思 って いう 形 です 実 際 は 切 り 替 え の 時 に 1, 2 分 時間 が 必 要 です けど なので 18 時 まで で 17 時 55 分 まで とか して ました ね はい、 では ということで これは 進 めて い こう か と思います 組 分 か りました 5 む のは そうだ な 大 木 さん 最 終 出 社 い っ せ でしょう か 月 29 日 あ、 分 か りました です 何 か あれ ば 質 問 します まず は 権 限 を も ら わ ない と ですね 本 番 環 境 高 田 さん が 設 定 します あ、 金 銀 付 与 して お き ましょう か 本当 ですか はい お願いします はい これ 中 電 機 の 何 日 か が 決 ま ってる んです か 名 古 屋 市 役 所 で どう だ ろう これ から 数 字 数 字 な 気 が する 私 は サ ル ス タ ーフ ラ ス へ の 切 り 替 え の イ メ ージ が すご く 強 く て 何 か の ア ド レ ス を でも 高 田 さん は 結 構 デ ブ から ス テ ージ ング とか 切 り 替 え で る や つ から あの イ メ ージ ですか",
+  "segments": [
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 5,
+      "end_ms": 6425,
+      "text": "社 用 車 は 毎 日 決 ま った 時間 に という イ メ ージ に つ く んです けど 日 中 帯 って"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 6705,
+      "end_ms": 10505,
+      "text": "お 客 さん 用 に 開 放 した よう な イ メ ージ が あ った んです けど"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 11245,
+      "end_ms": 14465,
+      "text": "毎 回 登録 する っていう シ チ ュ エ ー ショ ン は ちょっと"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 15325,
+      "end_ms": 16705,
+      "text": "想 像 でき なく て"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 18145,
+      "end_ms": 21905,
+      "text": "無 印 1 本 で や ろう と する と そう いうこと ですね 入"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 22165,
+      "end_ms": 23745,
+      "text": "れない と い"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 24125,
+      "end_ms": 25805,
+      "text": "け ない ということ です"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 25745,
+      "end_ms": 26125,
+      "text": "はい"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 32705,
+      "end_ms": 34325,
+      "text": "あと は 大 木 さん が 言 った ように"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 34785,
+      "end_ms": 35985,
+      "text": "それ ぞ れ に 特 化 した"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 36365,
+      "end_ms": 37045,
+      "text": "サ ービ ス"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 37365,
+      "end_ms": 38045,
+      "text": "なので"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 38945,
+      "end_ms": 39525,
+      "text": "そうですね"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 39785,
+      "end_ms": 43605,
+      "text": "私 も それ が 踏 み 落 ち て そ も そ も Y S 4 B 側 では"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 43905,
+      "end_ms": 47525,
+      "text": "この 駐 車 ス ペ ー ス は 9 時 18 時 使 え ない も んだ"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 47545,
+      "end_ms": 47805,
+      "text": "そう"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 47805,
+      "end_ms": 50805,
+      "text": "でも 操 作 性 は 別 に 若 い 感じ だ な と思 って"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 52345,
+      "end_ms": 53325,
+      "text": "いう 形 です"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 53785,
+      "end_ms": 55405,
+      "text": "実 際 は 切 り 替 え の 時 に"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 56245,
+      "end_ms": 57305,
+      "text": "1, 2 分"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 57845,
+      "end_ms": 59365,
+      "text": "時間 が 必 要 です けど"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 64485,
+      "end_ms": 69405,
+      "text": "なので 18 時 まで で 17 時 55 分 まで とか して ました ね"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 73345,
+      "end_ms": 74505,
+      "text": "はい、 では"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 75125,
+      "end_ms": 79005,
+      "text": "ということで これは 進 めて い こう か と思います 組"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 79025,
+      "end_ms": 80005,
+      "text": "分 か りました 5"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 80005,
+      "end_ms": 83785,
+      "text": "む のは そうだ な 大 木 さん 最 終 出 社 い っ せ でしょう か"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 84445,
+      "end_ms": 85505,
+      "text": "月 29 日"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 85685,
+      "end_ms": 86785,
+      "text": "あ、 分 か りました"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 86785,
+      "end_ms": 87185,
+      "text": "です"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 88345,
+      "end_ms": 90845,
+      "text": "何 か あれ ば 質 問 します"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 94325,
+      "end_ms": 96105,
+      "text": "まず は 権 限 を も ら わ ない と"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 96525,
+      "end_ms": 97845,
+      "text": "ですね 本 番 環 境"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 100805,
+      "end_ms": 102285,
+      "text": "高 田 さん が 設 定 します"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 102705,
+      "end_ms": 103285,
+      "text": "あ、"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 103285,
+      "end_ms": 104485,
+      "text": "金 銀 付 与 して お き ましょう か"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 104525,
+      "end_ms": 105465,
+      "text": "本当 ですか"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 105525,
+      "end_ms": 105865,
+      "text": "はい"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 106245,
+      "end_ms": 106865,
+      "text": "お願いします はい"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 108225,
+      "end_ms": 109745,
+      "text": "これ 中 電 機 の"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 109965,
+      "end_ms": 113185,
+      "text": "何 日 か が 決 ま ってる んです か 名 古 屋 市 役 所 で"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 114765,
+      "end_ms": 115465,
+      "text": "どう だ ろう これ から"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 116445,
+      "end_ms": 116665,
+      "text": "数"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 116905,
+      "end_ms": 117225,
+      "text": "字"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 120685,
+      "end_ms": 122905,
+      "text": "数 字 な 気 が する"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 125665,
+      "end_ms": 127025,
+      "text": "私 は サ"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 127425,
+      "end_ms": 128525,
+      "text": "ル ス タ ーフ ラ ス へ の"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 129045,
+      "end_ms": 130265,
+      "text": "切"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 130685,
+      "end_ms": 132885,
+      "text": "り 替 え の イ メ ージ が すご く 強 く て"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 133905,
+      "end_ms": 136645,
+      "text": "何 か の ア"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 136945,
+      "end_ms": 138025,
+      "text": "ド レ ス を"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 138985,
+      "end_ms": 142745,
+      "text": "でも 高 田 さん は 結 構 デ ブ から ス テ ージ ング とか 切 り 替 え で る や つ から"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 143045,
+      "end_ms": 144125,
+      "text": "あの イ メ ージ ですか"
+    }
+  ]
+}

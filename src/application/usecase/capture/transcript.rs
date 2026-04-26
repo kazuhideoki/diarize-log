@@ -46,7 +46,7 @@ pub(super) fn process_capture_audio<T, S>(
     transcription_failures: &mut Vec<CaptureTranscriptionFailure>,
 ) -> Result<(), CaptureError>
 where
-    T: Transcriber,
+    T: Transcriber + ?Sized,
     S: CaptureStore,
 {
     logger

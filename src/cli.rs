@@ -9,9 +9,18 @@ pub enum CliAction {
     Run {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
+        transcription_pipeline: Option<CliTranscriptionPipeline>,
+        pyannote_max_speakers: Option<u64>,
     },
     Speaker(SpeakerCliCommand),
     PrintOutput(String),
+}
+
+/// CLI で明示指定された文字起こし pipeline です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CliTranscriptionPipeline {
+    Legacy,
+    Separated,
 }
 
 /// 実行時に選ぶ音源です。
@@ -58,6 +67,7 @@ pub enum CliArgumentError {
     UnexpectedApplicationBundleId,
     MissingMicrophoneSpeaker,
     UnexpectedMicrophoneSpeaker,
+    InvalidPyannoteMaxSpeakers { value: u64 },
 }
 
 impl fmt::Display for CliArgumentError {
@@ -84,6 +94,12 @@ impl fmt::Display for CliArgumentError {
             }
             Self::UnexpectedMicrophoneSpeaker => {
                 f.write_str("--microphone-speaker can only be used with --audio-source mixed")
+            }
+            Self::InvalidPyannoteMaxSpeakers { value } => {
+                write!(
+                    f,
+                    "--pyannote-max-speakers must be greater than zero: {value}"
+                )
             }
         }
     }
@@ -113,6 +129,14 @@ struct CliArgs {
     /// Pin the microphone source to a fixed speaker name in mixed mode.
     #[arg(long = "microphone-speaker")]
     microphone_speaker: Option<String>,
+
+    /// Select the transcription pipeline for this run.
+    #[arg(long = "transcription-pipeline", value_enum)]
+    transcription_pipeline: Option<CliTranscriptionPipeline>,
+
+    /// Send maxSpeakers to pyannote when using the separated pipeline.
+    #[arg(long = "pyannote-max-speakers")]
+    pyannote_max_speakers: Option<u64>,
 
     #[command(subcommand)]
     command: Option<CliSubcommandArgs>,
@@ -175,6 +199,9 @@ impl CliArgs {
                 max: MAX_SPEAKER_SAMPLES,
             });
         }
+        if let Some(0) = self.pyannote_max_speakers {
+            return Err(CliArgumentError::InvalidPyannoteMaxSpeakers { value: 0 });
+        }
 
         let audio_source = match (
             self.audio_source,
@@ -216,6 +243,8 @@ impl CliArgs {
             None => Ok(CliAction::Run {
                 speaker_samples: self.speaker_samples,
                 audio_source,
+                transcription_pipeline: self.transcription_pipeline,
+                pyannote_max_speakers: self.pyannote_max_speakers,
             }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
@@ -264,6 +293,8 @@ mod tests {
             CliAction::Run {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Microphone,
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
             }
         );
     }
@@ -285,6 +316,8 @@ mod tests {
             CliAction::Run {
                 speaker_samples: vec!["suzuki".to_string(), "sato".to_string()],
                 audio_source: AudioSource::Microphone,
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
             }
         );
     }
@@ -308,6 +341,8 @@ mod tests {
                 audio_source: AudioSource::Application {
                     bundle_id: "com.apple.Safari".to_string(),
                 },
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
             }
         );
     }
@@ -334,6 +369,31 @@ mod tests {
                     bundle_id: "us.zoom.xos".to_string(),
                     microphone_speaker: "me".to_string(),
                 },
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
+            }
+        );
+    }
+
+    #[test]
+    /// transcription pipeline と pyannote max speakers は run action の明示指定として解釈する。
+    fn parses_transcription_pipeline_options_for_run_action() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--transcription-pipeline"),
+            OsString::from("separated"),
+            OsString::from("--pyannote-max-speakers"),
+            OsString::from("4"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Microphone,
+                transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
+                pyannote_max_speakers: Some(4),
             }
         );
     }

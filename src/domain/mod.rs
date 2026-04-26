@@ -15,4 +15,8 @@ pub use merge::{
     MergedTranscriptSegment, SourcedTranscriptSegment, TranscriptMergePolicy,
 };
 pub use source::TranscriptSource;
-pub use speech::{DiarizedTranscript, KnownSpeakerSample, TranscriptSegment};
+pub use speech::{
+    DiarizationSegment, DiarizedTranscript, KnownSpeakerEmbedding, KnownSpeakerSample,
+    SpeakerIdentification, SpeechTurn, SpeechTurnPolicy, TranscriptSegment, build_speech_turns,
+    speaker_durations,
+};

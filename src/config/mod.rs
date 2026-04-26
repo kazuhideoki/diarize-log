@@ -26,18 +26,40 @@ const STORAGE_ROOT_ENV_VAR: &str = "DIARIZE_LOG_STORAGE_ROOT";
 const MERGE_MIN_OVERLAP_CHARS_ENV_VAR: &str = "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS";
 const MERGE_ALIGNMENT_RATIO_ENV_VAR: &str = "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO";
 const MERGE_TRIGRAM_SIMILARITY_ENV_VAR: &str = "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY";
+const TRANSCRIPTION_PIPELINE_ENV_VAR: &str = "DIARIZE_LOG_TRANSCRIPTION_PIPELINE";
+const PYANNOTE_API_KEY_ENV_VAR: &str = "PYANNOTE_API_KEY";
+const PYANNOTE_MAX_SPEAKERS_ENV_VAR: &str = "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS";
+
+/// 文字起こし pipeline の選択です。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TranscriptionPipeline {
+    Legacy,
+    Separated,
+}
+
+impl fmt::Display for TranscriptionPipeline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Legacy => f.write_str("legacy"),
+            Self::Separated => f.write_str("separated"),
+        }
+    }
+}
 
 /// 実行時設定の読み込み結果です。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub openai_api_key: String,
     pub openai_api_key_source: ConfigSource,
+    pub pyannote_api_key: Option<String>,
     pub recording_duration: Duration,
     pub capture_duration: Duration,
     pub capture_overlap: Duration,
     pub capture_silence_request_policy: SilenceRequestPolicy,
     pub speaker_sample_duration: Duration,
     pub transcription_language: TranscriptionLanguage,
+    pub transcription_pipeline: TranscriptionPipeline,
+    pub pyannote_max_speakers: Option<u64>,
     pub transcript_merge_policy: TranscriptMergePolicy,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
@@ -105,6 +127,11 @@ pub enum ConfigValidationError {
         value: String,
         source: ConfigSource,
     },
+    InvalidTranscriptionPipelineValue {
+        name: &'static str,
+        value: String,
+        source: ConfigSource,
+    },
     InvalidNegativeDecibelValue {
         name: &'static str,
         value: String,
@@ -128,6 +155,10 @@ pub enum ConfigValidationError {
         name: &'static str,
         value: String,
         source: ConfigSource,
+    },
+    MissingPyannoteApiKey {
+        pipeline_name: &'static str,
+        api_key_name: &'static str,
     },
 }
 
@@ -183,6 +214,14 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "invalid transcription language mode value for {name} from {source}: {value}"
             ),
+            Self::InvalidTranscriptionPipelineValue {
+                name,
+                value,
+                source,
+            } => write!(
+                f,
+                "invalid transcription pipeline value for {name} from {source}: {value}"
+            ),
             Self::InvalidNegativeDecibelValue {
                 name,
                 value,
@@ -219,6 +258,13 @@ impl fmt::Display for ConfigValidationError {
                 f,
                 "relative path is not allowed for {name} from {source}: {value}"
             ),
+            Self::MissingPyannoteApiKey {
+                pipeline_name,
+                api_key_name,
+            } => write!(
+                f,
+                "{api_key_name} is required when {pipeline_name}=separated"
+            ),
         }
     }
 }
@@ -240,6 +286,7 @@ impl<T> ConfigValue<T> {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct RawConfig {
     openai_api_key: Option<ConfigValue<String>>,
+    pyannote_api_key: Option<ConfigValue<String>>,
     recording_duration_seconds: Option<ConfigValue<String>>,
     capture_duration_seconds: Option<ConfigValue<String>>,
     capture_overlap_seconds: Option<ConfigValue<String>>,
@@ -248,6 +295,8 @@ struct RawConfig {
     capture_tail_silence_min_duration_ms: Option<ConfigValue<String>>,
     speaker_sample_duration_seconds: Option<ConfigValue<String>>,
     transcription_language: Option<ConfigValue<String>>,
+    transcription_pipeline: Option<ConfigValue<String>>,
+    pyannote_max_speakers: Option<ConfigValue<String>>,
     merge_min_overlap_chars: Option<ConfigValue<String>>,
     merge_alignment_ratio: Option<ConfigValue<String>>,
     merge_trigram_similarity: Option<ConfigValue<String>>,
@@ -257,7 +306,7 @@ struct RawConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, ConfigError, ConfigSource, ConfigValidationError};
+    use super::{Config, ConfigError, ConfigSource, ConfigValidationError, TranscriptionPipeline};
     use crate::application::TranscriptionLanguage;
     use crate::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
     use std::fs;
@@ -486,6 +535,93 @@ mod tests {
             config.transcription_language,
             TranscriptionLanguage::Fixed("en".to_string())
         );
+    }
+
+    #[test]
+    /// separated pipeline では pyannote API key と任意の max speakers を解決する。
+    fn resolves_separated_pipeline_settings_from_dotenv() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nPYANNOTE_API_KEY=pyannote-key\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated\nDIARIZE_LOG_PYANNOTE_MAX_SPEAKERS=4\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+
+        let env_names = [
+            "OPENAI_API_KEY",
+            "PYANNOTE_API_KEY",
+            "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
+            "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS",
+            "DIARIZE_LOG_STORAGE_ROOT",
+        ];
+        let originals = snapshot_env_vars(&env_names);
+        clear_env_vars(&env_names);
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_vars(originals);
+        assert_eq!(
+            config.transcription_pipeline,
+            TranscriptionPipeline::Separated
+        );
+        assert_eq!(config.pyannote_api_key, Some("pyannote-key".to_string()));
+        assert_eq!(config.pyannote_max_speakers, Some(4));
+    }
+
+    #[test]
+    /// separated pipeline で pyannote API key が無い場合は設定エラーにする。
+    fn returns_error_when_separated_pipeline_has_no_pyannote_api_key() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+
+        let env_names = [
+            "OPENAI_API_KEY",
+            "PYANNOTE_API_KEY",
+            "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
+            "DIARIZE_LOG_STORAGE_ROOT",
+        ];
+        let originals = snapshot_env_vars(&env_names);
+        clear_env_vars(&env_names);
+
+        let result = Config::from_dotenv_path(&dotenv_path);
+
+        restore_env_vars(originals);
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidConfig(errors))
+            if errors == vec![ConfigValidationError::MissingPyannoteApiKey {
+                pipeline_name: "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
+                api_key_name: "PYANNOTE_API_KEY",
+            }]
+        ));
     }
 
     #[test]
@@ -1376,6 +1512,9 @@ mod tests {
             "DIARIZE_LOG_CAPTURE_TAIL_SILENCE_MIN_DURATION_MS",
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
+            "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
+            "PYANNOTE_API_KEY",
+            "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS",
             "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
             "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
             "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",

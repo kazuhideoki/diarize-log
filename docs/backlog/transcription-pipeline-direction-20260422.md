@@ -9,7 +9,7 @@
 - 文字起こし本文と diarization の品質を同時に高く満たしにくい
 - bundled API は一度に複数の役割を担うため、弱い部分だけを差し替えにくい
 - `gpt-4o-transcribe` は本文品質とコストのバランスが良いが、発話時刻の扱いが弱い
-- pyannote の有料版は固定費があり、低頻度利用では使いにくい
+- pyannote OSS は低頻度利用しやすいが、今回の検証では話者数推定とクラスタリングに弱さが出た
 
 このため、話者分離・話者同定・文字起こしを分離し、ローカルで統合する構成へ寄せる。
 
@@ -29,7 +29,7 @@
 
 ### 採用する役割分担
 
-- 話者分離: `pyannote` OSS
+- 話者分離: `pyannote` precision-2 API
 - 話者同定: `SpeechBrain ECAPA-TDNN`
 - 文字起こし: `gpt-4o-transcribe`
 - 出力時刻: `pyannote` の区間時刻を採用
@@ -37,11 +37,11 @@
 
 ### この構成を選ぶ理由
 
-- 話者分離は `pyannote` 系が最も信頼しやすい
+- 話者分離は `pyannote` 系が最も信頼しやすく、precision-2 は OSS 実行より話者数推定とクラスタリングの品質を期待できる
 - 話者同定は API 依存にせず、埋め込み比較を自前で持った方が制御しやすい
 - 文字起こし本文は `gpt-4o-transcribe` を引き続き活かせる
 - 時刻は diarization 側の区間時刻を使うことで補える
-- pyannote 有料版の固定費を避けられる
+- separated pipeline は従来型 pipeline と切り替え可能にし、比較しながら移行できる
 
 ## 基本方針
 
@@ -54,7 +54,7 @@
 
 ```mermaid
 flowchart LR
-  A[音声入力] --> B[pyannote OSS で話者分離]
+  A[音声入力] --> B[pyannote precision-2 で話者分離]
   B --> C[同一話者の連続区間を結合]
   C --> D[gpt-4o-transcribe で文字起こし]
   C --> E[ECAPA-TDNN で話者埋め込み抽出]
@@ -119,7 +119,7 @@ flowchart LR
 
 当面は次の工夫を入れる余地がある。
 
-- 参加人数がある程度わかる場面では、`num_speakers` または `min_speakers` / `max_speakers` を与える
+- 実装上は `maxSpeakers` のみを任意設定として扱う。capture 単位では会議の参加者全員が発話するとは限らないため、`numSpeakers` は送らない
 - capture ごとに閉じず、もう少し長い単位や複数 capture をまとめて再クラスタリングする
 - ASR 用の切り出しでは、重なり区間の二重割当てを減らすため、排他的な区間を優先して使う
 - ECAPA の類似度を名前付けだけでなく、`この capture は 2 人に潰れていそう` という再判定にも使う
@@ -145,8 +145,12 @@ flowchart LR
 
 ## 当面の実装方針
 
-- まずは `pyannote OSS + ECAPA-TDNN + gpt-4o-transcribe` の最短構成で成立させる
+- まずは `pyannote precision-2 + ECAPA-TDNN + gpt-4o-transcribe` の最短構成で成立させる
+- 従来の `gpt-4o-transcribe-diarize` pipeline も残し、環境変数または CLI で切り替える
 - diarization 結果をそのまま使わず、連続同一話者区間の結合を入れる
+- ASR 用の切り出し padding は短めにし、初期値は前後 150ms とする
+- 同一話者が前後で続く場合は、10 秒程度の gap まで同じ ASR turn として結合する
+- ASR turn は最大 5 分程度を上限にし、極端に短い 300ms 未満の区間は前後の同一話者へ吸収するか捨てる
 - 出力は `start`, `end`, `speaker`, `text` を基本単位とする
 - 既知話者が当たらない場合は無理に名前を付けず `UNKNOWN` にする
 - 先に安定動作を優先し、リアルタイム性や高度な後処理は後段で検討する
@@ -157,7 +161,7 @@ flowchart LR
 
 その中でも、
 
-- 話者分離は `pyannote` OSS
+- 話者分離は `pyannote` precision-2
 - 話者同定は `SpeechBrain ECAPA-TDNN`
 - 文字起こしは `gpt-4o-transcribe`
 - 時刻は diarization の区間時刻

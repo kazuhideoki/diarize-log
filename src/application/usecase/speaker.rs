@@ -1,4 +1,7 @@
-use crate::application::ports::{AudioClipper, AudioClipperError, SpeakerStore, SpeakerStoreError};
+use crate::application::ports::{
+    AudioClipper, AudioClipperError, SpeakerEmbedder, SpeakerEmbedderError, SpeakerStore,
+    SpeakerStoreError,
+};
 use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -20,6 +23,7 @@ pub enum SpeakerCommand {
 #[derive(Debug)]
 pub enum SpeakerUseCaseError {
     Clip(AudioClipperError),
+    Embed(SpeakerEmbedderError),
     Store(SpeakerStoreError),
 }
 
@@ -27,6 +31,7 @@ impl fmt::Display for SpeakerUseCaseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Clip(error) => write!(f, "speaker sample clipping failed: {error}"),
+            Self::Embed(error) => write!(f, "speaker embedding failed: {error}"),
             Self::Store(error) => write!(f, "speaker sample persistence failed: {error}"),
         }
     }
@@ -41,14 +46,16 @@ pub enum SpeakerCommandResult {
 }
 
 /// 話者サンプル管理ユースケースを実行します。
-pub fn run_speaker_command<C, S>(
+pub fn run_speaker_command<C, E, S>(
     command: &SpeakerCommand,
     sample_duration: Duration,
     clipper: &C,
+    embedder: &E,
     speaker_store: &mut S,
 ) -> Result<SpeakerCommandResult, SpeakerUseCaseError>
 where
     C: AudioClipper,
+    E: SpeakerEmbedder,
     S: SpeakerStore,
 {
     match command {
@@ -64,8 +71,14 @@ where
                     sample_duration,
                 )
                 .map_err(SpeakerUseCaseError::Clip)?;
+            let embedding = embedder
+                .embed_speaker(speaker_name, &clipped_audio)
+                .map_err(SpeakerUseCaseError::Embed)?;
             speaker_store
                 .create_sample(speaker_name, &clipped_audio)
+                .map_err(SpeakerUseCaseError::Store)?;
+            speaker_store
+                .create_embedding(speaker_name, &embedding)
                 .map_err(SpeakerUseCaseError::Store)?;
             Ok(SpeakerCommandResult::Updated)
         }
@@ -83,12 +96,28 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{KnownSpeakerSample, RecordedAudio};
+    use crate::domain::{KnownSpeakerEmbedding, KnownSpeakerSample, RecordedAudio};
     use std::cell::RefCell;
 
     struct FakeAudioClipper {
         observed_requests: RefCell<Vec<(PathBuf, Duration, Duration)>>,
         clipped_audio: RecordedAudio,
+    }
+
+    struct FakeSpeakerEmbedder;
+
+    impl SpeakerEmbedder for FakeSpeakerEmbedder {
+        fn embed_speaker(
+            &self,
+            speaker_name: &str,
+            _audio: &RecordedAudio,
+        ) -> Result<KnownSpeakerEmbedding, SpeakerEmbedderError> {
+            Ok(KnownSpeakerEmbedding {
+                speaker_name: speaker_name.to_string(),
+                model: "fake-ecapa".to_string(),
+                vector: vec![0.1, 0.2],
+            })
+        }
     }
 
     impl AudioClipper for FakeAudioClipper {
@@ -110,6 +139,7 @@ mod tests {
     #[derive(Default)]
     struct FakeSpeakerStore {
         created_samples: RefCell<Vec<(String, RecordedAudio)>>,
+        created_embeddings: RefCell<Vec<(String, KnownSpeakerEmbedding)>>,
         listed_speakers: RefCell<Vec<String>>,
         removed_speakers: RefCell<Vec<String>>,
     }
@@ -123,6 +153,17 @@ mod tests {
             self.created_samples
                 .borrow_mut()
                 .push((speaker_name.to_string(), audio.clone()));
+            Ok(())
+        }
+
+        fn create_embedding(
+            &mut self,
+            speaker_name: &str,
+            embedding: &KnownSpeakerEmbedding,
+        ) -> Result<(), SpeakerStoreError> {
+            self.created_embeddings
+                .borrow_mut()
+                .push((speaker_name.to_string(), embedding.clone()));
             Ok(())
         }
 
@@ -141,6 +182,17 @@ mod tests {
             Ok(KnownSpeakerSample {
                 speaker_name: speaker_name.to_string(),
                 audio: sample_audio(),
+            })
+        }
+
+        fn read_embedding(
+            &self,
+            speaker_name: &str,
+        ) -> Result<KnownSpeakerEmbedding, SpeakerStoreError> {
+            Ok(KnownSpeakerEmbedding {
+                speaker_name: speaker_name.to_string(),
+                model: "fake-ecapa".to_string(),
+                vector: vec![0.1, 0.2],
             })
         }
     }
@@ -170,6 +222,7 @@ mod tests {
             &command,
             Duration::from_secs(6),
             &clipper,
+            &FakeSpeakerEmbedder,
             &mut speaker_store,
         )
         .unwrap();
@@ -186,6 +239,7 @@ mod tests {
             *speaker_store.created_samples.borrow(),
             vec![("suzuki".to_string(), sample_audio())]
         );
+        assert_eq!(speaker_store.created_embeddings.borrow().len(), 1);
     }
 
     #[test]
@@ -204,6 +258,7 @@ mod tests {
             &command,
             Duration::from_secs(6),
             &clipper,
+            &FakeSpeakerEmbedder,
             &mut speaker_store,
         )
         .unwrap();
@@ -224,6 +279,7 @@ mod tests {
         };
         let mut speaker_store = FakeSpeakerStore {
             created_samples: RefCell::new(Vec::new()),
+            created_embeddings: RefCell::new(Vec::new()),
             listed_speakers: RefCell::new(vec!["sato".to_string(), "suzuki".to_string()]),
             removed_speakers: RefCell::new(Vec::new()),
         };
@@ -232,6 +288,7 @@ mod tests {
             &SpeakerCommand::List,
             Duration::from_secs(6),
             &clipper,
+            &FakeSpeakerEmbedder,
             &mut speaker_store,
         )
         .unwrap();

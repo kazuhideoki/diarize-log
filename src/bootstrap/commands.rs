@@ -1,15 +1,17 @@
 use super::signal::SignalInterruptState;
 use diarize_log::adapters::{
     CpalRecorder, FileSystemCaptureStore, FileSystemMergedTranscriptStore, FileSystemSpeakerStore,
-    HoundAudioClipper, OpenAiTranscriber, ScreenCaptureKitApplicationRecorder,
+    HoundAudioClipper, OpenAiTranscriber, PythonSpeakerEmbedder,
+    ScreenCaptureKitApplicationRecorder, SeparatedTranscriber,
 };
-use diarize_log::config::Config;
+use diarize_log::config::{Config, TranscriptionPipeline};
 use diarize_log::{
     AudioSource, CaptureConfig, CaptureRunResult, ChunkingStrategy, DebugOutputError,
-    KnownSpeakerSample, LineLogger, LogSource, MixedCaptureRunResult, MixedCaptureSessionMetadata,
-    MixedCaptureSourceSettings, Recorder, ResponseFormat, SpeakerCommand, SpeakerCommandResult,
-    SpeakerLabel, SpeakerStore, TranscriptSource, run_capture_with_interrupt_monitor,
-    run_mixed_capture, run_speaker_command, write_debug_transcript,
+    KnownSpeakerEmbedding, KnownSpeakerSample, LineLogger, LogSource, MixedCaptureRunResult,
+    MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
+    SpeakerCommand, SpeakerCommandResult, SpeakerLabel, SpeakerStore, Transcriber,
+    TranscriptSource, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
+    write_debug_transcript,
 };
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -64,12 +66,14 @@ pub(super) fn run_capture_action(
 
 pub(super) fn run_speaker_action(runtime_config: &Config, command: SpeakerCommand) -> ExitCode {
     let clipper = HoundAudioClipper;
+    let embedder = PythonSpeakerEmbedder::default();
     let mut speaker_store = FileSystemSpeakerStore::new(&runtime_config.storage_root);
 
     match run_speaker_command(
         &command,
         runtime_config.speaker_sample_duration,
         &clipper,
+        &embedder,
         &mut speaker_store,
     ) {
         Ok(result) => {
@@ -114,19 +118,20 @@ where
     R: Recorder,
 {
     let config = capture_config_from_runtime_config(runtime_config);
-    let mut transcriber = match OpenAiTranscriber::new(
-        runtime_config.openai_api_key.clone(),
-        source_logger.with_component("transcriber"),
-    ) {
-        Ok(transcriber) => transcriber,
+    let mut stdout = io::stdout();
+    let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
+        Ok(store) => store,
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::FAILURE;
         }
     };
-    let mut stdout = io::stdout();
-    let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
-        Ok(store) => store,
+    let mut transcriber = match build_transcriber(
+        runtime_config,
+        speaker_sample_names,
+        source_logger.with_component("transcriber"),
+    ) {
+        Ok(transcriber) => transcriber,
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::FAILURE;
@@ -149,7 +154,7 @@ where
         &speaker_label,
         &source_logger.with_component("capture"),
         &mut recorder,
-        &mut transcriber,
+        transcriber.as_mut(),
         &mut capture_store,
         interrupt_monitor,
     ) {
@@ -366,8 +371,12 @@ where
     S: diarize_log::CaptureStore,
 {
     let config = capture_config_from_runtime_config(runtime_config);
-    let mut transcriber = OpenAiTranscriber::new(
-        runtime_config.openai_api_key.clone(),
+    let mut transcriber = build_transcriber(
+        runtime_config,
+        &speaker_samples
+            .iter()
+            .map(|sample| sample.speaker_name.clone())
+            .collect::<Vec<_>>(),
         source_logger.with_component("transcriber"),
     )
     .map_err(|error| error.to_string())?;
@@ -378,11 +387,57 @@ where
         speaker_label,
         &source_logger.with_component("capture"),
         recorder,
-        &mut transcriber,
+        transcriber.as_mut(),
         capture_store,
         interrupt_monitor,
     )
     .map_err(|error| error.to_string())
+}
+
+fn build_transcriber(
+    runtime_config: &Config,
+    speaker_sample_names: &[String],
+    logger: LineLogger,
+) -> Result<Box<dyn Transcriber>, String> {
+    match runtime_config.transcription_pipeline {
+        TranscriptionPipeline::Legacy => {
+            OpenAiTranscriber::new(runtime_config.openai_api_key.clone(), logger)
+                .map(|transcriber| Box::new(transcriber) as Box<dyn Transcriber>)
+                .map_err(|error| error.to_string())
+        }
+        TranscriptionPipeline::Separated => {
+            let pyannote_api_key = runtime_config
+                .pyannote_api_key
+                .clone()
+                .ok_or_else(|| "PYANNOTE_API_KEY is required for separated pipeline".to_string())?;
+            let speaker_store = FileSystemSpeakerStore::new(&runtime_config.storage_root);
+            let known_embeddings =
+                load_known_speaker_embeddings(&speaker_store, speaker_sample_names)
+                    .map_err(|error| error.to_string())?;
+            SeparatedTranscriber::new(
+                runtime_config.openai_api_key.clone(),
+                pyannote_api_key,
+                runtime_config.pyannote_max_speakers,
+                known_embeddings,
+                logger,
+            )
+            .map(|transcriber| Box::new(transcriber) as Box<dyn Transcriber>)
+            .map_err(|error| error.to_string())
+        }
+    }
+}
+
+fn load_known_speaker_embeddings<S>(
+    speaker_store: &S,
+    speaker_names: &[String],
+) -> Result<Vec<KnownSpeakerEmbedding>, diarize_log::SpeakerStoreError>
+where
+    S: SpeakerStore,
+{
+    speaker_names
+        .iter()
+        .map(|speaker_name| speaker_store.read_embedding(speaker_name))
+        .collect()
 }
 
 fn capture_config_from_runtime_config(runtime_config: &Config) -> CaptureConfig {
@@ -468,8 +523,9 @@ mod tests {
     use diarize_log::config::ConfigSource;
     use diarize_log::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
     use diarize_log::{
-        CaptureTranscriptionFailure, DiarizedTranscript, MergedTranscriptSegment, RecordedAudio,
-        SourcedTranscriptSegment, TranscriptSegment, TranscriptionLanguage,
+        CaptureTranscriptionFailure, DiarizedTranscript, KnownSpeakerEmbedding,
+        MergedTranscriptSegment, RecordedAudio, SourcedTranscriptSegment, TranscriptSegment,
+        TranscriptionLanguage,
     };
     use diarize_log::{MixedCaptureSourceOutcome, MixedCaptureSourceStatus};
     use std::cell::RefCell;
@@ -492,6 +548,14 @@ mod tests {
             _audio: &RecordedAudio,
         ) -> Result<(), diarize_log::SpeakerStoreError> {
             unimplemented!("speaker sample creation is not used in these tests")
+        }
+
+        fn create_embedding(
+            &mut self,
+            _speaker_name: &str,
+            _embedding: &KnownSpeakerEmbedding,
+        ) -> Result<(), diarize_log::SpeakerStoreError> {
+            unimplemented!("speaker embedding creation is not used in these tests")
         }
 
         fn remove_sample(
@@ -521,6 +585,17 @@ mod tests {
                 .ok_or_else(|| diarize_log::SpeakerStoreError::SpeakerNotFound {
                     speaker_name: speaker_name.to_string(),
                 })
+        }
+
+        fn read_embedding(
+            &self,
+            speaker_name: &str,
+        ) -> Result<KnownSpeakerEmbedding, diarize_log::SpeakerStoreError> {
+            Ok(KnownSpeakerEmbedding {
+                speaker_name: speaker_name.to_string(),
+                model: "fake-ecapa".to_string(),
+                vector: vec![0.1, 0.2],
+            })
         }
     }
 
@@ -566,6 +641,7 @@ mod tests {
         Config {
             openai_api_key: "test-api-key".to_string(),
             openai_api_key_source: ConfigSource::Environment,
+            pyannote_api_key: None,
             recording_duration: Duration::from_secs(90),
             capture_duration: Duration::from_secs(30),
             capture_overlap: Duration::from_secs(5),
@@ -576,6 +652,8 @@ mod tests {
             },
             speaker_sample_duration: Duration::from_secs(7),
             transcription_language: TranscriptionLanguage::Fixed("ja".to_string()),
+            transcription_pipeline: TranscriptionPipeline::Legacy,
+            pyannote_max_speakers: None,
             transcript_merge_policy: TranscriptMergePolicy {
                 min_overlap_chars: 12,
                 min_alignment_ratio: 0.82,

@@ -23,6 +23,20 @@ impl RawConfig {
                 None
             }
         };
+        let pyannote_api_key = match self.pyannote_api_key {
+            Some(value) => {
+                if value.value.trim().is_empty() {
+                    errors.push(ConfigValidationError::EmptyValue {
+                        name: PYANNOTE_API_KEY_ENV_VAR,
+                        source: value.source,
+                    });
+                    None
+                } else {
+                    Some(value.value)
+                }
+            }
+            None => None,
+        };
 
         let recording_duration = match self.recording_duration_seconds {
             Some(value) => {
@@ -169,6 +183,28 @@ impl RawConfig {
                 DEFAULT_TRANSCRIPTION_LANGUAGE.to_string(),
             )),
         };
+        let transcription_pipeline = match self.transcription_pipeline {
+            Some(value) => {
+                match parse_transcription_pipeline(value, TRANSCRIPTION_PIPELINE_ENV_VAR) {
+                    Ok(pipeline) => Some(pipeline),
+                    Err(error) => {
+                        errors.push(error);
+                        None
+                    }
+                }
+            }
+            None => Some(TranscriptionPipeline::Legacy),
+        };
+        let pyannote_max_speakers = match self.pyannote_max_speakers {
+            Some(value) => match parse_positive_integer(value, PYANNOTE_MAX_SPEAKERS_ENV_VAR) {
+                Ok(max_speakers) => Some(Some(max_speakers)),
+                Err(error) => {
+                    errors.push(error);
+                    None
+                }
+            },
+            None => Some(None),
+        };
 
         let storage_root = match self.storage_root {
             Some(value) => match parse_absolute_path(value, STORAGE_ROOT_ENV_VAR) {
@@ -300,6 +336,23 @@ impl RawConfig {
             Some(value) => value,
             None => unreachable!("validated missing transcription language"),
         };
+        let transcription_pipeline = match transcription_pipeline {
+            Some(value) => value,
+            None => unreachable!("validated missing transcription pipeline"),
+        };
+        if transcription_pipeline == TranscriptionPipeline::Separated && pyannote_api_key.is_none()
+        {
+            return Err(ConfigError::InvalidConfig(vec![
+                ConfigValidationError::MissingPyannoteApiKey {
+                    pipeline_name: TRANSCRIPTION_PIPELINE_ENV_VAR,
+                    api_key_name: PYANNOTE_API_KEY_ENV_VAR,
+                },
+            ]));
+        }
+        let pyannote_max_speakers = match pyannote_max_speakers {
+            Some(value) => value,
+            None => unreachable!("validated missing pyannote max speakers"),
+        };
         let merge_min_overlap_chars = match merge_min_overlap_chars {
             Some(value) => value,
             None => unreachable!("validated missing merge min overlap chars"),
@@ -320,6 +373,7 @@ impl RawConfig {
         Ok(Config {
             openai_api_key: openai_api_key.value,
             openai_api_key_source: openai_api_key.source,
+            pyannote_api_key,
             recording_duration,
             capture_duration,
             capture_overlap,
@@ -330,6 +384,8 @@ impl RawConfig {
             },
             speaker_sample_duration,
             transcription_language,
+            transcription_pipeline,
+            pyannote_max_speakers,
             transcript_merge_policy: TranscriptMergePolicy {
                 min_overlap_chars: merge_min_overlap_chars,
                 min_alignment_ratio: merge_alignment_ratio,
@@ -448,6 +504,29 @@ fn parse_transcription_language(
                 source: value.source,
             },
         ),
+    }
+}
+
+fn parse_transcription_pipeline(
+    value: ConfigValue<String>,
+    name: &'static str,
+) -> Result<TranscriptionPipeline, ConfigValidationError> {
+    let trimmed = value.value.trim();
+    if trimmed.is_empty() {
+        return Err(ConfigValidationError::EmptyValue {
+            name,
+            source: value.source,
+        });
+    }
+
+    match trimmed {
+        "legacy" => Ok(TranscriptionPipeline::Legacy),
+        "separated" => Ok(TranscriptionPipeline::Separated),
+        _ => Err(ConfigValidationError::InvalidTranscriptionPipelineValue {
+            name,
+            value: value.value,
+            source: value.source,
+        }),
     }
 }
 

@@ -2,8 +2,10 @@ mod commands;
 mod signal;
 
 use diarize_log::SpeakerCommand;
-use diarize_log::config::{Config, DEFAULT_DOTENV_PATH};
-use diarize_log::{CliAction, LineLogger, LogSource, SpeakerCliCommand, parse_cli_args};
+use diarize_log::config::{Config, DEFAULT_DOTENV_PATH, TranscriptionPipeline};
+use diarize_log::{
+    CliAction, CliTranscriptionPipeline, LineLogger, LogSource, SpeakerCliCommand, parse_cli_args,
+};
 use std::ffi::OsString;
 use std::path::Path;
 use std::process::ExitCode;
@@ -29,7 +31,7 @@ where
         return ExitCode::SUCCESS;
     }
 
-    let runtime_config = match Config::from_dotenv_path(Path::new(DEFAULT_DOTENV_PATH)) {
+    let mut runtime_config = match Config::from_dotenv_path(Path::new(DEFAULT_DOTENV_PATH)) {
         Ok(config) => config,
         Err(error) => {
             eprintln!("{error}");
@@ -42,7 +44,22 @@ where
         CliAction::Run {
             speaker_samples,
             audio_source,
+            transcription_pipeline,
+            pyannote_max_speakers,
         } => {
+            apply_run_overrides(
+                &mut runtime_config,
+                transcription_pipeline,
+                pyannote_max_speakers,
+            );
+            if runtime_config.transcription_pipeline == TranscriptionPipeline::Separated
+                && runtime_config.pyannote_api_key.is_none()
+            {
+                eprintln!(
+                    "PYANNOTE_API_KEY is required when DIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated or --transcription-pipeline separated"
+                );
+                return ExitCode::FAILURE;
+            }
             let system_logger = root_logger
                 .with_source(LogSource::System)
                 .with_component("signal");
@@ -65,6 +82,22 @@ where
             commands::run_speaker_action(&runtime_config, map_speaker_command(command))
         }
         CliAction::PrintOutput(_) => unreachable!("print output is handled before config load"),
+    }
+}
+
+fn apply_run_overrides(
+    config: &mut Config,
+    transcription_pipeline: Option<CliTranscriptionPipeline>,
+    pyannote_max_speakers: Option<u64>,
+) {
+    if let Some(transcription_pipeline) = transcription_pipeline {
+        config.transcription_pipeline = match transcription_pipeline {
+            CliTranscriptionPipeline::Legacy => TranscriptionPipeline::Legacy,
+            CliTranscriptionPipeline::Separated => TranscriptionPipeline::Separated,
+        };
+    }
+    if let Some(pyannote_max_speakers) = pyannote_max_speakers {
+        config.pyannote_max_speakers = Some(pyannote_max_speakers);
     }
 }
 

@@ -3,8 +3,8 @@ use crate::application::ports::{
     MixedCaptureStore, SpeakerStore, SpeakerStoreError,
 };
 use crate::domain::{
-    DiarizedTranscript, KnownSpeakerSample, MergeAuditEntry, MergedTranscriptSegment,
-    RecordedAudio, SourcedTranscriptSegment, TranscriptSource,
+    DiarizedTranscript, KnownSpeakerEmbedding, KnownSpeakerSample, MergeAuditEntry,
+    MergedTranscriptSegment, RecordedAudio, SourcedTranscriptSegment, TranscriptSource,
 };
 use serde::Serialize;
 use std::fs::{File, OpenOptions, create_dir_all, remove_file};
@@ -207,6 +207,13 @@ impl FileSystemSpeakerStore {
         validate_speaker_name(speaker_name)?;
         Ok(self.speakers_dir.join(format!("{speaker_name}.wav")))
     }
+
+    fn embedding_path(&self, speaker_name: &str) -> Result<PathBuf, SpeakerStoreError> {
+        validate_speaker_name(speaker_name)?;
+        Ok(self
+            .speakers_dir
+            .join(format!("{speaker_name}.embedding.json")))
+    }
 }
 
 impl CaptureStore for FileSystemCaptureStore {
@@ -338,6 +345,26 @@ impl SpeakerStore for FileSystemSpeakerStore {
         Ok(())
     }
 
+    fn create_embedding(
+        &mut self,
+        speaker_name: &str,
+        embedding: &KnownSpeakerEmbedding,
+    ) -> Result<(), SpeakerStoreError> {
+        create_dir_all(&self.speakers_dir)
+            .map_err(|error| SpeakerStoreError::CreateDirectory(error.to_string()))?;
+
+        let embedding_path = self.embedding_path(speaker_name)?;
+        let mut embedding_file = File::create(embedding_path)
+            .map_err(|error| SpeakerStoreError::WriteEmbedding(error.to_string()))?;
+        serde_json::to_writer_pretty(&mut embedding_file, embedding)
+            .map_err(|error| SpeakerStoreError::WriteEmbedding(error.to_string()))?;
+        embedding_file
+            .write_all(b"\n")
+            .map_err(|error| SpeakerStoreError::WriteEmbedding(error.to_string()))?;
+
+        Ok(())
+    }
+
     fn remove_sample(&mut self, speaker_name: &str) -> Result<(), SpeakerStoreError> {
         let sample_path = self.sample_path(speaker_name)?;
         if !sample_path.exists() {
@@ -346,7 +373,15 @@ impl SpeakerStore for FileSystemSpeakerStore {
             });
         }
 
-        remove_file(sample_path).map_err(|error| SpeakerStoreError::DeleteSample(error.to_string()))
+        remove_file(sample_path)
+            .map_err(|error| SpeakerStoreError::DeleteSample(error.to_string()))?;
+        let embedding_path = self.embedding_path(speaker_name)?;
+        if embedding_path.exists() {
+            remove_file(embedding_path)
+                .map_err(|error| SpeakerStoreError::DeleteSample(error.to_string()))?;
+        }
+
+        Ok(())
     }
 
     fn list_samples(&self) -> Result<Vec<String>, SpeakerStoreError> {
@@ -399,6 +434,23 @@ impl SpeakerStore for FileSystemSpeakerStore {
                 content_type: "audio/wav",
             },
         })
+    }
+
+    fn read_embedding(
+        &self,
+        speaker_name: &str,
+    ) -> Result<KnownSpeakerEmbedding, SpeakerStoreError> {
+        let embedding_path = self.embedding_path(speaker_name)?;
+        if !embedding_path.exists() {
+            return Err(SpeakerStoreError::SpeakerNotFound {
+                speaker_name: speaker_name.to_string(),
+            });
+        }
+
+        let body = std::fs::read_to_string(embedding_path)
+            .map_err(|error| SpeakerStoreError::ReadEmbedding(error.to_string()))?;
+        serde_json::from_str(&body)
+            .map_err(|error| SpeakerStoreError::ReadEmbedding(error.to_string()))
     }
 }
 

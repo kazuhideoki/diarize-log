@@ -12,6 +12,9 @@
 | `capture_boundary` | 1 capture をどこで確定するかを表す境界。 | `silence` / `max_duration` / `interrupted` のように確定理由を伴う。 |
 | `silence_request_policy` | 無音を使って request 境界を作るための業務ルール。 | 無音閾値、必要無音長、tail 側での短縮ルールを含む。 |
 | `speaker sample` | 既知話者として文字起こし API に添付する参照音声。 | speaker そのものの別名ではない。話者識別のための音声サンプルを指す。 |
+| `speaker embedding` | 既知話者サンプルまたは発話区間から抽出した話者特徴ベクトル。 | 音声ファイルそのものではない。話者同定の比較入力を指す。 |
+| `diarization_segment` | 話者分離 API が返す匿名話者の発話区間。 | 最終 transcript の `transcript_segment` とは分ける。本文 text は持たない。 |
+| `speech_turn` | ASR に送るために `diarization_segment` を結合・padding した処理単位。 | 最終出力単位ではなく、ASR リクエストの入力単位。 |
 | `diarized_transcript` | 話者分離済みの文字起こし結果全体。 | text 全体と segment 列を含む。 |
 | `transcript_segment` | `diarized_transcript` の中にある、話者単位の発話区間。 | `segment` はまずこの意味で使う。 |
 | `merged_transcript_segment` | 複数 capture を突き合わせたあとに残る、絶対時刻ベースの segment。 | merge 後の最終出力側の segment を指す。 |
@@ -21,6 +24,8 @@
 ## Notes
 
 - `segment` は発話区間の意味に限定する。
+- diarization の匿名区間は `diarization_segment`、最終 transcript の区間は `transcript_segment` と呼び分ける。
+- ASR 用の結合済み区間は `speech_turn` と呼び、保存される transcript segment と混同しない。
 - `capture` は録音から切り出した処理単位を指し、文字起こし結果そのものを指さない。
 - `capture_boundary` は capture を確定する理由つきの境界であり、単なる時間区間ではない。
 - `overlap_range` は capture 間の共有時間帯を指し、発話単位ではない。

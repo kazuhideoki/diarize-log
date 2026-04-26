@@ -27,7 +27,7 @@ pub(super) fn run_capture_with_clock<R, T, S, C>(
 ) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
-    T: Transcriber,
+    T: Transcriber + ?Sized,
     S: CaptureStore,
     C: Fn() -> u64,
 {

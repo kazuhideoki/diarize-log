@@ -6,6 +6,7 @@ impl RawConfig {
     pub(super) fn from_env() -> Self {
         Self {
             openai_api_key: read_env_var(OPENAI_API_KEY_ENV_VAR, ConfigSource::Environment),
+            pyannote_api_key: read_env_var(PYANNOTE_API_KEY_ENV_VAR, ConfigSource::Environment),
             recording_duration_seconds: read_env_var(
                 RECORDING_DURATION_SECONDS_ENV_VAR,
                 ConfigSource::Environment,
@@ -38,6 +39,14 @@ impl RawConfig {
                 TRANSCRIPTION_LANGUAGE_ENV_VAR,
                 ConfigSource::Environment,
             ),
+            transcription_pipeline: read_env_var(
+                TRANSCRIPTION_PIPELINE_ENV_VAR,
+                ConfigSource::Environment,
+            ),
+            pyannote_max_speakers: read_env_var(
+                PYANNOTE_MAX_SPEAKERS_ENV_VAR,
+                ConfigSource::Environment,
+            ),
             merge_min_overlap_chars: read_env_var(
                 MERGE_MIN_OVERLAP_CHARS_ENV_VAR,
                 ConfigSource::Environment,
@@ -65,6 +74,10 @@ impl RawConfig {
                     match key.as_str() {
                         OPENAI_API_KEY_ENV_VAR => {
                             raw.openai_api_key = Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        PYANNOTE_API_KEY_ENV_VAR => {
+                            raw.pyannote_api_key =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         RECORDING_DURATION_SECONDS_ENV_VAR => {
                             raw.recording_duration_seconds =
@@ -96,6 +109,14 @@ impl RawConfig {
                         }
                         TRANSCRIPTION_LANGUAGE_ENV_VAR => {
                             raw.transcription_language =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        TRANSCRIPTION_PIPELINE_ENV_VAR => {
+                            raw.transcription_pipeline =
+                                Some(ConfigValue::new(value, ConfigSource::DotEnv))
+                        }
+                        PYANNOTE_MAX_SPEAKERS_ENV_VAR => {
+                            raw.pyannote_max_speakers =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         MERGE_MIN_OVERLAP_CHARS_ENV_VAR => {
@@ -130,6 +151,7 @@ impl RawConfig {
     pub(super) fn merge_missing(self, fallback: Self) -> Self {
         Self {
             openai_api_key: self.openai_api_key.or(fallback.openai_api_key),
+            pyannote_api_key: self.pyannote_api_key.or(fallback.pyannote_api_key),
             recording_duration_seconds: self
                 .recording_duration_seconds
                 .or(fallback.recording_duration_seconds),
@@ -154,6 +176,12 @@ impl RawConfig {
             transcription_language: self
                 .transcription_language
                 .or(fallback.transcription_language),
+            transcription_pipeline: self
+                .transcription_pipeline
+                .or(fallback.transcription_pipeline),
+            pyannote_max_speakers: self
+                .pyannote_max_speakers
+                .or(fallback.pyannote_max_speakers),
             merge_min_overlap_chars: self
                 .merge_min_overlap_chars
                 .or(fallback.merge_min_overlap_chars),

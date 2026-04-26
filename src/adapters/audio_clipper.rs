@@ -126,9 +126,7 @@ fn resolve_sample_range<T>(
 }
 
 fn duration_to_frame_count(duration: Duration, sample_rate: u32) -> u64 {
-    duration
-        .as_secs()
-        .checked_mul(u64::from(sample_rate))
+    u64::try_from(duration.as_nanos().saturating_mul(u128::from(sample_rate)) / 1_000_000_000)
         .expect("frame count must fit into u64")
 }
 

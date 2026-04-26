@@ -128,7 +128,7 @@ pub fn run_capture<R, T, S>(
 ) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
-    T: Transcriber,
+    T: Transcriber + ?Sized,
     S: CaptureStore,
 {
     run_capture_with_interrupt_monitor(
@@ -161,7 +161,7 @@ pub fn run_capture_with_interrupt_monitor<R, T, S>(
 ) -> Result<CaptureRunResult, CaptureError>
 where
     R: Recorder,
-    T: Transcriber,
+    T: Transcriber + ?Sized,
     S: CaptureStore,
 {
     run::run_capture_with_clock(

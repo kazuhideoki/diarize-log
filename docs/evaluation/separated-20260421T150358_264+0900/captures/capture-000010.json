@@ -1,0 +1,138 @@
+{
+  "capture_start_ms": 1302624,
+  "text": "隅々から。 えっと 動画遊びっていうな。 エンドポイント一つを指定します。 うん。 プロキシのエンドポイントです。 今回の切り替えサーバの切り替えのイメージって基本的には一緒ですか? パルサープラスのOCPP接続先をこれにして うん 設定に応じて時間帯で。 高橋さんのOCPPプロキシプロドの本番環境、オーナーが既にフルされてて。 あれ? なので、探せば見れそうな感じがしますね。 ファイアベースからもすべて表示って。 そしたらファイアベースよりGCPからファイアストア見たほうが プロジェクトの抜粋。 それで見つかるんじゃないかな。 ありがとうございました。 たぶん前に設定したことありますよね。 そうですか。 Firestoreで直接データを入れる。 うめちゃん。",
+  "segments": [
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 435,
+      "end_ms": 1595,
+      "text": "隅々から。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 1675,
+      "end_ms": 2335,
+      "text": "えっと"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 2035,
+      "end_ms": 3235,
+      "text": "動画遊びっていうな。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 4015,
+      "end_ms": 7855,
+      "text": "エンドポイント一つを指定します。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 7735,
+      "end_ms": 8415,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 8335,
+      "end_ms": 17295,
+      "text": "プロキシのエンドポイントです。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 16995,
+      "end_ms": 25915,
+      "text": "今回の切り替えサーバの切り替えのイメージって基本的には一緒ですか?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 26695,
+      "end_ms": 57155,
+      "text": "パルサープラスのOCPP接続先をこれにして"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 56915,
+      "end_ms": 57635,
+      "text": "うん"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 57335,
+      "end_ms": 66455,
+      "text": "設定に応じて時間帯で。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 68115,
+      "end_ms": 74895,
+      "text": "高橋さんのOCPPプロキシプロドの本番環境、オーナーが既にフルされてて。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 75175,
+      "end_ms": 75855,
+      "text": "あれ?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 75715,
+      "end_ms": 79475,
+      "text": "なので、探せば見れそうな感じがしますね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 80295,
+      "end_ms": 91695,
+      "text": "ファイアベースからもすべて表示って。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 92415,
+      "end_ms": 107115,
+      "text": "そしたらファイアベースよりGCPからファイアストア見たほうが"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 106935,
+      "end_ms": 112215,
+      "text": "プロジェクトの抜粋。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 112055,
+      "end_ms": 114695,
+      "text": "それで見つかるんじゃないかな。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 114395,
+      "end_ms": 115955,
+      "text": "ありがとうございました。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 115655,
+      "end_ms": 119435,
+      "text": "たぶん前に設定したことありますよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 125515,
+      "end_ms": 128895,
+      "text": "そうですか。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 131815,
+      "end_ms": 141435,
+      "text": "Firestoreで直接データを入れる。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 141135,
+      "end_ms": 141935,
+      "text": "うめちゃん。"
+    }
+  ]
+}

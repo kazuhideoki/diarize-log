@@ -1,0 +1,144 @@
+{
+  "capture_start_ms": 723914,
+  "text": "無印では実際の充電時間も取れないんですよね。 うん。 その辺がカバーしていれば、無印一本もなくはなかったかな。 当時の背景を何も知らない私としては、急なリクエストに応えるためやむを得なく切り替えサーバーを使って両方使っているのかなって思っていて。 儀式は、 そうじゃなくて意図的に無印と外装日それぞれで使いたいっていうリクエストなんですかね? 無印一本でもいけます。 うん。 休み。 時間帯によってユーザーグループだけがその時間帯に使えるみたいな感じになるといいってことなんですかね。 うーん。 そのアマゾンが運営すると昼間は不特定多数の通信向けサービスになっているじゃないですか。 うん。 夜は、to B分脈での業務に使う車両の充電。 うん。 今回の件も似たような感じ。 うん。 その前者はtoC向けでして、後者はtoB向けでどんどん進化させているんですが、なので用途が違うんですよね。 そうですね。 そうですね、対象のユーザーがそういう属性であったほうが うん。 いいんだろうなっていう感じはしてます。 そうです。",
+  "segments": [
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 0,
+      "end_ms": 18715,
+      "text": "無印では実際の充電時間も取れないんですよね。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 18875,
+      "end_ms": 19675,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 19695,
+      "end_ms": 27115,
+      "text": "その辺がカバーしていれば、無印一本もなくはなかったかな。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 26815,
+      "end_ms": 43155,
+      "text": "当時の背景を何も知らない私としては、急なリクエストに応えるためやむを得なく切り替えサーバーを使って両方使っているのかなって思っていて。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 43455,
+      "end_ms": 44075,
+      "text": "儀式は、"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 44375,
+      "end_ms": 61415,
+      "text": "そうじゃなくて意図的に無印と外装日それぞれで使いたいっていうリクエストなんですかね?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 62355,
+      "end_ms": 79935,
+      "text": "無印一本でもいけます。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 79935,
+      "end_ms": 80715,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 80415,
+      "end_ms": 81075,
+      "text": "休み。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 81035,
+      "end_ms": 94515,
+      "text": "時間帯によってユーザーグループだけがその時間帯に使えるみたいな感じになるといいってことなんですかね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 96495,
+      "end_ms": 97575,
+      "text": "うーん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 97715,
+      "end_ms": 105075,
+      "text": "そのアマゾンが運営すると昼間は不特定多数の通信向けサービスになっているじゃないですか。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 104835,
+      "end_ms": 105555,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 106055,
+      "end_ms": 113015,
+      "text": "夜は、to B分脈での業務に使う車両の充電。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 113175,
+      "end_ms": 114775,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 115375,
+      "end_ms": 121855,
+      "text": "今回の件も似たような感じ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 121555,
+      "end_ms": 122275,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 122215,
+      "end_ms": 130275,
+      "text": "その前者はtoC向けでして、後者はtoB向けでどんどん進化させているんですが、なので用途が違うんですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 129975,
+      "end_ms": 131075,
+      "text": "そうですね。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 131095,
+      "end_ms": 136355,
+      "text": "そうですね、対象のユーザーがそういう属性であったほうが"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 136075,
+      "end_ms": 136715,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 136475,
+      "end_ms": 140015,
+      "text": "いいんだろうなっていう感じはしてます。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 139955,
+      "end_ms": 142455,
+      "text": "そうです。"
+    }
+  ]
+}

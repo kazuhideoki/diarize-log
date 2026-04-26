@@ -1,0 +1,222 @@
+{
+  "capture_start_ms": 291893,
+  "text": "一応懸念を言うとすれば、 そして 当時かかった人がいなくなるんです。 はい。 もちろんかなりシンプルなもので、コードすらも線もない。 んー。 感じだったかな。 うん。 自身で立ってるシンプルなやつ、Let's Encryptとかだったかな証明書は。 はい。 エンジニアが読んで、 そこから。 そこで触ったりしながらやれば。 はい。 メンテナンスも最初は時間多少かかってもできなくはないかなとは思ってます。 ヨルスタンドコンソールの中にプロキシっていうディレクトリがあって、その中にあるんでしたっけ。 OCPPプロキシっていうのがリアスタンドコントローラ内にあるんですよ。 誤り。 そうですね、500行ぐらいしかないですね。 デプロイの方法ってタグデプロイですか? スクリプトがある。 おお、そうなん。 push to OCDBProxyDevとかProdみたいなのがあって、 地位。 GクラウドのCLIがあって。 そう。 GCP側で権限がある人なら、このスクリプトを打ったときにデプロイできる。 うん。 感じています。 エンドポイントはそのGCEが持っていて、 はい。 GCがFireStoreの設定を見て書き先を変えるみたいな形でした。 ポイントが入ってない。 ピアスタンドでドメインを管理してるプロジェクトは、DNSプロジェクトっていうんですけども。 おお、はいはい。 そこに",
+  "segments": [
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 55,
+      "end_ms": 7295,
+      "text": "一応懸念を言うとすれば、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 6995,
+      "end_ms": 7655,
+      "text": "そして"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 7375,
+      "end_ms": 10255,
+      "text": "当時かかった人がいなくなるんです。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 9955,
+      "end_ms": 10575,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 10455,
+      "end_ms": 15015,
+      "text": "もちろんかなりシンプルなもので、コードすらも線もない。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 14895,
+      "end_ms": 15735,
+      "text": "んー。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 15475,
+      "end_ms": 19535,
+      "text": "感じだったかな。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 19255,
+      "end_ms": 20275,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 19975,
+      "end_ms": 25555,
+      "text": "自身で立ってるシンプルなやつ、Let's Encryptとかだったかな証明書は。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 25255,
+      "end_ms": 25875,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 25575,
+      "end_ms": 32055,
+      "text": "エンジニアが読んで、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 31755,
+      "end_ms": 32595,
+      "text": "そこから。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 32295,
+      "end_ms": 34815,
+      "text": "そこで触ったりしながらやれば。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 34515,
+      "end_ms": 35115,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 35115,
+      "end_ms": 41655,
+      "text": "メンテナンスも最初は時間多少かかってもできなくはないかなとは思ってます。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 42235,
+      "end_ms": 48495,
+      "text": "ヨルスタンドコンソールの中にプロキシっていうディレクトリがあって、その中にあるんでしたっけ。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 48395,
+      "end_ms": 54075,
+      "text": "OCPPプロキシっていうのがリアスタンドコントローラ内にあるんですよ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 53955,
+      "end_ms": 54555,
+      "text": "誤り。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 60695,
+      "end_ms": 63155,
+      "text": "そうですね、500行ぐらいしかないですね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 62855,
+      "end_ms": 67155,
+      "text": "デプロイの方法ってタグデプロイですか?"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 67195,
+      "end_ms": 68875,
+      "text": "スクリプトがある。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 68575,
+      "end_ms": 69775,
+      "text": "おお、そうなん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 69475,
+      "end_ms": 77415,
+      "text": "push to OCDBProxyDevとかProdみたいなのがあって、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 77295,
+      "end_ms": 78175,
+      "text": "地位。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 77875,
+      "end_ms": 80295,
+      "text": "GクラウドのCLIがあって。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 79995,
+      "end_ms": 80675,
+      "text": "そう。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 80455,
+      "end_ms": 88575,
+      "text": "GCP側で権限がある人なら、このスクリプトを打ったときにデプロイできる。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 88535,
+      "end_ms": 89215,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 89195,
+      "end_ms": 90355,
+      "text": "感じています。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 93295,
+      "end_ms": 96875,
+      "text": "エンドポイントはそのGCEが持っていて、"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 96895,
+      "end_ms": 97615,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 98035,
+      "end_ms": 105735,
+      "text": "GCがFireStoreの設定を見て書き先を変えるみたいな形でした。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 105795,
+      "end_ms": 113955,
+      "text": "ポイントが入ってない。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 125475,
+      "end_ms": 136315,
+      "text": "ピアスタンドでドメインを管理してるプロジェクトは、DNSプロジェクトっていうんですけども。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 136015,
+      "end_ms": 138275,
+      "text": "おお、はいはい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 139215,
+      "end_ms": 140255,
+      "text": "そこに"
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "capture_start_ms": 1158496,
+  "text": "西洋社は毎日決まった時間にっていうイメージ。 無印一本でやろうとすると うん。 それぞれに特化したサービスなので。 私もそれが腑に落ちて、そもそもこの注射スペースは9時18時使えないもんだ。 実際は切り替えのときに1、2分時間が必要ですけど。 ふん。 なので、18時までも17時55分まで滞在してましたね。 はい、わかりました。 大きさが最終出社いいですっけ。 5月29 分かりました。 です。 何かあれば質問します。 はいました。 権限をもらわないとですね。 高良さんが設定します? けど 金魚増やすのはどうかじゃ? 本当ですか。 はい。 お願いします。 久留米市役所で。 不要。 切り替えのイメージが強くて ほほ。 高さを出るから切り替えてるやつ。 はい。 あのイメージ。",
+  "segments": [
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 0,
+      "end_ms": 16855,
+      "text": "西洋社は毎日決まった時間にっていうイメージ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 16755,
+      "end_ms": 25955,
+      "text": "無印一本でやろうとすると"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 25655,
+      "end_ms": 26275,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 28495,
+      "end_ms": 38195,
+      "text": "それぞれに特化したサービスなので。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 38795,
+      "end_ms": 50955,
+      "text": "私もそれが腑に落ちて、そもそもこの注射スペースは9時18時使えないもんだ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 52195,
+      "end_ms": 60955,
+      "text": "実際は切り替えのときに1、2分時間が必要ですけど。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 62835,
+      "end_ms": 63495,
+      "text": "ふん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 64335,
+      "end_ms": 79155,
+      "text": "なので、18時までも17時55分まで滞在してましたね。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 78875,
+      "end_ms": 80155,
+      "text": "はい、わかりました。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 79855,
+      "end_ms": 83935,
+      "text": "大きさが最終出社いいですっけ。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 84295,
+      "end_ms": 85655,
+      "text": "5月29"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 85535,
+      "end_ms": 86935,
+      "text": "分かりました。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 86635,
+      "end_ms": 87335,
+      "text": "です。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 88195,
+      "end_ms": 90995,
+      "text": "何かあれば質問します。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 91595,
+      "end_ms": 92335,
+      "text": "はいました。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 94175,
+      "end_ms": 97995,
+      "text": "権限をもらわないとですね。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 100655,
+      "end_ms": 102435,
+      "text": "高良さんが設定します?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 102555,
+      "end_ms": 103435,
+      "text": "けど"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 103135,
+      "end_ms": 104635,
+      "text": "金魚増やすのはどうかじゃ?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 104375,
+      "end_ms": 105615,
+      "text": "本当ですか。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 105375,
+      "end_ms": 106015,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 106095,
+      "end_ms": 107015,
+      "text": "お願いします。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 108075,
+      "end_ms": 117375,
+      "text": "久留米市役所で。"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start_ms": 117075,
+      "end_ms": 118235,
+      "text": "不要。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 120535,
+      "end_ms": 138175,
+      "text": "切り替えのイメージが強くて"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 137875,
+      "end_ms": 138595,
+      "text": "ほほ。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 138835,
+      "end_ms": 142895,
+      "text": "高さを出るから切り替えてるやつ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 142595,
+      "end_ms": 143195,
+      "text": "はい。"
+    },
+    {
+      "speaker": "hibiki_tsuboi",
+      "start_ms": 142895,
+      "end_ms": 144128,
+      "text": "あのイメージ。"
+    }
+  ]
+}

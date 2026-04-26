@@ -1,0 +1,270 @@
+{
+  "capture_start_ms": 146421,
+  "text": "切り替わらなかったとかバグが起きてなかったですよね。 へん。 2点近くやってそんな問題がないので、目的も達成してるので、私はまあ普通に使ってもなんか良さそうだなっていう感じ。 ガーデン。 その実績 うん。 的に。 そもそも山田テックランド。 はい どれだけ捕まえたんだって話です。 そうですね。 ただ問題は起きていないので。 ただ、例えばGCEでデプロイしてて、冗長性がないんですよね。 おお。 なんかバクッと落ちたら はい。 そのまま再起動するとも限らないですし、ただ2年間問題はなかった。 しかし。 別に何百台とか増えるわけじゃないですよね。 えー 数台ですよね。 そうですね。 であれば、多分そんな問題になかろうっていう感じはします。 ちなみにヤマダテックランド戸塚店ですけど うん。 一年半で50件ぐらい。 利用されたの。 そうですね。 ああ、 ゲストチャージング側です。 はいはいはい。 Amazon 電気屋で充電する人がそれぐらいってことか。 ははは 何かまたですよね。 一月あたりでも大したことないな。 そうですね。 あの人の方は。 運気も別に普通だったんですか? そんなに高いイメージはない。 はい。 私もどう出てよ。 はい、はい。 使ってますね。",
+  "segments": [
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 0,
+      "end_ms": 5035,
+      "text": "切り替わらなかったとかバグが起きてなかったですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 4735,
+      "end_ms": 5395,
+      "text": "へん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 5595,
+      "end_ms": 17755,
+      "text": "2点近くやってそんな問題がないので、目的も達成してるので、私はまあ普通に使ってもなんか良さそうだなっていう感じ。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 17455,
+      "end_ms": 18495,
+      "text": "ガーデン。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 18195,
+      "end_ms": 20335,
+      "text": "その実績"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 20075,
+      "end_ms": 20795,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 20715,
+      "end_ms": 21495,
+      "text": "的に。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 22535,
+      "end_ms": 29315,
+      "text": "そもそも山田テックランド。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 29215,
+      "end_ms": 29895,
+      "text": "はい"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 29675,
+      "end_ms": 32455,
+      "text": "どれだけ捕まえたんだって話です。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 32155,
+      "end_ms": 33735,
+      "text": "そうですね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 35935,
+      "end_ms": 38975,
+      "text": "ただ問題は起きていないので。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 40215,
+      "end_ms": 47935,
+      "text": "ただ、例えばGCEでデプロイしてて、冗長性がないんですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 48435,
+      "end_ms": 50115,
+      "text": "おお。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 49875,
+      "end_ms": 52915,
+      "text": "なんかバクッと落ちたら"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 52615,
+      "end_ms": 53275,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 53315,
+      "end_ms": 64115,
+      "text": "そのまま再起動するとも限らないですし、ただ2年間問題はなかった。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 63815,
+      "end_ms": 64455,
+      "text": "しかし。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 64155,
+      "end_ms": 67335,
+      "text": "別に何百台とか増えるわけじゃないですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 67035,
+      "end_ms": 67715,
+      "text": "えー"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 67615,
+      "end_ms": 68755,
+      "text": "数台ですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 68895,
+      "end_ms": 70815,
+      "text": "そうですね。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 71355,
+      "end_ms": 76695,
+      "text": "であれば、多分そんな問題になかろうっていう感じはします。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 76455,
+      "end_ms": 86315,
+      "text": "ちなみにヤマダテックランド戸塚店ですけど"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 86155,
+      "end_ms": 86755,
+      "text": "うん。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 86895,
+      "end_ms": 90355,
+      "text": "一年半で50件ぐらい。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 90875,
+      "end_ms": 92015,
+      "text": "利用されたの。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 91715,
+      "end_ms": 92475,
+      "text": "そうですね。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 92175,
+      "end_ms": 93715,
+      "text": "ああ、"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 93415,
+      "end_ms": 95015,
+      "text": "ゲストチャージング側です。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 94815,
+      "end_ms": 95995,
+      "text": "はいはいはい。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 95755,
+      "end_ms": 97455,
+      "text": "Amazon"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 97155,
+      "end_ms": 103255,
+      "text": "電気屋で充電する人がそれぐらいってことか。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 103015,
+      "end_ms": 104275,
+      "text": "ははは"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 104955,
+      "end_ms": 107035,
+      "text": "何かまたですよね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 106735,
+      "end_ms": 110275,
+      "text": "一月あたりでも大したことないな。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 109975,
+      "end_ms": 111115,
+      "text": "そうですね。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 111415,
+      "end_ms": 118655,
+      "text": "あの人の方は。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 119195,
+      "end_ms": 123035,
+      "text": "運気も別に普通だったんですか?"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 122935,
+      "end_ms": 125095,
+      "text": "そんなに高いイメージはない。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 124795,
+      "end_ms": 125675,
+      "text": "はい。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 125375,
+      "end_ms": 128795,
+      "text": "私もどう出てよ。"
+    },
+    {
+      "speaker": "kazuhide_oki",
+      "start_ms": 128495,
+      "end_ms": 130855,
+      "text": "はい、はい。"
+    },
+    {
+      "speaker": "kosuke_takahara",
+      "start_ms": 140095,
+      "end_ms": 145472,
+      "text": "使ってますね。"
+    }
+  ]
+}

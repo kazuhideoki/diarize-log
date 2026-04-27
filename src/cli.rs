@@ -12,6 +12,12 @@ pub enum CliAction {
         transcription_pipeline: Option<CliTranscriptionPipeline>,
         pyannote_max_speakers: Option<u64>,
     },
+    Doctor {
+        speaker_samples: Vec<String>,
+        audio_source: AudioSource,
+        transcription_pipeline: Option<CliTranscriptionPipeline>,
+        pyannote_max_speakers: Option<u64>,
+    },
     Speaker(SpeakerCliCommand),
     PrintOutput(String),
 }
@@ -156,6 +162,8 @@ struct CliArgs {
 
 #[derive(Debug, Subcommand)]
 enum CliSubcommandArgs {
+    /// 実行前提を簡易検査します。録音や外部 API の実リクエスト成功までは保証しません。
+    Doctor,
     /// 話者サンプルを管理します。
     Speaker(SpeakerSubcommandArgs),
 }
@@ -268,6 +276,12 @@ impl CliArgs {
 
         match self.command {
             None => Ok(CliAction::Run {
+                speaker_samples: self.speaker_samples,
+                audio_source,
+                transcription_pipeline: self.transcription_pipeline,
+                pyannote_max_speakers: self.pyannote_max_speakers,
+            }),
+            Some(CliSubcommandArgs::Doctor) => Ok(CliAction::Doctor {
                 speaker_samples: self.speaker_samples,
                 audio_source,
                 transcription_pipeline: self.transcription_pipeline,
@@ -476,6 +490,32 @@ mod tests {
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
                 pyannote_max_speakers: Some(4),
+            }
+        );
+    }
+
+    #[test]
+    /// `doctor` は通常実行と同じ環境指定を検査対象として受け取る。
+    fn parses_doctor_command_with_run_environment_options() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("-s"),
+            OsString::from("suzuki"),
+            OsString::from("--transcription-pipeline"),
+            OsString::from("separated"),
+            OsString::from("--pyannote-max-speakers"),
+            OsString::from("3"),
+            OsString::from("doctor"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Doctor {
+                speaker_samples: vec!["suzuki".to_string()],
+                audio_source: AudioSource::Microphone { only_speaker: None },
+                transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
+                pyannote_max_speakers: Some(3),
             }
         );
     }

@@ -52,12 +52,8 @@ where
                 transcription_pipeline,
                 pyannote_max_speakers,
             );
-            if runtime_config.transcription_pipeline == TranscriptionPipeline::Separated
-                && runtime_config.pyannote_api_key.is_none()
-            {
-                eprintln!(
-                    "PYANNOTE_API_KEY is required when DIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated or --transcription-pipeline separated"
-                );
+            if let Err(error) = validate_run_config(&runtime_config) {
+                eprintln!("{error}");
                 return ExitCode::FAILURE;
             }
             let system_logger = root_logger
@@ -78,11 +74,45 @@ where
                 &root_logger,
             )
         }
+        CliAction::Doctor {
+            speaker_samples,
+            audio_source,
+            transcription_pipeline,
+            pyannote_max_speakers,
+        } => {
+            apply_run_overrides(
+                &mut runtime_config,
+                transcription_pipeline,
+                pyannote_max_speakers,
+            );
+            if let Err(error) = validate_run_config(&runtime_config) {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+            commands::run_doctor_action(
+                &runtime_config,
+                &speaker_samples,
+                audio_source,
+                &root_logger,
+            )
+        }
         CliAction::Speaker(command) => {
             commands::run_speaker_action(&runtime_config, map_speaker_command(command))
         }
         CliAction::PrintOutput(_) => unreachable!("print output is handled before config load"),
     }
+}
+
+fn validate_run_config(config: &Config) -> Result<(), &'static str> {
+    if config.transcription_pipeline == TranscriptionPipeline::Separated
+        && config.pyannote_api_key.is_none()
+    {
+        return Err(
+            "PYANNOTE_API_KEY is required when DIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated or --transcription-pipeline separated",
+        );
+    }
+
+    Ok(())
 }
 
 fn apply_run_overrides(

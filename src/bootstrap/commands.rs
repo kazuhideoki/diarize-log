@@ -24,6 +24,16 @@ pub(super) fn run_capture_action(
     interrupt_state: Arc<SignalInterruptState>,
     root_logger: &LineLogger,
 ) -> ExitCode {
+    if let Err(error) = ensure_audio_source_preflight_available(
+        runtime_config,
+        speaker_samples,
+        &audio_source,
+        root_logger,
+    ) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+
     match audio_source {
         AudioSource::Microphone { only_speaker } => run_capture_command(
             runtime_config,
@@ -42,13 +52,6 @@ pub(super) fn run_capture_action(
             only_speaker,
         } => {
             let application_logger = root_logger.with_source(LogSource::Application);
-            if let Err(error) =
-                ensure_application_capture_available(&bundle_id, &application_logger)
-            {
-                eprintln!("{error}");
-                return ExitCode::FAILURE;
-            }
-
             run_capture_command(
                 runtime_config,
                 speaker_samples,
@@ -106,6 +109,35 @@ pub(super) fn run_speaker_action(runtime_config: &Config, command: SpeakerComman
     }
 }
 
+pub(super) fn run_doctor_action(
+    runtime_config: &Config,
+    speaker_samples: &[String],
+    audio_source: AudioSource,
+    root_logger: &LineLogger,
+) -> ExitCode {
+    match ensure_audio_source_preflight_available(
+        runtime_config,
+        speaker_samples,
+        &audio_source,
+        root_logger,
+    ) {
+        Ok(()) => {
+            let mut stdout = io::stdout();
+            match complete_doctor_command(&mut stdout) {
+                Ok(exit_code) => exit_code,
+                Err(error) => {
+                    eprintln!("{error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn load_known_speaker_samples<S>(
     speaker_store: &S,
     speaker_names: &[String],
@@ -132,12 +164,6 @@ where
 {
     let config = capture_config_from_runtime_config(runtime_config, &speaker_label);
     let mut stdout = io::stdout();
-    if let Err(error) =
-        ensure_capture_dependencies_available(runtime_config, speaker_sample_names, &speaker_label)
-    {
-        eprintln!("{error}");
-        return ExitCode::FAILURE;
-    }
     let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
         Ok(store) => store,
         Err(error) => {
@@ -208,22 +234,6 @@ fn run_mixed_capture_command(
 ) -> ExitCode {
     let application_speaker_label =
         speaker_label_from_only_speaker(application_only_speaker.clone());
-    if let Err(error) = ensure_capture_dependencies_available(
-        runtime_config,
-        speaker_sample_names,
-        &application_speaker_label,
-    ) {
-        eprintln!("{error}");
-        return ExitCode::FAILURE;
-    }
-    if let Err(error) = ensure_application_capture_available(
-        &bundle_id,
-        &root_logger.with_source(LogSource::Application),
-    ) {
-        eprintln!("{error}");
-        return ExitCode::FAILURE;
-    }
-
     let session_dir = match FileSystemCaptureStore::create_session_dir(&runtime_config.storage_root)
     {
         Ok(session_dir) => session_dir,
@@ -491,6 +501,50 @@ fn ensure_application_capture_available(
     .map_err(|error| format!("application capture dependency check failed: {error}"))
 }
 
+fn ensure_audio_source_preflight_available(
+    runtime_config: &Config,
+    speaker_samples: &[String],
+    audio_source: &AudioSource,
+    root_logger: &LineLogger,
+) -> Result<(), String> {
+    match audio_source {
+        AudioSource::Microphone { only_speaker } => ensure_capture_dependencies_available(
+            runtime_config,
+            speaker_samples,
+            &speaker_label_from_only_speaker(only_speaker.clone()),
+        ),
+        AudioSource::Application {
+            bundle_id,
+            only_speaker,
+        } => {
+            let application_logger = root_logger.with_source(LogSource::Application);
+            ensure_application_capture_available(bundle_id, &application_logger).and_then(|()| {
+                ensure_capture_dependencies_available(
+                    runtime_config,
+                    speaker_samples,
+                    &speaker_label_from_only_speaker(only_speaker.clone()),
+                )
+            })
+        }
+        AudioSource::Mixed {
+            bundle_id,
+            application_only_speaker,
+            ..
+        } => {
+            let application_logger = root_logger.with_source(LogSource::Application);
+            let application_speaker_label =
+                speaker_label_from_only_speaker(application_only_speaker.clone());
+            ensure_application_capture_available(bundle_id, &application_logger).and_then(|()| {
+                ensure_capture_dependencies_available(
+                    runtime_config,
+                    speaker_samples,
+                    &application_speaker_label,
+                )
+            })
+        }
+    }
+}
+
 fn requires_speaker_embedder_preflight(
     runtime_config: &Config,
     speaker_sample_names: &[String],
@@ -636,6 +690,14 @@ where
             Ok(ExitCode::SUCCESS)
         }
     }
+}
+
+fn complete_doctor_command<W>(output: &mut W) -> io::Result<ExitCode>
+where
+    W: Write,
+{
+    writeln!(output, "doctor ok")?;
+    Ok(ExitCode::SUCCESS)
 }
 
 fn duration_to_millis(duration: std::time::Duration) -> u64 {
@@ -1040,5 +1102,16 @@ mod tests {
 
         assert_eq!(exit_code, ExitCode::SUCCESS);
         assert_eq!(String::from_utf8(output).unwrap(), "sato\nsuzuki\n");
+    }
+
+    #[test]
+    /// doctor 完了時は成功を示す短い診断結果を標準出力へ書く。
+    fn completes_doctor_command_with_success_message() {
+        let mut output = Vec::new();
+
+        let exit_code = complete_doctor_command(&mut output).unwrap();
+
+        assert_eq!(exit_code, ExitCode::SUCCESS);
+        assert_eq!(String::from_utf8(output).unwrap(), "doctor ok\n");
     }
 }

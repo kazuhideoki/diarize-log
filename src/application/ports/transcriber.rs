@@ -5,12 +5,14 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseFormat {
     DiarizedJson,
+    Json,
 }
 
 impl ResponseFormat {
     pub(crate) fn as_api_value(self) -> &'static str {
         match self {
             Self::DiarizedJson => "diarized_json",
+            Self::Json => "json",
         }
     }
 }

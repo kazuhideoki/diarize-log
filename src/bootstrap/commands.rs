@@ -1,7 +1,7 @@
 use super::signal::SignalInterruptState;
 use diarize_log::adapters::{
     CpalRecorder, FileSystemCaptureStore, FileSystemMergedTranscriptStore, FileSystemSpeakerStore,
-    HoundAudioClipper, OpenAiTranscriber, PythonSpeakerEmbedder,
+    HoundAudioClipper, OpenAiSimpleTranscriber, OpenAiTranscriber, PythonSpeakerEmbedder,
     ScreenCaptureKitApplicationRecorder, SeparatedTranscriber,
 };
 use diarize_log::config::{Config, TranscriptionPipeline};
@@ -9,9 +9,9 @@ use diarize_log::{
     AudioSource, CaptureConfig, CaptureRunResult, ChunkingStrategy, DebugOutputError,
     KnownSpeakerEmbedding, KnownSpeakerSample, LineLogger, LogSource, MixedCaptureRunResult,
     MixedCaptureSessionMetadata, MixedCaptureSourceSettings, Recorder, ResponseFormat,
-    SpeakerCommand, SpeakerCommandResult, SpeakerLabel, SpeakerStore, Transcriber,
-    TranscriptSource, run_capture_with_interrupt_monitor, run_mixed_capture, run_speaker_command,
-    write_debug_transcript,
+    SIMPLE_TRANSCRIPTION_MODEL, SpeakerCommand, SpeakerCommandResult, SpeakerLabel, SpeakerStore,
+    Transcriber, TranscriptSource, run_capture_with_interrupt_monitor, run_mixed_capture,
+    run_speaker_command, write_debug_transcript,
 };
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -25,10 +25,10 @@ pub(super) fn run_capture_action(
     root_logger: &LineLogger,
 ) -> ExitCode {
     match audio_source {
-        AudioSource::Microphone => run_capture_command(
+        AudioSource::Microphone { only_speaker } => run_capture_command(
             runtime_config,
             speaker_samples,
-            SpeakerLabel::KeepOriginal,
+            speaker_label_from_only_speaker(only_speaker),
             &root_logger.with_source(LogSource::Microphone),
             interrupt_state.as_ref(),
             CpalRecorder::new(
@@ -37,10 +37,13 @@ pub(super) fn run_capture_action(
                     .with_component("recorder"),
             ),
         ),
-        AudioSource::Application { bundle_id } => run_capture_command(
+        AudioSource::Application {
+            bundle_id,
+            only_speaker,
+        } => run_capture_command(
             runtime_config,
             speaker_samples,
-            SpeakerLabel::KeepOriginal,
+            speaker_label_from_only_speaker(only_speaker),
             &root_logger.with_source(LogSource::Application),
             interrupt_state.as_ref(),
             ScreenCaptureKitApplicationRecorder::new(
@@ -52,12 +55,14 @@ pub(super) fn run_capture_action(
         ),
         AudioSource::Mixed {
             bundle_id,
-            microphone_speaker,
+            microphone_only_speaker,
+            application_only_speaker,
         } => run_mixed_capture_command(
             runtime_config,
             speaker_samples,
             bundle_id,
-            microphone_speaker,
+            microphone_only_speaker,
+            application_only_speaker,
             interrupt_state,
             root_logger,
         ),
@@ -117,7 +122,7 @@ fn run_capture_command<R>(
 where
     R: Recorder,
 {
-    let config = capture_config_from_runtime_config(runtime_config);
+    let config = capture_config_from_runtime_config(runtime_config, &speaker_label);
     let mut stdout = io::stdout();
     let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
         Ok(store) => store,
@@ -129,6 +134,7 @@ where
     let mut transcriber = match build_transcriber(
         runtime_config,
         speaker_sample_names,
+        &speaker_label,
         source_logger.with_component("transcriber"),
     ) {
         Ok(transcriber) => transcriber,
@@ -137,15 +143,18 @@ where
             return ExitCode::FAILURE;
         }
     };
-    let speaker_samples = match load_known_speaker_samples(
-        &FileSystemSpeakerStore::new(&runtime_config.storage_root),
-        speaker_sample_names,
-    ) {
-        Ok(samples) => samples,
-        Err(error) => {
-            eprintln!("{error}");
-            return ExitCode::FAILURE;
-        }
+    let speaker_samples = match &speaker_label {
+        SpeakerLabel::KeepOriginal => match load_known_speaker_samples(
+            &FileSystemSpeakerStore::new(&runtime_config.storage_root),
+            speaker_sample_names,
+        ) {
+            Ok(samples) => samples,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        },
+        SpeakerLabel::Fixed(_) => Vec::new(),
     };
 
     match run_capture_with_interrupt_monitor(
@@ -179,6 +188,7 @@ fn run_mixed_capture_command(
     speaker_sample_names: &[String],
     bundle_id: String,
     microphone_speaker: String,
+    application_only_speaker: Option<String>,
     interrupt_state: Arc<SignalInterruptState>,
     root_logger: &LineLogger,
 ) -> ExitCode {
@@ -190,22 +200,24 @@ fn run_mixed_capture_command(
             return ExitCode::FAILURE;
         }
     };
-    let known_speakers = match load_known_speaker_samples(
-        &FileSystemSpeakerStore::new(&runtime_config.storage_root),
-        speaker_sample_names,
-    ) {
-        Ok(samples) => samples,
-        Err(error) => {
-            eprintln!("{error}");
-            return ExitCode::FAILURE;
-        }
+    let app_speaker_samples = match &application_only_speaker {
+        Some(_) => Vec::new(),
+        None => match load_known_speaker_samples(
+            &FileSystemSpeakerStore::new(&runtime_config.storage_root),
+            speaker_sample_names,
+        ) {
+            Ok(samples) => samples,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        },
     };
     let microphone_config = runtime_config.clone();
     let application_config = runtime_config.clone();
     let microphone_session_dir = session_dir.clone();
     let application_session_dir = session_dir.clone();
     let application_bundle_id = bundle_id;
-    let app_speaker_samples = known_speakers.clone();
     let microphone_interrupt_state = Arc::clone(&interrupt_state);
     let application_interrupt_state = Arc::clone(&interrupt_state);
     let microphone_logger = root_logger.with_source(LogSource::Microphone);
@@ -217,8 +229,13 @@ fn run_mixed_capture_command(
             return ExitCode::FAILURE;
         }
     };
-    let metadata =
-        build_mixed_capture_metadata(runtime_config, &application_bundle_id, &microphone_speaker);
+    let metadata = build_mixed_capture_metadata(
+        runtime_config,
+        &application_bundle_id,
+        &microphone_speaker,
+        application_only_speaker.as_deref(),
+    );
+    let application_speaker_label = speaker_label_from_only_speaker(application_only_speaker);
     let mixed_result = run_mixed_capture(
         &mut final_store,
         metadata,
@@ -252,7 +269,7 @@ fn run_mixed_capture_command(
             run_capture_pipeline(
                 &application_config,
                 &app_speaker_samples,
-                &SpeakerLabel::KeepOriginal,
+                &application_speaker_label,
                 &application_logger,
                 application_interrupt_state.as_ref(),
                 &mut recorder,
@@ -284,8 +301,16 @@ fn build_mixed_capture_metadata(
     runtime_config: &Config,
     application_bundle_id: &str,
     microphone_speaker: &str,
+    application_only_speaker: Option<&str>,
 ) -> MixedCaptureSessionMetadata {
-    let capture_config = capture_config_from_runtime_config(runtime_config);
+    let microphone_capture_config = capture_config_from_runtime_config(
+        runtime_config,
+        &SpeakerLabel::Fixed(microphone_speaker.to_string()),
+    );
+    let application_speaker_label =
+        speaker_label_from_only_speaker(application_only_speaker.map(ToOwned::to_owned));
+    let application_capture_config =
+        capture_config_from_runtime_config(runtime_config, &application_speaker_label);
 
     MixedCaptureSessionMetadata {
         mode: "mixed".to_string(),
@@ -295,62 +320,76 @@ fn build_mixed_capture_metadata(
             MixedCaptureSourceSettings {
                 source: TranscriptSource::Microphone,
                 recording_duration_ms: duration_to_millis(
-                    capture_config.capture_policy.recording_duration,
+                    microphone_capture_config.capture_policy.recording_duration,
                 ),
                 capture_duration_ms: duration_to_millis(
-                    capture_config.capture_policy.capture_duration,
+                    microphone_capture_config.capture_policy.capture_duration,
                 ),
                 capture_overlap_ms: duration_to_millis(
-                    capture_config.capture_policy.capture_overlap,
+                    microphone_capture_config.capture_policy.capture_overlap,
                 ),
-                capture_silence_threshold_dbfs: capture_config
+                capture_silence_threshold_dbfs: microphone_capture_config
                     .silence_request_policy
                     .silence_threshold_dbfs,
                 capture_silence_min_duration_ms: duration_to_millis(
-                    capture_config.silence_request_policy.silence_min_duration,
+                    microphone_capture_config
+                        .silence_request_policy
+                        .silence_min_duration,
                 ),
                 capture_tail_silence_min_duration_ms: duration_to_millis(
-                    capture_config
+                    microphone_capture_config
                         .silence_request_policy
                         .tail_silence_min_duration,
                 ),
-                transcription_model: capture_config.transcription_model.to_string(),
-                transcription_language: capture_config.transcription_language.to_string(),
-                response_format: response_format_value(capture_config.response_format).to_string(),
-                chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
+                transcription_model: microphone_capture_config.transcription_model.to_string(),
+                transcription_language: microphone_capture_config
+                    .transcription_language
                     .to_string(),
-                merge_policy: capture_config.merge_policy.clone(),
+                response_format: response_format_value(microphone_capture_config.response_format)
+                    .to_string(),
+                chunking_strategy: chunking_strategy_value(
+                    microphone_capture_config.chunking_strategy,
+                )
+                .to_string(),
+                merge_policy: microphone_capture_config.merge_policy.clone(),
                 fixed_speaker: Some(microphone_speaker.to_string()),
             },
             MixedCaptureSourceSettings {
                 source: TranscriptSource::Application,
                 recording_duration_ms: duration_to_millis(
-                    capture_config.capture_policy.recording_duration,
+                    application_capture_config.capture_policy.recording_duration,
                 ),
                 capture_duration_ms: duration_to_millis(
-                    capture_config.capture_policy.capture_duration,
+                    application_capture_config.capture_policy.capture_duration,
                 ),
                 capture_overlap_ms: duration_to_millis(
-                    capture_config.capture_policy.capture_overlap,
+                    application_capture_config.capture_policy.capture_overlap,
                 ),
-                capture_silence_threshold_dbfs: capture_config
+                capture_silence_threshold_dbfs: application_capture_config
                     .silence_request_policy
                     .silence_threshold_dbfs,
                 capture_silence_min_duration_ms: duration_to_millis(
-                    capture_config.silence_request_policy.silence_min_duration,
+                    application_capture_config
+                        .silence_request_policy
+                        .silence_min_duration,
                 ),
                 capture_tail_silence_min_duration_ms: duration_to_millis(
-                    capture_config
+                    application_capture_config
                         .silence_request_policy
                         .tail_silence_min_duration,
                 ),
-                transcription_model: capture_config.transcription_model.to_string(),
-                transcription_language: capture_config.transcription_language.to_string(),
-                response_format: response_format_value(capture_config.response_format).to_string(),
-                chunking_strategy: chunking_strategy_value(capture_config.chunking_strategy)
+                transcription_model: application_capture_config.transcription_model.to_string(),
+                transcription_language: application_capture_config
+                    .transcription_language
                     .to_string(),
-                merge_policy: capture_config.merge_policy,
-                fixed_speaker: None,
+                response_format: response_format_value(application_capture_config.response_format)
+                    .to_string(),
+                chunking_strategy: chunking_strategy_value(
+                    application_capture_config.chunking_strategy,
+                )
+                .to_string(),
+                merge_policy: application_capture_config.merge_policy,
+                fixed_speaker: application_only_speaker.map(ToOwned::to_owned),
             },
         ],
         source_outcomes: Vec::new(),
@@ -370,13 +409,14 @@ where
     R: Recorder,
     S: diarize_log::CaptureStore,
 {
-    let config = capture_config_from_runtime_config(runtime_config);
+    let config = capture_config_from_runtime_config(runtime_config, speaker_label);
     let mut transcriber = build_transcriber(
         runtime_config,
         &speaker_samples
             .iter()
             .map(|sample| sample.speaker_name.clone())
             .collect::<Vec<_>>(),
+        speaker_label,
         source_logger.with_component("transcriber"),
     )
     .map_err(|error| error.to_string())?;
@@ -397,8 +437,15 @@ where
 fn build_transcriber(
     runtime_config: &Config,
     speaker_sample_names: &[String],
+    speaker_label: &SpeakerLabel,
     logger: LineLogger,
 ) -> Result<Box<dyn Transcriber>, String> {
+    if matches!(speaker_label, SpeakerLabel::Fixed(_)) {
+        return OpenAiSimpleTranscriber::new(runtime_config.openai_api_key.clone(), logger)
+            .map(|transcriber| Box::new(transcriber) as Box<dyn Transcriber>)
+            .map_err(|error| error.to_string());
+    }
+
     match runtime_config.transcription_pipeline {
         TranscriptionPipeline::Legacy => {
             OpenAiTranscriber::new(runtime_config.openai_api_key.clone(), logger)
@@ -440,17 +487,33 @@ where
         .collect()
 }
 
-fn capture_config_from_runtime_config(runtime_config: &Config) -> CaptureConfig {
+fn capture_config_from_runtime_config(
+    runtime_config: &Config,
+    speaker_label: &SpeakerLabel,
+) -> CaptureConfig {
     let config = CaptureConfig::new(
         runtime_config.recording_duration,
         runtime_config.capture_duration,
         runtime_config.capture_overlap,
         runtime_config.transcription_language.clone(),
     );
+    let (transcription_model, response_format) = match speaker_label {
+        SpeakerLabel::KeepOriginal => (config.transcription_model, config.response_format),
+        SpeakerLabel::Fixed(_) => (SIMPLE_TRANSCRIPTION_MODEL, ResponseFormat::Json),
+    };
     CaptureConfig {
         silence_request_policy: runtime_config.capture_silence_request_policy.clone(),
         merge_policy: runtime_config.transcript_merge_policy.clone(),
+        transcription_model,
+        response_format,
         ..config
+    }
+}
+
+fn speaker_label_from_only_speaker(only_speaker: Option<String>) -> SpeakerLabel {
+    match only_speaker {
+        Some(speaker_name) => SpeakerLabel::Fixed(speaker_name),
+        None => SpeakerLabel::KeepOriginal,
     }
 }
 
@@ -508,6 +571,7 @@ fn duration_to_millis(duration: std::time::Duration) -> u64 {
 fn response_format_value(format: ResponseFormat) -> &'static str {
     match format {
         ResponseFormat::DiarizedJson => "diarized_json",
+        ResponseFormat::Json => "json",
     }
 }
 
@@ -736,7 +800,8 @@ mod tests {
     #[test]
     /// mixed capture metadata には runtime config と source ごとの差分設定を保存する。
     fn builds_mixed_capture_metadata_from_runtime_config() {
-        let metadata = build_mixed_capture_metadata(&sample_config(), "com.apple.Safari", "me");
+        let metadata =
+            build_mixed_capture_metadata(&sample_config(), "com.apple.Safari", "me", Some("guest"));
 
         assert_eq!(metadata.mode, "mixed");
         assert_eq!(metadata.application_bundle_id, "com.apple.Safari");
@@ -767,7 +832,11 @@ mod tests {
             400
         );
         assert_eq!(metadata.source_settings[0].transcription_language, "ja");
-        assert_eq!(metadata.source_settings[0].response_format, "diarized_json");
+        assert_eq!(
+            metadata.source_settings[0].transcription_model,
+            "gpt-4o-transcribe"
+        );
+        assert_eq!(metadata.source_settings[0].response_format, "json");
         assert_eq!(metadata.source_settings[0].chunking_strategy, "auto");
         assert_eq!(
             metadata.source_settings[0].merge_policy,
@@ -777,7 +846,15 @@ mod tests {
             metadata.source_settings[1].source,
             TranscriptSource::Application
         );
-        assert_eq!(metadata.source_settings[1].fixed_speaker, None);
+        assert_eq!(
+            metadata.source_settings[1].transcription_model,
+            "gpt-4o-transcribe"
+        );
+        assert_eq!(metadata.source_settings[1].response_format, "json");
+        assert_eq!(
+            metadata.source_settings[1].fixed_speaker,
+            Some("guest".to_string())
+        );
     }
 
     #[test]

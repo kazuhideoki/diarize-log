@@ -15,6 +15,7 @@ use std::time::Duration;
 pub use transcript::{DebugOutputError, write_debug_transcript};
 
 pub const TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe-diarize";
+pub const SIMPLE_TRANSCRIPTION_MODEL: &str = "gpt-4o-transcribe";
 
 /// 連続録音から capture を切り出して文字起こしするユースケースの設定です。
 #[derive(Debug, Clone, PartialEq)]

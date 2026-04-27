@@ -19,6 +19,7 @@ pub struct CaptureSessionMetadata {
     pub response_format: String,
     pub chunking_strategy: String,
     pub merge_policy: TranscriptMergePolicy,
+    pub fixed_speaker: Option<String>,
 }
 
 /// mixed capture session 全体の保存メタデータです。

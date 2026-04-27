@@ -635,6 +635,7 @@ mod tests {
                 response_format: "diarized_json".to_string(),
                 chunking_strategy: "auto".to_string(),
                 merge_policy: TranscriptMergePolicy::recommended(),
+                fixed_speaker: None,
             })
             .unwrap();
         store
@@ -822,6 +823,7 @@ mod tests {
                 response_format: "diarized_json".to_string(),
                 chunking_strategy: "auto".to_string(),
                 merge_policy: TranscriptMergePolicy::recommended(),
+                fixed_speaker: Some("me".to_string()),
             })
             .unwrap();
         store
@@ -874,7 +876,8 @@ mod tests {
                 "    \"min_overlap_chars\": 10,\n",
                 "    \"min_alignment_ratio\": 0.8,\n",
                 "    \"min_trigram_similarity\": 0.55\n",
-                "  }\n",
+                "  },\n",
+                "  \"fixed_speaker\": \"me\"\n",
                 "}\n"
             )
         );

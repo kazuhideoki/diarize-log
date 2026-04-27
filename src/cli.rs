@@ -26,13 +26,17 @@ pub enum CliTranscriptionPipeline {
 /// 実行時に選ぶ音源です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AudioSource {
-    Microphone,
+    Microphone {
+        only_speaker: Option<String>,
+    },
     Application {
         bundle_id: String,
+        only_speaker: Option<String>,
     },
     Mixed {
         bundle_id: String,
-        microphone_speaker: String,
+        microphone_only_speaker: String,
+        application_only_speaker: Option<String>,
     },
 }
 
@@ -65,8 +69,9 @@ pub enum CliArgumentError {
     TooManySpeakerSamples { count: usize, max: usize },
     MissingApplicationBundleId,
     UnexpectedApplicationBundleId,
-    MissingMicrophoneSpeaker,
-    UnexpectedMicrophoneSpeaker,
+    MissingMicrophoneOnlySpeaker,
+    UnexpectedMicrophoneOnlySpeaker,
+    UnexpectedApplicationOnlySpeaker,
     InvalidPyannoteMaxSpeakers { value: u64 },
 }
 
@@ -89,11 +94,14 @@ impl fmt::Display for CliArgumentError {
             Self::UnexpectedApplicationBundleId => f.write_str(
                 "--application-bundle-id can only be used with --audio-source application or mixed",
             ),
-            Self::MissingMicrophoneSpeaker => {
-                f.write_str("--microphone-speaker is required for --audio-source mixed")
+            Self::MissingMicrophoneOnlySpeaker => {
+                f.write_str("--microphone-only-speaker is required for --audio-source mixed")
             }
-            Self::UnexpectedMicrophoneSpeaker => {
-                f.write_str("--microphone-speaker can only be used with --audio-source mixed")
+            Self::UnexpectedMicrophoneOnlySpeaker => {
+                f.write_str("--microphone-only-speaker can only be used with --audio-source microphone or mixed")
+            }
+            Self::UnexpectedApplicationOnlySpeaker => {
+                f.write_str("--application-only-speaker can only be used with --audio-source application or mixed")
             }
             Self::InvalidPyannoteMaxSpeakers { value } => {
                 write!(
@@ -126,9 +134,13 @@ struct CliArgs {
     #[arg(long = "application-bundle-id")]
     application_bundle_id: Option<String>,
 
-    /// Pin the microphone source to a fixed speaker name in mixed mode.
-    #[arg(long = "microphone-speaker")]
-    microphone_speaker: Option<String>,
+    /// Treat the microphone source as a single known speaker and skip diarization for it.
+    #[arg(long = "microphone-only-speaker")]
+    microphone_only_speaker: Option<String>,
+
+    /// Treat the application source as a single known speaker and skip diarization for it.
+    #[arg(long = "application-only-speaker")]
+    application_only_speaker: Option<String>,
 
     /// Select the transcription pipeline for this run.
     #[arg(long = "transcription-pipeline", value_enum)]
@@ -206,36 +218,51 @@ impl CliArgs {
         let audio_source = match (
             self.audio_source,
             self.application_bundle_id,
-            self.microphone_speaker,
+            self.microphone_only_speaker,
+            self.application_only_speaker,
         ) {
-            (AudioSourceKind::Microphone, None, None) => AudioSource::Microphone,
-            (AudioSourceKind::Microphone, Some(_), _) => {
-                return Err(CliArgumentError::UnexpectedApplicationBundleId);
-            }
-            (AudioSourceKind::Microphone, None, Some(_)) => {
-                return Err(CliArgumentError::UnexpectedMicrophoneSpeaker);
-            }
-            (AudioSourceKind::Application, Some(bundle_id), None) => {
-                AudioSource::Application { bundle_id }
-            }
-            (AudioSourceKind::Application, None, None) => {
-                return Err(CliArgumentError::MissingApplicationBundleId);
-            }
-            (AudioSourceKind::Application, Some(_), Some(_))
-            | (AudioSourceKind::Application, None, Some(_)) => {
-                return Err(CliArgumentError::UnexpectedMicrophoneSpeaker);
-            }
-            (AudioSourceKind::Mixed, Some(bundle_id), Some(microphone_speaker)) => {
-                AudioSource::Mixed {
-                    bundle_id,
-                    microphone_speaker,
+            (AudioSourceKind::Microphone, None, microphone_only_speaker, None) => {
+                AudioSource::Microphone {
+                    only_speaker: microphone_only_speaker,
                 }
             }
-            (AudioSourceKind::Mixed, None, Some(_)) => {
+            (AudioSourceKind::Microphone, Some(_), _, _) => {
+                return Err(CliArgumentError::UnexpectedApplicationBundleId);
+            }
+            (AudioSourceKind::Microphone, None, _, Some(_)) => {
+                return Err(CliArgumentError::UnexpectedApplicationOnlySpeaker);
+            }
+            (AudioSourceKind::Application, Some(bundle_id), None, application_only_speaker) => {
+                AudioSource::Application {
+                    bundle_id,
+                    only_speaker: application_only_speaker,
+                }
+            }
+            (AudioSourceKind::Application, None, None, _) => {
                 return Err(CliArgumentError::MissingApplicationBundleId);
             }
-            (AudioSourceKind::Mixed, Some(_), None) | (AudioSourceKind::Mixed, None, None) => {
-                return Err(CliArgumentError::MissingMicrophoneSpeaker);
+            (AudioSourceKind::Application, None, Some(_), _) => {
+                return Err(CliArgumentError::UnexpectedMicrophoneOnlySpeaker);
+            }
+            (AudioSourceKind::Application, Some(_), Some(_), _) => {
+                return Err(CliArgumentError::UnexpectedMicrophoneOnlySpeaker);
+            }
+            (
+                AudioSourceKind::Mixed,
+                Some(bundle_id),
+                Some(microphone_only_speaker),
+                application_only_speaker,
+            ) => AudioSource::Mixed {
+                bundle_id,
+                microphone_only_speaker,
+                application_only_speaker,
+            },
+            (AudioSourceKind::Mixed, None, Some(_), _) => {
+                return Err(CliArgumentError::MissingApplicationBundleId);
+            }
+            (AudioSourceKind::Mixed, Some(_), None, _)
+            | (AudioSourceKind::Mixed, None, None, _) => {
+                return Err(CliArgumentError::MissingMicrophoneOnlySpeaker);
             }
         };
 
@@ -292,7 +319,7 @@ mod tests {
             action,
             CliAction::Run {
                 speaker_samples: Vec::new(),
-                audio_source: AudioSource::Microphone,
+                audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: None,
                 pyannote_max_speakers: None,
             }
@@ -315,7 +342,7 @@ mod tests {
             action,
             CliAction::Run {
                 speaker_samples: vec!["suzuki".to_string(), "sato".to_string()],
-                audio_source: AudioSource::Microphone,
+                audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: None,
                 pyannote_max_speakers: None,
             }
@@ -340,6 +367,7 @@ mod tests {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Application {
                     bundle_id: "com.apple.Safari".to_string(),
+                    only_speaker: None,
                 },
                 transcription_pipeline: None,
                 pyannote_max_speakers: None,
@@ -348,16 +376,69 @@ mod tests {
     }
 
     #[test]
-    /// `-i mixed` ではアプリ bundle ID とマイク話者名をまとめて解釈する。
-    fn parses_mixed_audio_source_with_microphone_speaker() {
+    /// microphone source の単一話者名は source 固定ラベルとして解釈する。
+    fn parses_microphone_only_speaker_for_microphone_audio_source() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--microphone-only-speaker"),
+            OsString::from("me"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Microphone {
+                    only_speaker: Some("me".to_string()),
+                },
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
+            }
+        );
+    }
+
+    #[test]
+    /// application source の単一話者名は source 固定ラベルとして解釈する。
+    fn parses_application_only_speaker_for_application_audio_source() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--audio-source"),
+            OsString::from("application"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("com.apple.Safari"),
+            OsString::from("--application-only-speaker"),
+            OsString::from("guest"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Run {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Application {
+                    bundle_id: "com.apple.Safari".to_string(),
+                    only_speaker: Some("guest".to_string()),
+                },
+                transcription_pipeline: None,
+                pyannote_max_speakers: None,
+            }
+        );
+    }
+
+    #[test]
+    /// `-i mixed` ではアプリ bundle ID とマイク単一話者名をまとめて解釈する。
+    fn parses_mixed_audio_source_with_microphone_only_speaker() {
         let action = parse_cli_args([
             OsString::from("diarize-log"),
             OsString::from("-i"),
             OsString::from("mixed"),
             OsString::from("--application-bundle-id"),
             OsString::from("us.zoom.xos"),
-            OsString::from("--microphone-speaker"),
+            OsString::from("--microphone-only-speaker"),
             OsString::from("me"),
+            OsString::from("--application-only-speaker"),
+            OsString::from("guest"),
         ])
         .unwrap();
 
@@ -367,7 +448,8 @@ mod tests {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Mixed {
                     bundle_id: "us.zoom.xos".to_string(),
-                    microphone_speaker: "me".to_string(),
+                    microphone_only_speaker: "me".to_string(),
+                    application_only_speaker: Some("guest".to_string()),
                 },
                 transcription_pipeline: None,
                 pyannote_max_speakers: None,
@@ -391,7 +473,7 @@ mod tests {
             action,
             CliAction::Run {
                 speaker_samples: Vec::new(),
-                audio_source: AudioSource::Microphone,
+                audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
                 pyannote_max_speakers: Some(4),
             }
@@ -412,8 +494,8 @@ mod tests {
     }
 
     #[test]
-    /// mixed 指定ではマイク話者名が必須。
-    fn rejects_mixed_audio_source_without_microphone_speaker() {
+    /// mixed 指定ではマイク単一話者名が必須。
+    fn rejects_mixed_audio_source_without_microphone_only_speaker() {
         let error = parse_cli_args([
             OsString::from("diarize-log"),
             OsString::from("--audio-source"),
@@ -423,7 +505,7 @@ mod tests {
         ])
         .unwrap_err();
 
-        assert_eq!(error, CliArgumentError::MissingMicrophoneSpeaker);
+        assert_eq!(error, CliArgumentError::MissingMicrophoneOnlySpeaker);
     }
 
     #[test]
@@ -440,16 +522,33 @@ mod tests {
     }
 
     #[test]
-    /// mixed 以外でマイク話者名を渡すと失敗する。
-    fn rejects_microphone_speaker_for_non_mixed_audio_source() {
+    /// application 指定でマイク単一話者名を渡すと失敗する。
+    fn rejects_microphone_only_speaker_for_application_audio_source() {
         let error = parse_cli_args([
             OsString::from("diarize-log"),
-            OsString::from("--microphone-speaker"),
+            OsString::from("--audio-source"),
+            OsString::from("application"),
+            OsString::from("--application-bundle-id"),
+            OsString::from("com.apple.Safari"),
+            OsString::from("--microphone-only-speaker"),
             OsString::from("me"),
         ])
         .unwrap_err();
 
-        assert_eq!(error, CliArgumentError::UnexpectedMicrophoneSpeaker);
+        assert_eq!(error, CliArgumentError::UnexpectedMicrophoneOnlySpeaker);
+    }
+
+    #[test]
+    /// microphone 指定でアプリ単一話者名を渡すと失敗する。
+    fn rejects_application_only_speaker_for_microphone_audio_source() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--application-only-speaker"),
+            OsString::from("guest"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error, CliArgumentError::UnexpectedApplicationOnlySpeaker);
     }
 
     #[test]

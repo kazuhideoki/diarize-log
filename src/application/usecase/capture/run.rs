@@ -48,6 +48,7 @@ where
             response_format: config.response_format.as_api_value().to_string(),
             chunking_strategy: config.chunking_strategy.as_api_value().to_string(),
             merge_policy: config.merge_policy.clone(),
+            fixed_speaker: fixed_speaker_name(speaker_label),
         })
         .map_err(CaptureError::Store)?;
     logger
@@ -200,6 +201,13 @@ where
         .persist_audio(range.capture_index, &audio)
         .map_err(CaptureError::Store)?;
     Ok(audio)
+}
+
+fn fixed_speaker_name(speaker_label: &SpeakerLabel) -> Option<String> {
+    match speaker_label {
+        SpeakerLabel::KeepOriginal => None,
+        SpeakerLabel::Fixed(speaker_name) => Some(speaker_name.clone()),
+    }
 }
 
 #[cfg(test)]
@@ -1633,6 +1641,7 @@ mod tests {
                 response_format: "diarized_json".to_string(),
                 chunking_strategy: "auto".to_string(),
                 merge_policy: TranscriptMergePolicy::recommended(),
+                fixed_speaker: None,
             }]
         );
         assert_eq!(
@@ -1808,6 +1817,10 @@ mod tests {
                     text: "今日はよろしくお願いします".to_string(),
                 },
             ]
+        );
+        assert_eq!(
+            capture_store.observed_session_metadata.borrow()[0].fixed_speaker,
+            Some("me".to_string())
         );
     }
 }

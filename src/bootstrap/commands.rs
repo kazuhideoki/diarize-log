@@ -40,19 +40,27 @@ pub(super) fn run_capture_action(
         AudioSource::Application {
             bundle_id,
             only_speaker,
-        } => run_capture_command(
-            runtime_config,
-            speaker_samples,
-            speaker_label_from_only_speaker(only_speaker),
-            &root_logger.with_source(LogSource::Application),
-            interrupt_state.as_ref(),
-            ScreenCaptureKitApplicationRecorder::new(
-                bundle_id,
-                root_logger
-                    .with_source(LogSource::Application)
-                    .with_component("recorder"),
-            ),
-        ),
+        } => {
+            let application_logger = root_logger.with_source(LogSource::Application);
+            if let Err(error) =
+                ensure_application_capture_available(&bundle_id, &application_logger)
+            {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+
+            run_capture_command(
+                runtime_config,
+                speaker_samples,
+                speaker_label_from_only_speaker(only_speaker),
+                &application_logger,
+                interrupt_state.as_ref(),
+                ScreenCaptureKitApplicationRecorder::new(
+                    bundle_id,
+                    application_logger.with_component("recorder"),
+                ),
+            )
+        }
         AudioSource::Mixed {
             bundle_id,
             microphone_only_speaker,
@@ -124,6 +132,12 @@ where
 {
     let config = capture_config_from_runtime_config(runtime_config, &speaker_label);
     let mut stdout = io::stdout();
+    if let Err(error) =
+        ensure_capture_dependencies_available(runtime_config, speaker_sample_names, &speaker_label)
+    {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
     let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
         Ok(store) => store,
         Err(error) => {
@@ -192,6 +206,24 @@ fn run_mixed_capture_command(
     interrupt_state: Arc<SignalInterruptState>,
     root_logger: &LineLogger,
 ) -> ExitCode {
+    let application_speaker_label =
+        speaker_label_from_only_speaker(application_only_speaker.clone());
+    if let Err(error) = ensure_capture_dependencies_available(
+        runtime_config,
+        speaker_sample_names,
+        &application_speaker_label,
+    ) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+    if let Err(error) = ensure_application_capture_available(
+        &bundle_id,
+        &root_logger.with_source(LogSource::Application),
+    ) {
+        eprintln!("{error}");
+        return ExitCode::FAILURE;
+    }
+
     let session_dir = match FileSystemCaptureStore::create_session_dir(&runtime_config.storage_root)
     {
         Ok(session_dir) => session_dir,
@@ -235,7 +267,6 @@ fn run_mixed_capture_command(
         &microphone_speaker,
         application_only_speaker.as_deref(),
     );
-    let application_speaker_label = speaker_label_from_only_speaker(application_only_speaker);
     let mixed_result = run_mixed_capture(
         &mut final_store,
         metadata,
@@ -434,6 +465,42 @@ where
     .map_err(|error| error.to_string())
 }
 
+fn ensure_capture_dependencies_available(
+    runtime_config: &Config,
+    speaker_sample_names: &[String],
+    speaker_label: &SpeakerLabel,
+) -> Result<(), String> {
+    if !requires_speaker_embedder_preflight(runtime_config, speaker_sample_names, speaker_label) {
+        return Ok(());
+    }
+
+    PythonSpeakerEmbedder::default()
+        .check_available()
+        .map_err(|error| format!("speaker embedder dependency check failed: {error}"))
+}
+
+fn ensure_application_capture_available(
+    bundle_id: &str,
+    logger: &LineLogger,
+) -> Result<(), String> {
+    ScreenCaptureKitApplicationRecorder::new(
+        bundle_id.to_string(),
+        logger.with_component("recorder"),
+    )
+    .check_available()
+    .map_err(|error| format!("application capture dependency check failed: {error}"))
+}
+
+fn requires_speaker_embedder_preflight(
+    runtime_config: &Config,
+    speaker_sample_names: &[String],
+    speaker_label: &SpeakerLabel,
+) -> bool {
+    runtime_config.transcription_pipeline == TranscriptionPipeline::Separated
+        && matches!(speaker_label, SpeakerLabel::KeepOriginal)
+        && !speaker_sample_names.is_empty()
+}
+
 fn build_transcriber(
     runtime_config: &Config,
     speaker_sample_names: &[String],
@@ -461,6 +528,13 @@ fn build_transcriber(
             let known_embeddings =
                 load_known_speaker_embeddings(&speaker_store, speaker_sample_names)
                     .map_err(|error| error.to_string())?;
+            if !known_embeddings.is_empty() {
+                PythonSpeakerEmbedder::default()
+                    .check_available()
+                    .map_err(|error| {
+                        format!("speaker embedder dependency check failed: {error}")
+                    })?;
+            }
             SeparatedTranscriber::new(
                 runtime_config.openai_api_key.clone(),
                 pyannote_api_key,
@@ -769,6 +843,45 @@ mod tests {
             ],
             debug_transcripts: vec![sample_transcript("hello", "spk_0")],
         }
+    }
+
+    #[test]
+    /// separated pipeline で既知話者サンプルによる話者同定を行う場合だけ embedder の起動前検査を要求する。
+    fn requires_embedder_preflight_for_separated_known_speaker_identification() {
+        let mut config = sample_config();
+        config.transcription_pipeline = TranscriptionPipeline::Separated;
+
+        assert!(requires_speaker_embedder_preflight(
+            &config,
+            &["speaker".to_string()],
+            &SpeakerLabel::KeepOriginal,
+        ));
+    }
+
+    #[test]
+    /// 固定話者指定では separated pipeline でも speaker embedder を使わないため起動前検査を省く。
+    fn skips_embedder_preflight_for_fixed_speaker_capture() {
+        let mut config = sample_config();
+        config.transcription_pipeline = TranscriptionPipeline::Separated;
+
+        assert!(!requires_speaker_embedder_preflight(
+            &config,
+            &["speaker".to_string()],
+            &SpeakerLabel::Fixed("speaker".to_string()),
+        ));
+    }
+
+    #[test]
+    /// 既知話者サンプルが無い separated pipeline は話者同定を行わないため embedder の起動前検査を省く。
+    fn skips_embedder_preflight_without_speaker_samples() {
+        let mut config = sample_config();
+        config.transcription_pipeline = TranscriptionPipeline::Separated;
+
+        assert!(!requires_speaker_embedder_preflight(
+            &config,
+            &[],
+            &SpeakerLabel::KeepOriginal,
+        ));
     }
 
     #[test]

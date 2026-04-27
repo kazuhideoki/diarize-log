@@ -14,6 +14,17 @@ MODEL_ID = "speechbrain/spkrec-ecapa-voxceleb"
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--check"]:
+        json.dump(
+            {
+                "status": "ok",
+                "model": MODEL_ID,
+            },
+            sys.stdout,
+        )
+        sys.stdout.write("\n")
+        return 0
+
     request = json.load(sys.stdin)
     wav_bytes = base64.b64decode(request["wav_base64"])
 

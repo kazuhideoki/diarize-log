@@ -49,6 +49,49 @@ impl ScreenCaptureKitApplicationRecorder {
     pub fn new(bundle_id: String, logger: LineLogger) -> Self {
         Self { bundle_id, logger }
     }
+
+    /// ScreenCaptureKit で対象アプリの音声 capture を開始できる前提が揃っているか検査します。
+    pub fn check_available(&self) -> Result<(), RecorderError> {
+        let content = SCShareableContent::get()
+            .map_err(|error| RecorderError::ReadShareableContent(error.to_string()))?;
+        let (application, display) = resolve_application_capture_target(&content, &self.bundle_id)?;
+        let filter = SCContentFilter::create()
+            .with_display(&display)
+            .with_including_applications(&[&application], &[])
+            .build();
+        let configuration = SCStreamConfiguration::new()
+            .with_captures_audio(true)
+            .with_channel_count(i32::from(TARGET_CHANNELS))
+            .with_sample_rate(TARGET_SAMPLE_RATE as i32);
+        let (error_sender, error_receiver) = mpsc::channel();
+        let delegate = StreamCallbacks::new().on_error(move |error| {
+            let _ = error_sender.send(RecorderError::CallbackStream(error.to_string()));
+        });
+        let mut stream = SCStream::new_with_delegate(&filter, &configuration, delegate);
+        let handler_registered =
+            stream.add_output_handler(|_: CMSampleBuffer, _| {}, SCStreamOutputType::Audio);
+
+        if handler_registered.is_none() {
+            return Err(RecorderError::AddStreamOutput(
+                "audio output handler registration returned false".to_string(),
+            ));
+        }
+
+        stream
+            .start_capture()
+            .map_err(|error| RecorderError::StartCapture(error.to_string()))?;
+        thread::sleep(Duration::from_millis(WAIT_INTERVAL_MILLIS));
+        if let Ok(error) = error_receiver.try_recv() {
+            return Err(error);
+        }
+        if let Err(error) = stream.stop_capture() {
+            let _ = self
+                .logger
+                .debug(&format!("screen capture preflight stop failed: {error}"));
+        }
+
+        Ok(())
+    }
 }
 
 impl Recorder for CpalRecorder {
@@ -126,8 +169,7 @@ impl Recorder for ScreenCaptureKitApplicationRecorder {
     fn start_recording(&mut self) -> Result<Self::Session, RecorderError> {
         let content = SCShareableContent::get()
             .map_err(|error| RecorderError::ReadShareableContent(error.to_string()))?;
-        let application = find_application(&content, &self.bundle_id)?;
-        let display = find_application_display(&content, &self.bundle_id)?;
+        let (application, display) = resolve_application_capture_target(&content, &self.bundle_id)?;
         let _ = self.logger.debug(&format!(
             "screen capture target selected: bundle_id={} display_id={}",
             application.bundle_identifier(),
@@ -631,6 +673,15 @@ fn find_application(
         .ok_or_else(|| RecorderError::ApplicationNotFound {
             bundle_id: bundle_id.to_string(),
         })
+}
+
+fn resolve_application_capture_target(
+    content: &SCShareableContent,
+    bundle_id: &str,
+) -> Result<(SCRunningApplication, SCDisplay), RecorderError> {
+    let application = find_application(content, bundle_id)?;
+    let display = find_application_display(content, bundle_id)?;
+    Ok((application, display))
 }
 
 fn find_application_display(

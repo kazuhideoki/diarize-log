@@ -31,6 +31,26 @@ impl PythonSpeakerEmbedder {
             script_path,
         }
     }
+
+    /// speaker embedder の Python 依存が現在の CLI 実行環境で読み込めるか検査します。
+    pub fn check_available(&self) -> Result<(), SpeakerEmbedderError> {
+        let output = Command::new(&self.command)
+            .arg(&self.script_path)
+            .arg("--check")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|error| SpeakerEmbedderError::SpawnProcess(error.to_string()))?;
+
+        if !output.status.success() {
+            return Err(SpeakerEmbedderError::ProcessFailed {
+                status: output.status.to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            });
+        }
+
+        Ok(())
+    }
 }
 
 impl SpeakerEmbedder for PythonSpeakerEmbedder {

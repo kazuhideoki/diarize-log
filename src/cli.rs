@@ -10,13 +10,13 @@ pub enum CliAction {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
         transcription_pipeline: Option<CliTranscriptionPipeline>,
-        pyannote_max_speakers: Option<u64>,
+        diarization_max_speakers: Option<u64>,
     },
     Doctor {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
         transcription_pipeline: Option<CliTranscriptionPipeline>,
-        pyannote_max_speakers: Option<u64>,
+        diarization_max_speakers: Option<u64>,
     },
     Speaker(SpeakerCliCommand),
     PrintOutput(String),
@@ -78,7 +78,8 @@ pub enum CliArgumentError {
     MissingMicrophoneOnlySpeaker,
     UnexpectedMicrophoneOnlySpeaker,
     UnexpectedApplicationOnlySpeaker,
-    InvalidPyannoteMaxSpeakers { value: u64 },
+    InvalidDiarizationMaxSpeakers { value: u64 },
+    UnexpectedDiarizationMaxSpeakersForLegacy,
 }
 
 impl fmt::Display for CliArgumentError {
@@ -109,12 +110,15 @@ impl fmt::Display for CliArgumentError {
             Self::UnexpectedApplicationOnlySpeaker => {
                 f.write_str("--application-only-speaker can only be used with --audio-source application or mixed")
             }
-            Self::InvalidPyannoteMaxSpeakers { value } => {
+            Self::InvalidDiarizationMaxSpeakers { value } => {
                 write!(
                     f,
-                    "--pyannote-max-speakers must be greater than zero: {value}"
+                    "--diarization-max-speakers must be greater than zero: {value}"
                 )
             }
+            Self::UnexpectedDiarizationMaxSpeakersForLegacy => f.write_str(
+                "--diarization-max-speakers can only be used with --transcription-pipeline separated",
+            ),
         }
     }
 }
@@ -152,9 +156,9 @@ struct CliArgs {
     #[arg(long = "transcription-pipeline", value_enum)]
     transcription_pipeline: Option<CliTranscriptionPipeline>,
 
-    /// Send maxSpeakers to pyannote when using the separated pipeline.
-    #[arg(long = "pyannote-max-speakers")]
-    pyannote_max_speakers: Option<u64>,
+    /// Limit diarization speaker count when using the separated pipeline.
+    #[arg(long = "diarization-max-speakers")]
+    diarization_max_speakers: Option<u64>,
 
     #[command(subcommand)]
     command: Option<CliSubcommandArgs>,
@@ -219,8 +223,13 @@ impl CliArgs {
                 max: MAX_SPEAKER_SAMPLES,
             });
         }
-        if let Some(0) = self.pyannote_max_speakers {
-            return Err(CliArgumentError::InvalidPyannoteMaxSpeakers { value: 0 });
+        if let Some(0) = self.diarization_max_speakers {
+            return Err(CliArgumentError::InvalidDiarizationMaxSpeakers { value: 0 });
+        }
+        if self.transcription_pipeline == Some(CliTranscriptionPipeline::Legacy)
+            && self.diarization_max_speakers.is_some()
+        {
+            return Err(CliArgumentError::UnexpectedDiarizationMaxSpeakersForLegacy);
         }
 
         let audio_source = match (
@@ -279,13 +288,13 @@ impl CliArgs {
                 speaker_samples: self.speaker_samples,
                 audio_source,
                 transcription_pipeline: self.transcription_pipeline,
-                pyannote_max_speakers: self.pyannote_max_speakers,
+                diarization_max_speakers: self.diarization_max_speakers,
             }),
             Some(CliSubcommandArgs::Doctor) => Ok(CliAction::Doctor {
                 speaker_samples: self.speaker_samples,
                 audio_source,
                 transcription_pipeline: self.transcription_pipeline,
-                pyannote_max_speakers: self.pyannote_max_speakers,
+                diarization_max_speakers: self.diarization_max_speakers,
             }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
@@ -335,7 +344,7 @@ mod tests {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
@@ -358,7 +367,7 @@ mod tests {
                 speaker_samples: vec!["suzuki".to_string(), "sato".to_string()],
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
@@ -384,7 +393,7 @@ mod tests {
                     only_speaker: None,
                 },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
@@ -407,7 +416,7 @@ mod tests {
                     only_speaker: Some("me".to_string()),
                 },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
@@ -435,7 +444,7 @@ mod tests {
                     only_speaker: Some("guest".to_string()),
                 },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
@@ -466,19 +475,19 @@ mod tests {
                     application_only_speaker: Some("guest".to_string()),
                 },
                 transcription_pipeline: None,
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
             }
         );
     }
 
     #[test]
-    /// transcription pipeline と pyannote max speakers は run action の明示指定として解釈する。
+    /// transcription pipeline と diarization max speakers は run action の明示指定として解釈する。
     fn parses_transcription_pipeline_options_for_run_action() {
         let action = parse_cli_args([
             OsString::from("diarize-log"),
             OsString::from("--transcription-pipeline"),
             OsString::from("separated"),
-            OsString::from("--pyannote-max-speakers"),
+            OsString::from("--diarization-max-speakers"),
             OsString::from("4"),
         ])
         .unwrap();
@@ -489,9 +498,45 @@ mod tests {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
-                pyannote_max_speakers: Some(4),
+                diarization_max_speakers: Some(4),
             }
         );
+    }
+
+    #[test]
+    /// legacy pipeline では diarization max speakers を受け取らない。
+    fn rejects_diarization_max_speakers_for_legacy_pipeline() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--transcription-pipeline"),
+            OsString::from("legacy"),
+            OsString::from("--diarization-max-speakers"),
+            OsString::from("4"),
+        ])
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            CliArgumentError::UnexpectedDiarizationMaxSpeakersForLegacy
+        );
+    }
+
+    #[test]
+    /// 実装 API 名由来の旧フラグは受け付けない。
+    fn rejects_legacy_pyannote_max_speakers_flag() {
+        let error = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--pyannote-max-speakers"),
+            OsString::from("4"),
+        ])
+        .unwrap_err();
+
+        match error {
+            CliArgumentError::Parse { message } => {
+                assert!(message.contains("--pyannote-max-speakers"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]
@@ -503,7 +548,7 @@ mod tests {
             OsString::from("suzuki"),
             OsString::from("--transcription-pipeline"),
             OsString::from("separated"),
-            OsString::from("--pyannote-max-speakers"),
+            OsString::from("--diarization-max-speakers"),
             OsString::from("3"),
             OsString::from("doctor"),
         ])
@@ -515,7 +560,7 @@ mod tests {
                 speaker_samples: vec!["suzuki".to_string()],
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
-                pyannote_max_speakers: Some(3),
+                diarization_max_speakers: Some(3),
             }
         );
     }

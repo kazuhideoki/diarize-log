@@ -195,8 +195,8 @@ impl RawConfig {
             }
             None => Some(TranscriptionPipeline::Legacy),
         };
-        let pyannote_max_speakers = match self.pyannote_max_speakers {
-            Some(value) => match parse_positive_integer(value, PYANNOTE_MAX_SPEAKERS_ENV_VAR) {
+        let diarization_max_speakers = match self.diarization_max_speakers {
+            Some(value) => match parse_positive_integer(value, DIARIZATION_MAX_SPEAKERS_ENV_VAR) {
                 Ok(max_speakers) => Some(Some(max_speakers)),
                 Err(error) => {
                     errors.push(error);
@@ -349,9 +349,9 @@ impl RawConfig {
                 },
             ]));
         }
-        let pyannote_max_speakers = match pyannote_max_speakers {
+        let diarization_max_speakers = match diarization_max_speakers {
             Some(value) => value,
-            None => unreachable!("validated missing pyannote max speakers"),
+            None => unreachable!("validated missing diarization max speakers"),
         };
         let merge_min_overlap_chars = match merge_min_overlap_chars {
             Some(value) => value,
@@ -385,7 +385,7 @@ impl RawConfig {
             speaker_sample_duration,
             transcription_language,
             transcription_pipeline,
-            pyannote_max_speakers,
+            diarization_max_speakers,
             transcript_merge_policy: TranscriptMergePolicy {
                 min_overlap_chars: merge_min_overlap_chars,
                 min_alignment_ratio: merge_alignment_ratio,

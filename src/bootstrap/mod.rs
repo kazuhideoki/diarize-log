@@ -45,12 +45,12 @@ where
             speaker_samples,
             audio_source,
             transcription_pipeline,
-            pyannote_max_speakers,
+            diarization_max_speakers,
         } => {
             apply_run_overrides(
                 &mut runtime_config,
                 transcription_pipeline,
-                pyannote_max_speakers,
+                diarization_max_speakers,
             );
             if let Err(error) = validate_run_config(&runtime_config) {
                 eprintln!("{error}");
@@ -78,12 +78,12 @@ where
             speaker_samples,
             audio_source,
             transcription_pipeline,
-            pyannote_max_speakers,
+            diarization_max_speakers,
         } => {
             apply_run_overrides(
                 &mut runtime_config,
                 transcription_pipeline,
-                pyannote_max_speakers,
+                diarization_max_speakers,
             );
             if let Err(error) = validate_run_config(&runtime_config) {
                 eprintln!("{error}");
@@ -104,6 +104,14 @@ where
 }
 
 fn validate_run_config(config: &Config) -> Result<(), &'static str> {
+    if config.transcription_pipeline == TranscriptionPipeline::Legacy
+        && config.diarization_max_speakers.is_some()
+    {
+        return Err(
+            "--diarization-max-speakers and DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS can only be used with separated pipeline",
+        );
+    }
+
     if config.transcription_pipeline == TranscriptionPipeline::Separated
         && config.pyannote_api_key.is_none()
     {
@@ -118,7 +126,7 @@ fn validate_run_config(config: &Config) -> Result<(), &'static str> {
 fn apply_run_overrides(
     config: &mut Config,
     transcription_pipeline: Option<CliTranscriptionPipeline>,
-    pyannote_max_speakers: Option<u64>,
+    diarization_max_speakers: Option<u64>,
 ) {
     if let Some(transcription_pipeline) = transcription_pipeline {
         config.transcription_pipeline = match transcription_pipeline {
@@ -126,8 +134,8 @@ fn apply_run_overrides(
             CliTranscriptionPipeline::Separated => TranscriptionPipeline::Separated,
         };
     }
-    if let Some(pyannote_max_speakers) = pyannote_max_speakers {
-        config.pyannote_max_speakers = Some(pyannote_max_speakers);
+    if let Some(diarization_max_speakers) = diarization_max_speakers {
+        config.diarization_max_speakers = Some(diarization_max_speakers);
     }
 }
 
@@ -149,12 +157,16 @@ fn map_speaker_command(command: SpeakerCliCommand) -> SpeakerCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::map_speaker_command;
-    use super::run;
+    use super::{apply_run_overrides, map_speaker_command, run, validate_run_config};
+    use diarize_log::config::{Config, ConfigSource, TranscriptionPipeline};
+    use diarize_log::domain::{SilenceRequestPolicy, TranscriptMergePolicy};
+    use diarize_log::{CliTranscriptionPipeline, TranscriptionLanguage};
     use diarize_log::{SpeakerCliCommand, SpeakerCommand};
     use std::ffi::OsString;
+    use std::path::PathBuf;
     use std::process::ExitCode;
     use std::sync::{Mutex, OnceLock};
+    use std::time::Duration;
 
     #[test]
     /// `--help` は config 解決前に成功終了する。
@@ -215,6 +227,28 @@ mod tests {
     }
 
     #[test]
+    /// env 由来の diarization max speakers は CLI override 後に separated として妥当化できる。
+    fn accepts_diarization_max_speakers_after_cli_pipeline_override_to_separated() {
+        let mut config = sample_config();
+        config.diarization_max_speakers = Some(4);
+
+        apply_run_overrides(&mut config, Some(CliTranscriptionPipeline::Separated), None);
+
+        assert_eq!(validate_run_config(&config), Ok(()));
+    }
+
+    #[test]
+    /// 実効 pipeline が legacy のままなら diarization max speakers は実行前 validation で拒否する。
+    fn rejects_diarization_max_speakers_when_effective_pipeline_is_legacy() {
+        let mut config = sample_config();
+        config.diarization_max_speakers = Some(4);
+
+        let error = validate_run_config(&config).unwrap_err();
+
+        assert!(error.contains("DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS"));
+    }
+
+    #[test]
     /// CLI 用の speaker add コマンドは use case 入力へ写像できる。
     fn maps_speaker_add_cli_command_to_use_case_input() {
         let command = map_speaker_command(SpeakerCliCommand::Add {
@@ -254,6 +288,25 @@ mod tests {
                 speaker_name: "suzuki".to_string(),
             }
         );
+    }
+
+    fn sample_config() -> Config {
+        Config {
+            openai_api_key: "test-openai-key".to_string(),
+            openai_api_key_source: ConfigSource::Environment,
+            pyannote_api_key: Some("test-pyannote-key".to_string()),
+            recording_duration: Duration::from_secs(60),
+            capture_duration: Duration::from_secs(20),
+            capture_overlap: Duration::from_secs(5),
+            capture_silence_request_policy: SilenceRequestPolicy::recommended(),
+            speaker_sample_duration: Duration::from_secs(7),
+            transcription_language: TranscriptionLanguage::Fixed("ja".to_string()),
+            transcription_pipeline: TranscriptionPipeline::Legacy,
+            diarization_max_speakers: None,
+            transcript_merge_policy: TranscriptMergePolicy::recommended(),
+            debug_enabled: false,
+            storage_root: PathBuf::from("/tmp/diarize-log-bootstrap-tests"),
+        }
     }
 
     fn restore_env_var(name: &str, original: Option<std::ffi::OsString>) {

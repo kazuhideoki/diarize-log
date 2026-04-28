@@ -17,6 +17,14 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::sync::Arc;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SourceExecutionPlan {
+    source: TranscriptSource,
+    speaker_label: SpeakerLabel,
+    speaker_sample_names: Vec<String>,
+    diarization_max_speakers: Option<u64>,
+}
+
 pub(super) fn run_capture_action(
     runtime_config: &Config,
     speaker_samples: &[String],
@@ -38,6 +46,7 @@ pub(super) fn run_capture_action(
         AudioSource::Microphone { only_speaker } => run_capture_command(
             runtime_config,
             speaker_samples,
+            TranscriptSource::Microphone,
             speaker_label_from_only_speaker(only_speaker),
             &root_logger.with_source(LogSource::Microphone),
             interrupt_state.as_ref(),
@@ -55,6 +64,7 @@ pub(super) fn run_capture_action(
             run_capture_command(
                 runtime_config,
                 speaker_samples,
+                TranscriptSource::Application,
                 speaker_label_from_only_speaker(only_speaker),
                 &application_logger,
                 interrupt_state.as_ref(),
@@ -154,6 +164,7 @@ where
 fn run_capture_command<R>(
     runtime_config: &Config,
     speaker_sample_names: &[String],
+    source: TranscriptSource,
     speaker_label: SpeakerLabel,
     source_logger: &LineLogger,
     interrupt_monitor: &dyn diarize_log::InterruptMonitor,
@@ -162,7 +173,9 @@ fn run_capture_command<R>(
 where
     R: Recorder,
 {
-    let config = capture_config_from_runtime_config(runtime_config, &speaker_label);
+    let plan =
+        resolve_source_execution_plan(runtime_config, source, speaker_sample_names, speaker_label);
+    let config = capture_config_from_runtime_config(runtime_config, &plan.speaker_label);
     let mut stdout = io::stdout();
     let mut capture_store = match FileSystemCaptureStore::new(&runtime_config.storage_root) {
         Ok(store) => store,
@@ -173,8 +186,7 @@ where
     };
     let mut transcriber = match build_transcriber(
         runtime_config,
-        speaker_sample_names,
-        &speaker_label,
+        &plan,
         source_logger.with_component("transcriber"),
     ) {
         Ok(transcriber) => transcriber,
@@ -183,10 +195,10 @@ where
             return ExitCode::FAILURE;
         }
     };
-    let speaker_samples = match &speaker_label {
+    let speaker_samples = match &plan.speaker_label {
         SpeakerLabel::KeepOriginal => match load_known_speaker_samples(
             &FileSystemSpeakerStore::new(&runtime_config.storage_root),
-            speaker_sample_names,
+            &plan.speaker_sample_names,
         ) {
             Ok(samples) => samples,
             Err(error) => {
@@ -200,7 +212,7 @@ where
     match run_capture_with_interrupt_monitor(
         &config,
         &speaker_samples,
-        &speaker_label,
+        &plan.speaker_label,
         &source_logger.with_component("capture"),
         &mut recorder,
         transcriber.as_mut(),
@@ -287,10 +299,16 @@ fn run_mixed_capture_command(
                 TranscriptSource::Microphone,
             )
             .map_err(|error| error.to_string())?;
+            let microphone_plan = resolve_source_execution_plan(
+                &microphone_config,
+                TranscriptSource::Microphone,
+                &[],
+                SpeakerLabel::Fixed(microphone_speaker),
+            );
             run_capture_pipeline(
                 &microphone_config,
                 &[],
-                &SpeakerLabel::Fixed(microphone_speaker),
+                microphone_plan,
                 &microphone_logger,
                 microphone_interrupt_state.as_ref(),
                 &mut recorder,
@@ -307,10 +325,19 @@ fn run_mixed_capture_command(
                 TranscriptSource::Application,
             )
             .map_err(|error| error.to_string())?;
+            let application_plan = resolve_source_execution_plan(
+                &application_config,
+                TranscriptSource::Application,
+                &app_speaker_samples
+                    .iter()
+                    .map(|sample| sample.speaker_name.clone())
+                    .collect::<Vec<_>>(),
+                application_speaker_label,
+            );
             run_capture_pipeline(
                 &application_config,
                 &app_speaker_samples,
-                &application_speaker_label,
+                application_plan,
                 &application_logger,
                 application_interrupt_state.as_ref(),
                 &mut recorder,
@@ -440,7 +467,7 @@ fn build_mixed_capture_metadata(
 fn run_capture_pipeline<R, S>(
     runtime_config: &Config,
     speaker_samples: &[KnownSpeakerSample],
-    speaker_label: &SpeakerLabel,
+    plan: SourceExecutionPlan,
     source_logger: &LineLogger,
     interrupt_monitor: &dyn diarize_log::InterruptMonitor,
     recorder: &mut R,
@@ -450,14 +477,10 @@ where
     R: Recorder,
     S: diarize_log::CaptureStore,
 {
-    let config = capture_config_from_runtime_config(runtime_config, speaker_label);
+    let config = capture_config_from_runtime_config(runtime_config, &plan.speaker_label);
     let mut transcriber = build_transcriber(
         runtime_config,
-        &speaker_samples
-            .iter()
-            .map(|sample| sample.speaker_name.clone())
-            .collect::<Vec<_>>(),
-        speaker_label,
+        &plan,
         source_logger.with_component("transcriber"),
     )
     .map_err(|error| error.to_string())?;
@@ -465,7 +488,7 @@ where
     run_capture_with_interrupt_monitor(
         &config,
         speaker_samples,
-        speaker_label,
+        &plan.speaker_label,
         &source_logger.with_component("capture"),
         recorder,
         transcriber.as_mut(),
@@ -557,11 +580,10 @@ fn requires_speaker_embedder_preflight(
 
 fn build_transcriber(
     runtime_config: &Config,
-    speaker_sample_names: &[String],
-    speaker_label: &SpeakerLabel,
+    plan: &SourceExecutionPlan,
     logger: LineLogger,
 ) -> Result<Box<dyn Transcriber>, String> {
-    if matches!(speaker_label, SpeakerLabel::Fixed(_)) {
+    if matches!(plan.speaker_label, SpeakerLabel::Fixed(_)) {
         return OpenAiSimpleTranscriber::new(runtime_config.openai_api_key.clone(), logger)
             .map(|transcriber| Box::new(transcriber) as Box<dyn Transcriber>)
             .map_err(|error| error.to_string());
@@ -580,7 +602,7 @@ fn build_transcriber(
                 .ok_or_else(|| "PYANNOTE_API_KEY is required for separated pipeline".to_string())?;
             let speaker_store = FileSystemSpeakerStore::new(&runtime_config.storage_root);
             let known_embeddings =
-                load_known_speaker_embeddings(&speaker_store, speaker_sample_names)
+                load_known_speaker_embeddings(&speaker_store, &plan.speaker_sample_names)
                     .map_err(|error| error.to_string())?;
             if !known_embeddings.is_empty() {
                 PythonSpeakerEmbedder::default()
@@ -592,13 +614,39 @@ fn build_transcriber(
             SeparatedTranscriber::new(
                 runtime_config.openai_api_key.clone(),
                 pyannote_api_key,
-                runtime_config.pyannote_max_speakers,
+                plan.diarization_max_speakers,
                 known_embeddings,
                 logger,
             )
             .map(|transcriber| Box::new(transcriber) as Box<dyn Transcriber>)
             .map_err(|error| error.to_string())
         }
+    }
+}
+
+fn resolve_source_execution_plan(
+    runtime_config: &Config,
+    source: TranscriptSource,
+    speaker_sample_names: &[String],
+    speaker_label: SpeakerLabel,
+) -> SourceExecutionPlan {
+    let speaker_sample_names = match &speaker_label {
+        SpeakerLabel::KeepOriginal => speaker_sample_names.to_vec(),
+        SpeakerLabel::Fixed(_) => Vec::new(),
+    };
+    let diarization_max_speakers = match (&speaker_label, runtime_config.transcription_pipeline) {
+        (SpeakerLabel::KeepOriginal, TranscriptionPipeline::Separated) => {
+            runtime_config.diarization_max_speakers
+        }
+        (SpeakerLabel::KeepOriginal, TranscriptionPipeline::Legacy)
+        | (SpeakerLabel::Fixed(_), _) => None,
+    };
+
+    SourceExecutionPlan {
+        source,
+        speaker_label,
+        speaker_sample_names,
+        diarization_max_speakers,
     }
 }
 
@@ -853,7 +901,7 @@ mod tests {
             speaker_sample_duration: Duration::from_secs(7),
             transcription_language: TranscriptionLanguage::Fixed("ja".to_string()),
             transcription_pipeline: TranscriptionPipeline::Legacy,
-            pyannote_max_speakers: None,
+            diarization_max_speakers: None,
             transcript_merge_policy: TranscriptMergePolicy {
                 min_overlap_chars: 12,
                 min_alignment_ratio: 0.82,
@@ -944,6 +992,56 @@ mod tests {
             &[],
             &SpeakerLabel::KeepOriginal,
         ));
+    }
+
+    #[test]
+    /// mixed separated の microphone source は固定話者として扱い diarization 設定を適用しない。
+    fn resolves_mixed_microphone_plan_as_fixed_speaker_without_diarization_limit() {
+        let mut config = sample_config();
+        config.transcription_pipeline = TranscriptionPipeline::Separated;
+        config.diarization_max_speakers = Some(4);
+
+        let plan = resolve_source_execution_plan(
+            &config,
+            TranscriptSource::Microphone,
+            &["sato".to_string()],
+            SpeakerLabel::Fixed("me".to_string()),
+        );
+
+        assert_eq!(
+            plan,
+            SourceExecutionPlan {
+                source: TranscriptSource::Microphone,
+                speaker_label: SpeakerLabel::Fixed("me".to_string()),
+                speaker_sample_names: Vec::new(),
+                diarization_max_speakers: None,
+            }
+        );
+    }
+
+    #[test]
+    /// mixed separated の application source は既知話者候補と明示 max speakers を diarization へ渡す。
+    fn resolves_mixed_application_plan_with_speaker_candidates_and_diarization_limit() {
+        let mut config = sample_config();
+        config.transcription_pipeline = TranscriptionPipeline::Separated;
+        config.diarization_max_speakers = Some(4);
+
+        let plan = resolve_source_execution_plan(
+            &config,
+            TranscriptSource::Application,
+            &["sato".to_string(), "suzuki".to_string()],
+            SpeakerLabel::KeepOriginal,
+        );
+
+        assert_eq!(
+            plan,
+            SourceExecutionPlan {
+                source: TranscriptSource::Application,
+                speaker_label: SpeakerLabel::KeepOriginal,
+                speaker_sample_names: vec!["sato".to_string(), "suzuki".to_string()],
+                diarization_max_speakers: Some(4),
+            }
+        );
     }
 
     #[test]

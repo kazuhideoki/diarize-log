@@ -43,8 +43,8 @@ impl RawConfig {
                 TRANSCRIPTION_PIPELINE_ENV_VAR,
                 ConfigSource::Environment,
             ),
-            pyannote_max_speakers: read_env_var(
-                PYANNOTE_MAX_SPEAKERS_ENV_VAR,
+            diarization_max_speakers: read_env_var(
+                DIARIZATION_MAX_SPEAKERS_ENV_VAR,
                 ConfigSource::Environment,
             ),
             merge_min_overlap_chars: read_env_var(
@@ -115,8 +115,8 @@ impl RawConfig {
                             raw.transcription_pipeline =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
-                        PYANNOTE_MAX_SPEAKERS_ENV_VAR => {
-                            raw.pyannote_max_speakers =
+                        DIARIZATION_MAX_SPEAKERS_ENV_VAR => {
+                            raw.diarization_max_speakers =
                                 Some(ConfigValue::new(value, ConfigSource::DotEnv))
                         }
                         MERGE_MIN_OVERLAP_CHARS_ENV_VAR => {
@@ -179,9 +179,9 @@ impl RawConfig {
             transcription_pipeline: self
                 .transcription_pipeline
                 .or(fallback.transcription_pipeline),
-            pyannote_max_speakers: self
-                .pyannote_max_speakers
-                .or(fallback.pyannote_max_speakers),
+            diarization_max_speakers: self
+                .diarization_max_speakers
+                .or(fallback.diarization_max_speakers),
             merge_min_overlap_chars: self
                 .merge_min_overlap_chars
                 .or(fallback.merge_min_overlap_chars),

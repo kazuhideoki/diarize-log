@@ -28,7 +28,7 @@ const MERGE_ALIGNMENT_RATIO_ENV_VAR: &str = "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO";
 const MERGE_TRIGRAM_SIMILARITY_ENV_VAR: &str = "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY";
 const TRANSCRIPTION_PIPELINE_ENV_VAR: &str = "DIARIZE_LOG_TRANSCRIPTION_PIPELINE";
 const PYANNOTE_API_KEY_ENV_VAR: &str = "PYANNOTE_API_KEY";
-const PYANNOTE_MAX_SPEAKERS_ENV_VAR: &str = "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS";
+const DIARIZATION_MAX_SPEAKERS_ENV_VAR: &str = "DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS";
 
 /// 文字起こし pipeline の選択です。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,7 +59,7 @@ pub struct Config {
     pub speaker_sample_duration: Duration,
     pub transcription_language: TranscriptionLanguage,
     pub transcription_pipeline: TranscriptionPipeline,
-    pub pyannote_max_speakers: Option<u64>,
+    pub diarization_max_speakers: Option<u64>,
     pub transcript_merge_policy: TranscriptMergePolicy,
     pub debug_enabled: bool,
     pub storage_root: PathBuf,
@@ -296,7 +296,7 @@ struct RawConfig {
     speaker_sample_duration_seconds: Option<ConfigValue<String>>,
     transcription_language: Option<ConfigValue<String>>,
     transcription_pipeline: Option<ConfigValue<String>>,
-    pyannote_max_speakers: Option<ConfigValue<String>>,
+    diarization_max_speakers: Option<ConfigValue<String>>,
     merge_min_overlap_chars: Option<ConfigValue<String>>,
     merge_alignment_ratio: Option<ConfigValue<String>>,
     merge_trigram_similarity: Option<ConfigValue<String>>,
@@ -549,7 +549,7 @@ mod tests {
         std::fs::write(
             &dotenv_path,
             format!(
-                "OPENAI_API_KEY=from-dotenv\nPYANNOTE_API_KEY=pyannote-key\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated\nDIARIZE_LOG_PYANNOTE_MAX_SPEAKERS=4\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                "OPENAI_API_KEY=from-dotenv\nPYANNOTE_API_KEY=pyannote-key\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_PIPELINE=separated\nDIARIZE_LOG_DIARIZATION_MAX_SPEAKERS=4\nDIARIZE_LOG_STORAGE_ROOT={}\n",
                 storage_root.display()
             ),
         )
@@ -563,7 +563,7 @@ mod tests {
             "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
             "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
             "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
-            "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS",
+            "DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS",
             "DIARIZE_LOG_STORAGE_ROOT",
         ];
         let originals = snapshot_env_vars(&env_names);
@@ -577,7 +577,45 @@ mod tests {
             TranscriptionPipeline::Separated
         );
         assert_eq!(config.pyannote_api_key, Some("pyannote-key".to_string()));
-        assert_eq!(config.pyannote_max_speakers, Some(4));
+        assert_eq!(config.diarization_max_speakers, Some(4));
+    }
+
+    #[test]
+    /// config 解決時点では CLI override 前なので legacy と diarization max speakers の組み合わせを保持する。
+    fn resolves_legacy_pipeline_with_diarization_max_speakers_before_cli_override() {
+        let _guard = env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dotenv_path = temp_dir.path().join(".env");
+        let storage_root = sample_storage_root(temp_dir.path());
+        std::fs::write(
+            &dotenv_path,
+            format!(
+                "OPENAI_API_KEY=from-dotenv\nDIARIZE_LOG_RECORDING_DURATION_SECONDS=30\nDIARIZE_LOG_CAPTURE_DURATION_SECONDS=12\nDIARIZE_LOG_CAPTURE_OVERLAP_SECONDS=2\nDIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS=6\nDIARIZE_LOG_TRANSCRIPTION_PIPELINE=legacy\nDIARIZE_LOG_DIARIZATION_MAX_SPEAKERS=4\nDIARIZE_LOG_STORAGE_ROOT={}\n",
+                storage_root.display()
+            ),
+        )
+        .unwrap();
+
+        let env_names = [
+            "OPENAI_API_KEY",
+            "DIARIZE_LOG_RECORDING_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_DURATION_SECONDS",
+            "DIARIZE_LOG_CAPTURE_OVERLAP_SECONDS",
+            "DIARIZE_LOG_SPEAKER_SAMPLE_DURATION_SECONDS",
+            "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
+            "DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS",
+            "DIARIZE_LOG_STORAGE_ROOT",
+        ];
+        let originals = snapshot_env_vars(&env_names);
+        clear_env_vars(&env_names);
+
+        let config = Config::from_dotenv_path(&dotenv_path).unwrap();
+
+        restore_env_vars(originals);
+        assert_eq!(config.transcription_pipeline, TranscriptionPipeline::Legacy);
+        assert_eq!(config.diarization_max_speakers, Some(4));
     }
 
     #[test]
@@ -1514,7 +1552,7 @@ mod tests {
             "DIARIZE_LOG_TRANSCRIPTION_LANGUAGE",
             "DIARIZE_LOG_TRANSCRIPTION_PIPELINE",
             "PYANNOTE_API_KEY",
-            "DIARIZE_LOG_PYANNOTE_MAX_SPEAKERS",
+            "DIARIZE_LOG_DIARIZATION_MAX_SPEAKERS",
             "DIARIZE_LOG_MERGE_MIN_OVERLAP_CHARS",
             "DIARIZE_LOG_MERGE_ALIGNMENT_RATIO",
             "DIARIZE_LOG_MERGE_TRIGRAM_SIMILARITY",

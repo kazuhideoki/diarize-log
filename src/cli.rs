@@ -16,12 +16,8 @@ pub enum CliAction {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
         transcription_pipeline: Option<CliTranscriptionPipeline>,
-<<<<<<< HEAD
         diarization_max_speakers: Option<u64>,
-=======
-        pyannote_max_speakers: Option<u64>,
         fix: bool,
->>>>>>> main
     },
     Speaker(SpeakerCliCommand),
     PrintOutput(String),
@@ -303,12 +299,8 @@ impl CliArgs {
                 speaker_samples: self.speaker_samples,
                 audio_source,
                 transcription_pipeline: self.transcription_pipeline,
-<<<<<<< HEAD
                 diarization_max_speakers: self.diarization_max_speakers,
-=======
-                pyannote_max_speakers: self.pyannote_max_speakers,
                 fix,
->>>>>>> main
             }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
@@ -574,10 +566,7 @@ mod tests {
                 speaker_samples: vec!["suzuki".to_string()],
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
-<<<<<<< HEAD
                 diarization_max_speakers: Some(3),
-=======
-                pyannote_max_speakers: Some(3),
                 fix: false,
             }
         );
@@ -601,9 +590,8 @@ mod tests {
                 speaker_samples: Vec::new(),
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
-                pyannote_max_speakers: None,
+                diarization_max_speakers: None,
                 fix: true,
->>>>>>> main
             }
         );
     }

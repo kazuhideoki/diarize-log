@@ -24,6 +24,15 @@
 
 ## Usage
 
+### doctor
+
+```bash
+cargo run -- doctor # 現在の設定と実行前提を診断
+cargo run -- doctor --fix # 自動修正可能な項目と手動対応が必要な項目を表示
+```
+
+`doctor --fix` は現時点では修正計画の表示だけを行います。API key などの secret は自動生成できないため手動対応として扱い、storage root の作成など安全に機械化できる項目から実修正対象にします。
+
 ### speaker
 
 ```bash

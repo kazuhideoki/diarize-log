@@ -78,7 +78,12 @@ where
             speaker_samples,
             audio_source,
             transcription_pipeline,
+<<<<<<< HEAD
             diarization_max_speakers,
+=======
+            pyannote_max_speakers,
+            fix,
+>>>>>>> main
         } => {
             apply_run_overrides(
                 &mut runtime_config,
@@ -94,6 +99,7 @@ where
                 &speaker_samples,
                 audio_source,
                 &root_logger,
+                fix,
             )
         }
         CliAction::Speaker(command) => {

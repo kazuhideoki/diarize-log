@@ -16,7 +16,12 @@ pub enum CliAction {
         speaker_samples: Vec<String>,
         audio_source: AudioSource,
         transcription_pipeline: Option<CliTranscriptionPipeline>,
+<<<<<<< HEAD
         diarization_max_speakers: Option<u64>,
+=======
+        pyannote_max_speakers: Option<u64>,
+        fix: bool,
+>>>>>>> main
     },
     Speaker(SpeakerCliCommand),
     PrintOutput(String),
@@ -167,7 +172,11 @@ struct CliArgs {
 #[derive(Debug, Subcommand)]
 enum CliSubcommandArgs {
     /// 実行前提を簡易検査します。録音や外部 API の実リクエスト成功までは保証しません。
-    Doctor,
+    Doctor {
+        /// Print the currently known automatic repair plan.
+        #[arg(long = "fix")]
+        fix: bool,
+    },
     /// 話者サンプルを管理します。
     Speaker(SpeakerSubcommandArgs),
 }
@@ -290,11 +299,16 @@ impl CliArgs {
                 transcription_pipeline: self.transcription_pipeline,
                 diarization_max_speakers: self.diarization_max_speakers,
             }),
-            Some(CliSubcommandArgs::Doctor) => Ok(CliAction::Doctor {
+            Some(CliSubcommandArgs::Doctor { fix }) => Ok(CliAction::Doctor {
                 speaker_samples: self.speaker_samples,
                 audio_source,
                 transcription_pipeline: self.transcription_pipeline,
+<<<<<<< HEAD
                 diarization_max_speakers: self.diarization_max_speakers,
+=======
+                pyannote_max_speakers: self.pyannote_max_speakers,
+                fix,
+>>>>>>> main
             }),
             Some(CliSubcommandArgs::Speaker(speaker_args)) => speaker_args.into_action(),
         }
@@ -560,7 +574,36 @@ mod tests {
                 speaker_samples: vec!["suzuki".to_string()],
                 audio_source: AudioSource::Microphone { only_speaker: None },
                 transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
+<<<<<<< HEAD
                 diarization_max_speakers: Some(3),
+=======
+                pyannote_max_speakers: Some(3),
+                fix: false,
+            }
+        );
+    }
+
+    #[test]
+    /// `doctor --fix` は診断対象の指定と一緒に自動修正モードとして解釈する。
+    fn parses_doctor_fix_command() {
+        let action = parse_cli_args([
+            OsString::from("diarize-log"),
+            OsString::from("--transcription-pipeline"),
+            OsString::from("separated"),
+            OsString::from("doctor"),
+            OsString::from("--fix"),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            action,
+            CliAction::Doctor {
+                speaker_samples: Vec::new(),
+                audio_source: AudioSource::Microphone { only_speaker: None },
+                transcription_pipeline: Some(CliTranscriptionPipeline::Separated),
+                pyannote_max_speakers: None,
+                fix: true,
+>>>>>>> main
             }
         );
     }

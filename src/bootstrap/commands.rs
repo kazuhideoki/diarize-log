@@ -124,23 +124,12 @@ pub(super) fn run_doctor_action(
     speaker_samples: &[String],
     audio_source: AudioSource,
     root_logger: &LineLogger,
+    fix: bool,
 ) -> ExitCode {
-    match ensure_audio_source_preflight_available(
-        runtime_config,
-        speaker_samples,
-        &audio_source,
-        root_logger,
-    ) {
-        Ok(()) => {
-            let mut stdout = io::stdout();
-            match complete_doctor_command(&mut stdout) {
-                Ok(exit_code) => exit_code,
-                Err(error) => {
-                    eprintln!("{error}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
+    let report = build_doctor_report(runtime_config, speaker_samples, &audio_source, root_logger);
+    let mut stdout = io::stdout();
+    match complete_doctor_command(&mut stdout, &report, fix) {
+        Ok(exit_code) => exit_code,
         Err(error) => {
             eprintln!("{error}");
             ExitCode::FAILURE
@@ -568,6 +557,127 @@ fn ensure_audio_source_preflight_available(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DoctorReport {
+    checks: Vec<DoctorCheckResult>,
+}
+
+impl DoctorReport {
+    fn has_failure(&self) -> bool {
+        self.checks
+            .iter()
+            .any(|check| check.status == DoctorCheckStatus::Failed)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DoctorCheckResult {
+    name: &'static str,
+    status: DoctorCheckStatus,
+    message: String,
+    fix: DoctorFixAvailability,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DoctorCheckStatus {
+    Ok,
+    Failed,
+}
+
+impl DoctorCheckStatus {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Failed => "fail",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DoctorFixAvailability {
+    Automatic { plan: &'static str },
+    Manual { reason: &'static str },
+    NotNeeded,
+}
+
+fn build_doctor_report(
+    runtime_config: &Config,
+    speaker_samples: &[String],
+    audio_source: &AudioSource,
+    root_logger: &LineLogger,
+) -> DoctorReport {
+    let mut checks = vec![
+        DoctorCheckResult {
+            name: "config",
+            status: DoctorCheckStatus::Ok,
+            message: "runtime config loaded".to_string(),
+            fix: DoctorFixAvailability::NotNeeded,
+        },
+        DoctorCheckResult {
+            name: "openai_api_key",
+            status: DoctorCheckStatus::Ok,
+            message: format!(
+                "OPENAI_API_KEY is configured from {}",
+                runtime_config.openai_api_key_source
+            ),
+            fix: DoctorFixAvailability::Manual {
+                reason: "secret values must be provided by the user",
+            },
+        },
+        DoctorCheckResult {
+            name: "storage_root",
+            status: DoctorCheckStatus::Ok,
+            message: runtime_config.storage_root.display().to_string(),
+            fix: DoctorFixAvailability::Automatic {
+                plan: "create the storage root directory when it is missing",
+            },
+        },
+    ];
+
+    checks.push(match runtime_config.pyannote_api_key.as_ref() {
+        Some(_) => DoctorCheckResult {
+            name: "pyannote_api_key",
+            status: DoctorCheckStatus::Ok,
+            message: "PYANNOTE_API_KEY is configured".to_string(),
+            fix: DoctorFixAvailability::Manual {
+                reason: "secret values must be provided by the user",
+            },
+        },
+        None => DoctorCheckResult {
+            name: "pyannote_api_key",
+            status: DoctorCheckStatus::Failed,
+            message: "PYANNOTE_API_KEY is not configured".to_string(),
+            fix: DoctorFixAvailability::Manual {
+                reason: "secret values must be provided by the user",
+            },
+        },
+    });
+
+    match ensure_audio_source_preflight_available(
+        runtime_config,
+        speaker_samples,
+        audio_source,
+        root_logger,
+    ) {
+        Ok(()) => checks.push(DoctorCheckResult {
+            name: "audio_source",
+            status: DoctorCheckStatus::Ok,
+            message: "preflight passed".to_string(),
+            fix: DoctorFixAvailability::NotNeeded,
+        }),
+        Err(error) => checks.push(DoctorCheckResult {
+            name: "audio_source",
+            status: DoctorCheckStatus::Failed,
+            message: error,
+            fix: DoctorFixAvailability::Manual {
+                reason: "recording permissions, running target application, and hardware access require user action",
+            },
+        }),
+    }
+
+    DoctorReport { checks }
+}
+
 fn requires_speaker_embedder_preflight(
     runtime_config: &Config,
     speaker_sample_names: &[String],
@@ -740,12 +850,44 @@ where
     }
 }
 
-fn complete_doctor_command<W>(output: &mut W) -> io::Result<ExitCode>
+fn complete_doctor_command<W>(
+    output: &mut W,
+    report: &DoctorReport,
+    fix: bool,
+) -> io::Result<ExitCode>
 where
     W: Write,
 {
-    writeln!(output, "doctor ok")?;
-    Ok(ExitCode::SUCCESS)
+    for check in &report.checks {
+        writeln!(
+            output,
+            "[{}] {}: {}",
+            check.status.label(),
+            check.name,
+            check.message
+        )?;
+    }
+
+    if fix {
+        writeln!(output, "fix plan:")?;
+        for check in &report.checks {
+            match &check.fix {
+                DoctorFixAvailability::Automatic { plan } => {
+                    writeln!(output, "- {}: {plan}", check.name)?;
+                }
+                DoctorFixAvailability::Manual { reason } => {
+                    writeln!(output, "- {}: manual ({reason})", check.name)?;
+                }
+                DoctorFixAvailability::NotNeeded => {}
+            }
+        }
+    }
+
+    if report.has_failure() {
+        Ok(ExitCode::FAILURE)
+    } else {
+        Ok(ExitCode::SUCCESS)
+    }
 }
 
 fn duration_to_millis(duration: std::time::Duration) -> u64 {
@@ -1203,13 +1345,92 @@ mod tests {
     }
 
     #[test]
-    /// doctor 完了時は成功を示す短い診断結果を標準出力へ書く。
-    fn completes_doctor_command_with_success_message() {
+    /// doctor 完了時は各診断項目の状態を標準出力へ書く。
+    fn completes_doctor_command_with_check_results() {
         let mut output = Vec::new();
+        let report = DoctorReport {
+            checks: vec![
+                DoctorCheckResult {
+                    name: "config",
+                    status: DoctorCheckStatus::Ok,
+                    message: "runtime config loaded".to_string(),
+                    fix: DoctorFixAvailability::NotNeeded,
+                },
+                DoctorCheckResult {
+                    name: "pyannote_api_key",
+                    status: DoctorCheckStatus::Ok,
+                    message: "PYANNOTE_API_KEY is configured".to_string(),
+                    fix: DoctorFixAvailability::Manual {
+                        reason: "secret values must be provided by the user",
+                    },
+                },
+            ],
+        };
 
-        let exit_code = complete_doctor_command(&mut output).unwrap();
+        let exit_code = complete_doctor_command(&mut output, &report, false).unwrap();
 
         assert_eq!(exit_code, ExitCode::SUCCESS);
-        assert_eq!(String::from_utf8(output).unwrap(), "doctor ok\n");
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "[ok] config: runtime config loaded\n[ok] pyannote_api_key: PYANNOTE_API_KEY is configured\n"
+        );
+    }
+
+    #[test]
+    /// doctor --fix は自動修正候補と手動対応が必要な項目を分けて出力する。
+    fn completes_doctor_fix_command_with_repair_plan() {
+        let mut output = Vec::new();
+        let report = DoctorReport {
+            checks: vec![
+                DoctorCheckResult {
+                    name: "storage_root",
+                    status: DoctorCheckStatus::Ok,
+                    message: "/tmp/diarize-log".to_string(),
+                    fix: DoctorFixAvailability::Automatic {
+                        plan: "create the storage root directory when it is missing",
+                    },
+                },
+                DoctorCheckResult {
+                    name: "openai_api_key",
+                    status: DoctorCheckStatus::Ok,
+                    message: "OPENAI_API_KEY is configured from .env".to_string(),
+                    fix: DoctorFixAvailability::Manual {
+                        reason: "secret values must be provided by the user",
+                    },
+                },
+            ],
+        };
+
+        let exit_code = complete_doctor_command(&mut output, &report, true).unwrap();
+
+        assert_eq!(exit_code, ExitCode::SUCCESS);
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "[ok] storage_root: /tmp/diarize-log\n[ok] openai_api_key: OPENAI_API_KEY is configured from .env\nfix plan:\n- storage_root: create the storage root directory when it is missing\n- openai_api_key: manual (secret values must be provided by the user)\n"
+        );
+    }
+
+    #[test]
+    /// 失敗した診断項目があれば doctor の終了コードは失敗にする。
+    fn completes_doctor_command_with_failure_exit_code_when_any_check_fails() {
+        let mut output = Vec::new();
+        let report = DoctorReport {
+            checks: vec![DoctorCheckResult {
+                name: "audio_source",
+                status: DoctorCheckStatus::Failed,
+                message: "application capture dependency check failed".to_string(),
+                fix: DoctorFixAvailability::Manual {
+                    reason: "recording permissions, running target application, and hardware access require user action",
+                },
+            }],
+        };
+
+        let exit_code = complete_doctor_command(&mut output, &report, false).unwrap();
+
+        assert_eq!(exit_code, ExitCode::FAILURE);
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "[fail] audio_source: application capture dependency check failed\n"
+        );
     }
 }

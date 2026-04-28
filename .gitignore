@@ -4,3 +4,4 @@ target
 AGENTS.override.md
 .codex
 .env
+.DS_Store
